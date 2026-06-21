@@ -36,10 +36,15 @@ Tracked "later / someday" items that aren't on the current sprint path
   (~25s). Keep a GayHydra analysis context warm in-process instead. Gated on the
   classloader-coexistence spike (grpc-netty-shaded + GayHydra under one launcher); subprocess
   mode ships v1 behind the same RPC, so this is an optimization, not a redesign.
-- [ ] **Wire the Rust core to the engine-port gRPC stream.** Today `scylla-ingest` reads the
-  snapshot JSON via `materialize.sh`; the gRPC engine-service is a parallel path. Make the core
-  consume the `Materialize` stream (resolve callee addrs → stable ids, mint via `IdMinter`) so
-  the engine-port is *the* path, not a second one.
+- [x] **Wire the Rust core to the engine-port gRPC stream.** The new `scylla` CLI
+  (`crates/scylla-cli`) is the composition root: `scylla materialize <endpoint> <binary>
+  <out.scylla>` drives the engine-service over gRPC and consumes the `Materialize` stream straight
+  into the canonical artifact — id mint + callee-address resolution happen core-side in
+  `scylla_engine::assemble`. No intermediate snapshot file, no `materialize.sh` in the loop. Proven
+  end to end: binary → gRPC → `.scylla` (13 mathlib functions, 952 bytes), then loaded back through
+  the MCP head. The offline snapshot path (`scylla-ingest` + `materialize.sh`) stays for dev /
+  corpus work without a running service. The composition lives in a CLI crate so neither the port
+  adapter nor the WASM consume-side core carries the other's dependencies (DD-002).
 - [x] **Config-ify the engine-service.** `dump_model.java` now lives in `engine-service/scripts/`
   (single source of truth) and ships in the install/image; `EngineServer` resolves it relative to
   its own jar, so the service no longer reaches into `prototype/harness` at run time and the

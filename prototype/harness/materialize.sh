@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# End-to-end (Sprint 4): binary -> GayHydra headless snapshot -> Scylla model artifact.
+# OFFLINE materialization: binary -> GayHydra headless snapshot JSON -> Scylla model artifact.
 # Usage: materialize.sh <binary> <out.scylla>
+#
+# The PRIMARY path is the engine port over gRPC:
+#   scylla materialize <engine-endpoint> <binary> <out.scylla>   (crates/scylla-cli)
+# which drives the sandboxed engine-service and consumes the Materialize stream straight into the
+# artifact — no intermediate snapshot file, no second path. Use THIS script only for dev / corpus
+# work when you don't want to stand up the service.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

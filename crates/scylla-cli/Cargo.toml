@@ -1,0 +1,19 @@
+[package]
+name = "scylla-cli"
+description = "The Scylla CLI — materialize a binary into the canonical model artifact via the engine port (DD-009/040)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "scylla"
+path = "src/main.rs"
+
+[dependencies]
+# Composition root: the engine port (gRPC producer) + the Cap'n Proto schema (artifact writer).
+# Kept OUT of the library crates so neither the port adapter nor the WASM consume-side core has
+# to carry the other's dependency (DD-002: two IDLs by design).
+scylla-engine = { path = "../scylla-engine" }
+scylla-schema = { path = "../scylla-schema" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

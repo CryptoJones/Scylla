@@ -9,6 +9,7 @@ members = [
     "crates/scylla-port",
     "crates/scylla-mcp",
     "crates/scylla-engine",
+    "crates/scylla-cli",
 ]
 
 [workspace.package]

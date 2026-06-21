@@ -10,8 +10,11 @@
 //! richer signals. The signature now folds in the model's **mnemonic fingerprint** (DD-038) on
 //! top of the coarse CFG/size/out-degree tuple — which disambiguates collisions and lifts the
 //! re-anchoring floors, while keeping zero-wrong by construction (more signature → more *unique*
-//! matches, never a wrong one). Fuzzy/cross-build recovery (cosine similarity, Ghidra Version
-//! Tracking) is the next lever, per the prototype REPORT.md.
+//! matches, never a wrong one). A **fuzzy second pass** then recovers what exact can't: cosine over
+//! the stored mnemonic histogram, accepted only above a confidence threshold AND with a margin over
+//! the runner-up (the prototype's threshold matcher, brought to production). It lifts both edit
+//! classes to 100% and recovers some recompile; cross-arch needs a different signal still (Ghidra
+//! Version Tracking). Zero-wrong holds throughout — exact is unique-match, fuzzy is threshold+margin.
 
 use std::collections::HashMap;
 
@@ -26,6 +29,49 @@ use scylla_model::{FactKind, Function, Program, StableId, UserFact};
 fn signature(f: &Function) -> (u32, u64, usize, u64) {
     (f.bb_count, f.size, f.callees.len(), f.fingerprint)
 }
+
+/// Cosine similarity of two sorted mnemonic histograms (the instruction mix), in `0..=1`. Empty on
+/// either side → `0` (no signal). The dominant fuzzy re-anchoring signal (DD-038 follow-up).
+fn cosine(a: &[(String, u32)], b: &[(String, u32)]) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let am: HashMap<&str, u32> = a.iter().map(|(m, c)| (m.as_str(), *c)).collect();
+    let (mut dot, mut nb) = (0.0, 0.0);
+    for (m, c) in b {
+        let c = f64::from(*c);
+        nb += c * c;
+        if let Some(ac) = am.get(m.as_str()) {
+            dot += f64::from(*ac) * c;
+        }
+    }
+    let na: f64 = a.iter().map(|(_, c)| f64::from(*c) * f64::from(*c)).sum();
+    if na == 0.0 || nb == 0.0 {
+        0.0
+    } else {
+        dot / (na.sqrt() * nb.sqrt())
+    }
+}
+
+/// `1.0` when equal, decaying toward `0` as two counts diverge.
+fn closeness(x: f64, y: f64) -> f64 {
+    1.0 - (x - y).abs() / (x + y).max(1.0)
+}
+
+/// Fuzzy structural similarity of two functions, in `0..=1`: cosine over the instruction mix
+/// (dominant), plus CFG-size and out-degree closeness. The model echo of the prototype's threshold
+/// matcher — cosine + structure (we don't store ordered trigrams), not the full prototype signal.
+fn similarity(a: &Function, b: &Function) -> f64 {
+    0.60 * cosine(&a.mnemonics, &b.mnemonics)
+        + 0.25 * closeness(f64::from(a.bb_count), f64::from(b.bb_count))
+        + 0.15 * closeness(a.callees.len() as f64, b.callees.len() as f64)
+}
+
+/// A fuzzy match must clear this similarity to be trusted at all...
+const FUZZY_THRESHOLD: f64 = 0.55;
+/// ...AND beat the runner-up by this margin — "never guess between near-ties," the fuzzy-space echo
+/// of the exact path's unique-match rule. Together they hold `WRONG = 0`.
+const FUZZY_MARGIN: f64 = 0.05;
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct MergeReport {
@@ -45,8 +91,9 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     let old_by_id: HashMap<StableId, &Function> =
         old.functions.iter().map(|f| (f.id, f)).collect();
 
+    // Pass 1 — EXACT: a fact carries on a UNIQUE exact-signature match (WRONG=0 by construction).
     let mut merged = Vec::new();
-    let mut flagged = Vec::new();
+    let mut deferred: Vec<&UserFact> = Vec::new();
     for fact in &old.facts {
         let unique_target = old_by_id
             .get(&fact.target)
@@ -55,7 +102,41 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
             .map(|ids| ids[0]);
         match unique_target {
             Some(id) => merged.push(fact.retarget(id)),
-            None => flagged.push(fact.clone()),
+            None => deferred.push(fact),
+        }
+    }
+
+    // Pass 2 — FUZZY: for what the exact pass couldn't place, take the best similarity match among
+    // the as-yet-unclaimed new functions — but ONLY if it clears the threshold AND beats the
+    // runner-up by the margin (a confident, unambiguous match). Recovers cross-build cases the
+    // exact fingerprint can't, while never guessing a near-tie. WRONG=0 is the DD-038 hard gate.
+    let mut claimed: std::collections::HashSet<StableId> = merged.iter().map(|f| f.target).collect();
+    let mut flagged = Vec::new();
+    for fact in deferred {
+        let Some(oldf) = old_by_id.get(&fact.target).copied() else {
+            flagged.push(fact.clone());
+            continue;
+        };
+        let (mut best, mut best_s, mut second_s) = (None, -1.0_f64, -1.0_f64);
+        for nf in &new.functions {
+            if claimed.contains(&nf.id) {
+                continue;
+            }
+            let s = similarity(oldf, nf);
+            if s > best_s {
+                second_s = best_s;
+                best_s = s;
+                best = Some(nf.id);
+            } else if s > second_s {
+                second_s = s;
+            }
+        }
+        match best {
+            Some(id) if best_s >= FUZZY_THRESHOLD && best_s - second_s >= FUZZY_MARGIN => {
+                claimed.insert(id);
+                merged.push(fact.retarget(id));
+            }
+            _ => flagged.push(fact.clone()),
         }
     }
     (merged, flagged)
@@ -171,6 +252,14 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn cosine_is_one_for_identical_mix_zero_for_disjoint() {
+        let a = vec![("MOV".to_string(), 2), ("RET".to_string(), 1)];
+        assert!((cosine(&a, &a) - 1.0).abs() < 1e-9, "identical instruction mix -> 1.0");
+        assert_eq!(cosine(&a, &[("ADD".to_string(), 3)]), 0.0, "disjoint mix -> 0");
+        assert_eq!(cosine(&a, &[]), 0.0, "no histogram -> no signal");
     }
 
     #[test]

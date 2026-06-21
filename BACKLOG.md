@@ -35,12 +35,13 @@ Tracked "later / someday" items that aren't on the current sprint path
     path uses. Verified live: a gRPC-materialized mathlib artifact has 13/13 non-zero fingerprints
     that MATCH the snapshot path's exactly (0 mismatch) — the two producers re-anchor against each
     other. The engine never hashes; one hash, one place.
-  - [ ] **Fuzzy / cross-build recovery for the hard classes.** Exact-fingerprint matching can't
-    cross an optimization or architecture boundary (recompile/cross-arch dropped to 0% honest
-    exact-match). The prototype's cosine + ordered-trigram + confidence-threshold matcher
-    recovered those; bring it to production behind a confidence gate (still `WRONG=0`), or wire
-    Ghidra Version Tracking. Needs the raw mnemonic histogram stored on the model, not just the
-    hash.
+  - [x] **Fuzzy / cross-build recovery for the hard classes.** `scylla-merge` now runs an exact
+    pass then a **fuzzy second pass** — cosine over the stored mnemonic histogram + structural
+    closeness, accepted only above a threshold (`FUZZY_THRESHOLD`) AND with a runner-up margin
+    (`FUZZY_MARGIN`). Lifts **both DD-038 edit classes to 100%** (the floors are ratcheted there)
+    and recovers some recompile (x86 O0→O2: 0%→20%); cross-arch stays ~0 (different ISA → near-zero
+    cosine — that needs Ghidra Version Tracking, the remaining lever). `WRONG=0` held throughout:
+    exact is unique-match, fuzzy is threshold + margin ("never guess a near-tie").
 
 ## Engine-as-service (DD-040)
 

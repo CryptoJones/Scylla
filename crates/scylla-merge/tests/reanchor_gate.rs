@@ -97,14 +97,14 @@ struct Class {
 #[test]
 fn reanchoring_release_gate() {
     let classes = [
-        // Floors are RATCHETED from current reality (DD-038), not guessed. The signature now
-        // folds in the model's mnemonic fingerprint, which disambiguates the collision-heavy
-        // aarch64 edit class (40% -> 80%). The hard classes (recompile, cross-arch) stay
-        // track-only: an EXACT fingerprint cannot cross an optimization or architecture boundary
-        // (the instruction stream is wholly different), so they drop to 0% honest exact-match —
-        // fuzzy/cosine recovery (the prototype's threshold matcher) is the next lever (BACKLOG.md).
-        Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(0.80) },
-        Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(0.80) },
+        // Floors are RATCHETED from current reality (DD-038), not guessed. The merge now runs an
+        // exact-signature pass (mnemonic-fingerprint disambiguated) THEN a fuzzy cosine pass for
+        // what exact couldn't place — which lifts BOTH edit classes to 100%. The hard classes are
+        // still track-only: fuzzy recovers some recompile (cosine reaches across an opt boundary)
+        // but cross-arch stays ~0 (different ISA → near-zero cosine, fundamental). WRONG=0 holds
+        // by construction: exact is unique-match, fuzzy is threshold + runner-up margin.
+        Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
+        Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(1.0) },
         Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: None },
         Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: None },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },

@@ -44,8 +44,16 @@ across a brittle serialized IPC seam (warts in red, the proven engine in green):
 
 ![GayHydra current architecture — the "before"](docs/before-gayhydra-architecture.png)
 
-The *after* — the hexagonal target (durable RE core + sheddable adapter heads) — is what
-we design next.
+**After** — the hexagonal target Scylla builds toward: a durable **Rust core** holding the
+RE domain model as the system's **narrow waist**, GayHydra demoted to a **droppable proven
+engine** behind the engine-port, and disposable polyglot **heads** (MCP first) below the
+client-port. The two ⟡ bands are the narrow waists; the model-artifact is the one bet you
+can't take back:
+
+![Scylla proposed hexagonal architecture — the "after"](docs/proposed-scylla-architecture.png)
+
+The reasoning behind every box is recorded in [DesignDecisions.md](DesignDecisions.md) (all
+33 decisions); the build path — prototype-first — is in [SprintPlanning.md](SprintPlanning.md).
 
 ## Status
 

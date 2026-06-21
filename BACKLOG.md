@@ -73,8 +73,22 @@ Tracked "later / someday" items that aren't on the current sprint path
   over a **bind-mounted unix socket**, so a hostile binary literally cannot phone home. That
   needs UDS transport in both the JVM service and the tonic client. Until then the sandbox
   contains blast radius (no host FS, no privilege, no core access) but not egress.
-- [ ] **Threat-model the seams before Sprint 9 / before exposing the MCP head to untrusted input.**
-  Decisions are locked (DD-014 sandbox the engine producer; DD-029 inherit GayHydra's
-  deserialization posture + cosign), but a focused pass on (a) the engine producer that parses
-  adversarial binaries and (b) the MCP head's input surface is worth doing deliberately rather
-  than only at release time.
+- [x] **Threat-model the seams.** Done — [THREAT-MODEL.md](THREAT-MODEL.md): a seam-by-seam pass
+  (S1 binary→engine, S2 engine→core, S3 artifact→core, S4 core→agent, S5 agent→core) over the
+  three untrusted inputs, citing the mitigations and naming the residual gaps. It found four, the
+  four items below (GAP-4 is the priority — it's the *current* threat).
+- [ ] **GAP-4 — the MCP head doesn't delimit untrusted analysis content (DD-035).** Function names
+  and (future) decompiled text are returned as bare JSON, so a hostile binary's strings flow into
+  an agent's context unframed — the named prompt-injection threat. Wrap analysis-derived strings in
+  an explicit untrusted-data envelope in the head's tool results and state the contract in the tool
+  descriptions. Cheap, no new infra, highest priority.
+- [ ] **GAP-3 — the core accepts the engine `Materialize` stream unbounded.** `materialize()` buffers
+  every `FunctionChunk` (`chunks.push`) with no cap; a compromised/buggy engine streaming millions
+  of functions OOMs the trusted core. Cap the chunk count / cumulative size and fail closed past it
+  with a typed error — the live-stream analogue of the DD-036 artifact caps.
+- [ ] **GAP-2 — no wall-clock timeout on the engine subprocess (DD-034).** `EngineServer` calls
+  `p.waitFor()` with no bound, so a binary engineered to hang `analyzeHeadless` ties up the engine
+  slot indefinitely. DD-034 promised a wall-clock limit; enforce a per-invocation deadline that
+  kills the subprocess.
+- [ ] **Automate release signing (cosign, DD-029).** SECURITY.md and DD-029 promise cosign-signed
+  releases; CI has no signing lane. Wire it into the release path.

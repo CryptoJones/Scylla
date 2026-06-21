@@ -22,12 +22,10 @@ architecture contains that risk at the seams rather than trusting the parser:
   with bounds; loading one never executes it.
 - **Signed releases.** Release artifacts are cosign-signed, matching GayHydra.
 
-## Seams to threat-model before exposure
+## Threat model
 
-Tracked in [BACKLOG.md](BACKLOG.md); to be worked deliberately, not only at release:
-
-1. **The engine producer** — the adversarial-binary parser: sandbox boundary, resource limits,
-   timeouts.
-2. **The MCP head's input surface** — once agents / untrusted clients drive it, validate and
-   rate-limit at the head; the core's typed errors (DD-021) keep failures contained and never
-   leak engine internals.
+The deliberate seam-by-seam analysis lives in **[THREAT-MODEL.md](THREAT-MODEL.md)** — trust
+boundaries, the three untrusted inputs (the binary, the `.scylla` artifact, analysis-derived
+text), and the mitigations + residual gaps at each seam. It surfaced four open gaps, all tracked
+in [BACKLOG.md](BACKLOG.md); the highest-priority is that the MCP head does not yet delimit
+attacker-controlled analysis content as untrusted — the named prompt-injection threat (DD-035).

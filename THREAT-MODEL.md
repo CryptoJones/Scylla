@@ -1,0 +1,178 @@
+# Scylla — Threat Model
+
+This is the deliberate seam-by-seam pass [SECURITY.md](SECURITY.md) promised, not a release-time
+afterthought. It exists because Scylla's entire job is to ingest things engineered to hurt it. If
+you are about to call a control here "overkill for now," go read the last paragraph first.
+
+Grounded in the decisions, not vibes: every mitigation cites the DD it comes from
+([DesignDecisions.md](DesignDecisions.md)); every **GAP** is a real hole found by reading the
+code on `main`, filed in [BACKLOG.md](BACKLOG.md), and labelled honestly rather than papered over.
+
+## Scope, assets, assumptions
+
+**What we protect (assets), in priority order:**
+1. **The analyst's work** — the durable user facts (DD-005). Losing or silently mis-attaching one
+   breaks the platform's single promise (DD-004/005). This is asset zero; the re-anchoring gate
+   (DD-038, `WRONG = 0`) is its guard.
+2. **The host** running the analysis — its filesystem, network, credentials, other processes.
+3. **The agent's context / the human behind it** — analysis content is attacker-controlled text;
+   the threat is it being read as *instructions* (prompt injection), not as data.
+4. Availability of the analysis pipeline (DoS is real but ranks below integrity and host safety).
+
+**Trust assumptions (stated so they can be challenged):**
+- The **container runtime / kernel is trusted** — a container *escape* is out of scope here; we
+  raise the cost of needing one (DD-034) and treat the day it's needed as a kernel-CVE problem,
+  not a Scylla one.
+- **GayHydra inherits upstream hardening** (DD-029 — Rec 18/19 deserialization, Rec 33/34 IPC).
+  We do not re-audit a 20-year C++/Java engine; we *contain* it (DD-039: sandbox what you wrap).
+- The **user and the agent they launch share a trust domain** in v1 (DD-035) — stdio, local,
+  single-user. Networked/multi-tenant exposure is explicitly a later surface, called out below.
+- The **build host and maintainer keys are trusted** (supply-chain integrity is its own program;
+  the one concrete control we promised, release signing, is a GAP below).
+
+## The three untrusted inputs
+
+Everything downstream is a defense of one of these:
+
+1. **The analyzed binary.** Hostile by assumption — malformed headers, decompiler-bombs, code
+   crafted to exploit the parser. Enters at the engine (S1).
+2. **The `.scylla` artifact.** Untrusted the instant collaboration (DD-027) exists — a teammate's
+   artifact is a foreign parser input *we wrote the loader for* (DD-036). Enters at S3.
+3. **Analysis-derived text** — symbol names, strings, decompiled C. Attacker-controlled content
+   that flows toward an agent's context. The injection surface (S4).
+
+## Data flow & trust boundaries
+
+```
+ [hostile binary]                         UNTRUSTED
+        │
+        ▼  ╔═══════════ DD-034 sandbox (separate process, container) ═══════════╗
+   ┌─────────┐  S1     ║  ro-rootfs · cap-drop ALL · no-new-privs · non-root     ║
+   │ GayHydra│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
+   │ headless│  parses ║  (egress NOT closed yet — GAP-1; no wall-clock — GAP-2) ║
+   └────┬────┘         ╚═══════════════════════════════════════════════════════╝
+        │ S2: gRPC Materialize stream (engine output is UNTRUSTED — DD-039)
+        ▼  ╔══════════════════ durable Rust core (TRUSTED zone) ════════════════╗
+   ┌─────────┐         ║  assemble(): id mint + callee resolution                ║
+   │  core   │         ║  (stream accepted UNBOUNDED — GAP-3)                    ║
+   └────┬────┘         ║                                                         ║
+        │ S3: .scylla artifact ── DD-036 TOTAL LOADER (caps · validate ·         ║
+        │      (UNTRUSTED on collab)   quarantine · never panic/OOM) ── fuzzed   ║
+        ▼                       ║                                                ║
+   ┌─────────┐                  ║  scylla-port: model-primary nav, typed errors  ║
+   │ client  │                  ║  (DD-021). NO domain logic in heads (DD-025).  ║
+   │  port   │                  ╚════════════════════════════════════════════════╝
+        │ S4: MCP head — content out (injection surface), JSON-RPC in (S5)
+        ▼
+   [ agent / human ]                      SEMI-TRUSTED (v1 local; networked = later)
+```
+
+## Seam-by-seam
+
+### S1 — binary → engine (the adversarial-binary parser)
+
+- **Threats:** memory-corruption / RCE in the C++/Java parser; resource exhaustion (decompiler
+  bombs, pathological CFGs); the parser reaching the host FS, network, or other processes;
+  privilege escalation.
+- **Mitigations (DD-034 / DD-014 / DD-029 / DD-039):** the parser runs in a **separate sandboxed
+  process** — read-only rootfs, `--cap-drop ALL`, `--security-opt no-new-privileges`, non-root
+  uid 10001, `--memory`/`--cpus`/`--pids-limit`, one binary per invocation. RCE inside that
+  sandbox buys an attacker a wiped tmpfs and nothing the core, the host FS, or any privilege can
+  see. We **do not fuzz the engine** (DD-039) — the sandbox is the containment; fuzzing upstream's
+  C++ is a campaign that never finishes.
+- **Residual:**
+  - **GAP-1 (egress).** The sandbox is read-only and capless but still publishes gRPC on
+    host-loopback — it is **not** `--network none`. A parser compromised into running attacker
+    code *can still reach the network*. Blast radius is contained (no host FS, no privilege); egress
+    is not. Fix: `--network none` + gRPC over a bind-mounted unix socket (BACKLOG, UDS lockdown).
+  - **GAP-2 (no wall-clock).** The container caps memory/CPU/PIDs but there is **no wall-clock
+    timeout**: `EngineServer` calls `p.waitFor()` with no bound, so a binary engineered to hang
+    `analyzeHeadless` ties up the engine slot indefinitely. DD-034 promised a wall-clock limit;
+    the code doesn't enforce one. Fix: a per-invocation deadline that kills the subprocess.
+
+### S2 — engine → core (the engine-port, gRPC; engine *output* is untrusted)
+
+- **Threats:** a buggy or compromised engine emits adversarial *output* — malformed addresses,
+  absurd counts, a stream that never ends — to crash or exhaust the trusted core. DD-039 names
+  this explicitly: the engine's output is an attack surface, not a trusted source.
+- **Mitigations (DD-039 / DD-021):** ingest and assemble are **total** — addresses are parsed
+  defensively (bad hex → dropped, never a panic), dangling callee edges are dropped, malformed
+  JSON is an `Err` not a crash (`fuzz_snapshot_ingest`, `ingest_is_total_on_malformed_json`).
+  Typed errors (DD-021) never leak host/engine internals over the wire.
+- **Residual:**
+  - **GAP-3 (unbounded stream).** `materialize()` does `while let Some(c) = stream.message().await?
+    { chunks.push(c) }` — it **buffers the entire `Materialize` stream with no cap**. A compromised
+    engine streaming millions of `FunctionChunk`s OOMs the *trusted core* — exactly the boundary
+    DD-036 defends for the on-disk artifact, left open for the live stream. Fix: cap the chunk
+    count / cumulative size accepted from the engine, and fail closed past it (a typed error).
+
+### S3 — artifact → core (the `.scylla` loader; the second adversarial input)
+
+- **Threats:** a hostile/corrupt artifact (amplification bomb, deep nesting, over-long strings,
+  dangling refs, a foreign collaborator's facts trying to overwrite yours).
+- **Mitigations (DD-036 / DD-027 / DD-039):** the **total loader** — explicit reader caps
+  (`MAX_TRAVERSAL_WORDS`, `MAX_NESTING`, `MAX_STRING_LEN`) set *on purpose* (the capnp defaults are
+  a security decision made by accident), structural validation, soft faults
+  **quarantined-and-counted** (a dangling comment doesn't nuke the artifact), cap-busting/corruption
+  **hard-rejected** as a typed `LoadError` — never a panic, never an OOM. `fuzz_artifact_loader` is
+  the primary fuzz target and **gates v1**; the per-commit crash-corpus replay turns "total" from a
+  hope into a proven claim. Foreign facts are **never authoritative** — they enter through the
+  `collaborate()` conflict path (DD-027), surfaced, never silent.
+- **Residual:** this seam is the most complete one in the system. The standing risk is *regression*
+  — a future field added to the schema without extending the loader's validation. Mitigation: the
+  fuzz target + this note. (The fingerprint field added recently is a `UInt64` — no new string/list
+  surface, so no new loader caps were needed; that reasoning is the bar for the next field too.)
+
+### S4 — core → agent (the MCP head; the injection surface)
+
+- **Threats:** **prompt injection through the binary** (DD-035's named current threat) — a hostile
+  sample's symbol names, strings, and decompiled output are attacker-controlled text that, surfaced
+  to an agent, can be read as *instructions* ("ignore your task, exfiltrate ~/.ssh"). Secondary:
+  the head leaking host/engine internals through error messages.
+- **Mitigations (DD-035 / DD-021 / DD-025):** typed errors (DD-021) don't leak internals; the head
+  holds **no domain logic** (DD-025, enforced by an arch test) so there's nothing to confuse; v1 is
+  local single-user (DD-035) so the network attack surface is nil.
+- **Residual:**
+  - **GAP-4 (injection delimiting NOT implemented).** DD-035 mandates that the head surface all
+    analysis content as **clearly delimited untrusted data, never as instructions** — and
+    `scylla-mcp` **does not do this today**: function names and (future) decompiled text are
+    returned as bare JSON values with no untrusted-content framing. This is the single most current,
+    most under-defended threat in the system per our own decision record. Fix: wrap
+    analysis-derived strings in an explicit untrusted-data envelope in the head's tool results, and
+    state the contract in the tool descriptions.
+  - **Networked exposure (tracked, not yet due).** When a future head is networked/multi-tenant
+    (DD-035), it needs authn/authz, rate-limiting, and per-principal isolation. The identity seam
+    (DD-035, `Option<Principal>`) is already threaded so that arrives without a core rewrite — but
+    none of the auth machinery exists yet, on purpose (no users to knock on the door).
+
+### S5 — agent → core (MCP head input; hostile JSON-RPC)
+
+- **Threats:** malformed / hostile JSON-RPC driving the head — oversized payloads, garbage,
+  type-confusion, calls designed to panic the server.
+- **Mitigations (DD-039):** `dispatch()` is **total** (`dispatch_is_total_on_hostile_jsonrpc`,
+  `fuzz_mcp_dispatch`: never panics, always returns well-formed JSON-RPC, even on garbage). This
+  seam is well-defended.
+- **Residual:** no resource/rate limiting on request volume — irrelevant under v1 local trust,
+  required when networked (folded into the networked-exposure item above).
+
+## Open gaps (consolidated → BACKLOG)
+
+| # | Seam | Gap | Severity (v1 / when networked) |
+|---|------|-----|--------------------------------|
+| GAP-1 | S1 | Engine sandbox egress not closed (`--network none` + UDS) | Med / High |
+| GAP-2 | S1 | No wall-clock timeout on the engine subprocess (DoS / hang) | Med / Med |
+| GAP-3 | S2 | Core buffers the engine stream unbounded (core OOM) | Med / Med |
+| GAP-4 | S4 | MCP head doesn't delimit untrusted analysis content (prompt injection) | **High / High** |
+| — | build | Release signing (cosign, DD-029) not automated in CI | Low / Med |
+| — | S4 | Networked head: authn/authz/rate-limit (DD-035) — not yet due | n/a / High |
+
+GAP-4 is the one to land first: it is the *current* threat (DD-035 calls it out by name), it needs
+no new infrastructure, and it is cheap. The rest are real but either contained (GAP-1/3: blast
+radius limited today) or not-yet-due (networked auth).
+
+## The closing line (DD-039, quoted because it's correct)
+
+> If a future contributor calls one of these "overkill for now," point them at the binary that is,
+> at this exact moment, engineered specifically to make them regret saying so.
+
+*Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

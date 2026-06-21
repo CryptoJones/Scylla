@@ -1,0 +1,13 @@
+# Scylla — durable RE core (DD-016: Rust). Workspace root.
+[workspace]
+resolver = "2"
+members = [
+    "crates/scylla-model",
+    "crates/scylla-schema",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Aaron K. Clark <cryptojones@owasp.org>"]

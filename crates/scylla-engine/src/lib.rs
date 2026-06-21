@@ -58,6 +58,29 @@ pub fn assemble(name: &str, chunks: &[pb::FunctionChunk]) -> Program {
     }
 }
 
+/// GAP-3 (DD-036 spirit): the engine is UNTRUSTED output. A compromised or buggy engine must not
+/// OOM the trusted core by streaming unbounded functions or instructions, so the core bounds what
+/// it will accept from the `Materialize` stream and fails closed past it. (Each individual message
+/// is already bounded by tonic's max-decode size; these cap the *cumulative* stream.)
+pub const MAX_FUNCTIONS: usize = 1_000_000;
+/// Cumulative instruction (mnemonic) ceiling across the whole stream.
+pub const MAX_TOTAL_MNEMONICS: usize = 100_000_000;
+
+/// Refuse an over-large engine stream. `Err(reason)` when a cap is exceeded; `Ok` at/under it.
+fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), String> {
+    if n_functions > MAX_FUNCTIONS {
+        return Err(format!(
+            "engine stream exceeded {MAX_FUNCTIONS} functions — refusing (untrusted engine output)"
+        ));
+    }
+    if total_mnemonics > MAX_TOTAL_MNEMONICS {
+        return Err(format!(
+            "engine stream exceeded {MAX_TOTAL_MNEMONICS} instructions — refusing (untrusted engine output)"
+        ));
+    }
+    Ok(())
+}
+
 /// The engine-port path: connect to the engine-service, materialize a binary over gRPC, and
 /// assemble the native model. This is the Rust core driving GayHydra over the DD-040 contract.
 pub async fn materialize(
@@ -71,7 +94,11 @@ pub async fn materialize(
         .await?
         .into_inner();
     let mut chunks = Vec::new();
+    let mut total_mnemonics = 0usize;
     while let Some(c) = stream.message().await? {
+        // Bound the untrusted stream BEFORE retaining the chunk — fail closed, never OOM.
+        total_mnemonics += c.mnemonics.len();
+        check_stream_caps(chunks.len() + 1, total_mnemonics)?;
         chunks.push(c);
     }
     Ok(assemble(name, &chunks))
@@ -99,6 +126,15 @@ mod tests {
         // The wire mnemonics fold into the SAME fingerprint the snapshot path computes.
         assert_eq!(f.fingerprint, scylla_model::mnemonic_fingerprint(&chunk.mnemonics));
         assert_ne!(f.fingerprint, 0, "a chunk with mnemonics gets a real fingerprint");
+    }
+
+    #[test]
+    fn stream_caps_refuse_an_oversized_engine_stream() {
+        // GAP-3: a compromised engine can't OOM the core. At the cap is fine; over it is refused.
+        assert!(check_stream_caps(10, 1_000).is_ok());
+        assert!(check_stream_caps(MAX_FUNCTIONS, MAX_TOTAL_MNEMONICS).is_ok());
+        assert!(check_stream_caps(MAX_FUNCTIONS + 1, 0).is_err(), "too many functions refused");
+        assert!(check_stream_caps(1, MAX_TOTAL_MNEMONICS + 1).is_err(), "too many instructions refused");
     }
 
     #[test]

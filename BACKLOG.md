@@ -83,13 +83,15 @@ Tracked "later / someday" items that aren't on the current sprint path
   stated in the tool descriptions. Default-untrusted — only the head's own status acks
   (`STATUS_ONLY_TOOLS` = rename/comment) and typed errors pass through unwrapped, so a future read
   tool (e.g. `decompile`) is marked automatically. Regression-tested.
-- [ ] **GAP-3 — the core accepts the engine `Materialize` stream unbounded.** `materialize()` buffers
-  every `FunctionChunk` (`chunks.push`) with no cap; a compromised/buggy engine streaming millions
-  of functions OOMs the trusted core. Cap the chunk count / cumulative size and fail closed past it
-  with a typed error — the live-stream analogue of the DD-036 artifact caps.
-- [ ] **GAP-2 — no wall-clock timeout on the engine subprocess (DD-034).** `EngineServer` calls
-  `p.waitFor()` with no bound, so a binary engineered to hang `analyzeHeadless` ties up the engine
-  slot indefinitely. DD-034 promised a wall-clock limit; enforce a per-invocation deadline that
-  kills the subprocess.
+- [x] **GAP-3 — the core now bounds the engine `Materialize` stream.** `materialize()` caps the
+  cumulative function count (`MAX_FUNCTIONS`) and instruction count (`MAX_TOTAL_MNEMONICS`) and
+  fails closed with a typed error past either — a compromised/buggy engine can no longer OOM the
+  trusted core (each message is already tonic-size-bounded; these cap the cumulative stream). The
+  live-stream analogue of the DD-036 artifact caps. Cap check is unit-tested.
+- [x] **GAP-2 — wall-clock timeout on the engine subprocess (DD-034).** `EngineServer` now drains
+  stdout off-thread and bounds the wait with `p.waitFor(timeoutSeconds(), SECONDS)`
+  (`SCYLLA_ENGINE_TIMEOUT_SEC`, default 300); on timeout it `destroyForcibly()`s the subprocess and
+  returns `DEADLINE_EXCEEDED`. A binary engineered to hang `analyzeHeadless` can no longer tie up
+  the engine slot. Verified live (a 1s budget kills a real run; the default budget passes).
 - [ ] **Automate release signing (cosign, DD-029).** SECURITY.md and DD-029 promise cosign-signed
   releases; CI has no signing lane. Wire it into the release path.

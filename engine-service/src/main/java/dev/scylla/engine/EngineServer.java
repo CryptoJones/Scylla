@@ -53,6 +53,17 @@ public final class EngineServer {
         return "";
     }
 
+    /** Per-invocation wall-clock budget for {@code analyzeHeadless} (GAP-2 / DD-034), seconds.
+     *  {@code SCYLLA_ENGINE_TIMEOUT_SEC} overrides; default 300 (a normal binary is ~25s). */
+    static int timeoutSeconds() {
+        String v = System.getenv("SCYLLA_ENGINE_TIMEOUT_SEC");
+        try {
+            return (v == null || v.isEmpty()) ? 300 : Math.max(1, Integer.parseInt(v.trim()));
+        } catch (NumberFormatException e) {
+            return 300;
+        }
+    }
+
     /** Last {@code n} chars of {@code s}, trimmed — the useful end of a subprocess log. */
     static String tail(String s, int n) {
         s = s.strip();
@@ -92,11 +103,34 @@ public final class EngineServer {
                         "-deleteProject");
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
-                // Drain so the engine never blocks on a full pipe — but KEEP it: when a hostile
-                // or malformed binary kills the analyzer, a bare exit code is useless. Surface the
-                // tail over the wire so the failure says *why* (DD-021: errors carry meaning).
-                byte[] log = p.getInputStream().readAllBytes();
-                int code = p.waitFor();
+                // Drain stdout OFF-THREAD: keep it (a bare exit code is useless when a hostile
+                // binary kills the analyzer — surface the tail, DD-021), but a blocking read here
+                // would itself hang forever on a hung analyzer. Off-thread + a bounded waitFor lets
+                // us enforce a WALL-CLOCK deadline (GAP-2 / DD-034): a binary engineered to hang
+                // analyzeHeadless must not tie up the engine slot forever.
+                java.util.concurrent.atomic.AtomicReference<byte[]> logRef =
+                        new java.util.concurrent.atomic.AtomicReference<>(new byte[0]);
+                Thread drain = new Thread(() -> {
+                    try {
+                        logRef.set(p.getInputStream().readAllBytes());
+                    } catch (Exception ignored) {
+                        // a killed process closes the pipe; nothing to read
+                    }
+                }, "scylla-drain");
+                drain.setDaemon(true);
+                drain.start();
+
+                if (!p.waitFor(timeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS)) {
+                    p.destroyForcibly();
+                    resp.onError(Status.DEADLINE_EXCEEDED
+                            .withDescription("GayHydra headless exceeded the " + timeoutSeconds()
+                                    + "s wall-clock limit — killed (a hostile or pathological binary).")
+                            .asRuntimeException());
+                    return;
+                }
+                drain.join(2000); // the process exited; let the drain finish reading the tail
+                byte[] log = logRef.get();
+                int code = p.exitValue();
                 if (code != 0 || !Files.exists(out) || Files.size(out) == 0) {
                     String tail = tail(new String(log, java.nio.charset.StandardCharsets.UTF_8), 1200);
                     resp.onError(Status.INTERNAL

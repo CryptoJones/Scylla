@@ -65,9 +65,13 @@ side — leave everything pluggable above and below *both*. (See "Why It's Shape
   only the **engine producer** (the adversarial-binary parser); the Rust core sits *outside*
   the blast radius — a hostile binary can't reach it at all.
 
-**Still open** (now constrained): the contract *schema details* (DD-002 chosen, schema TBD),
-DD-008 versioning, collaboration scope (DD-027 mechanism set — git-for-RE), and the rest of
-D / E.
+**Round 2 (2026-06-21) — the rest, locked.** Per the owner's call, *every remaining DD takes
+its safest option* — be a faithful Ghidra wrapper, defer everything optional, ship one (MCP)
+head — **except three taken deliberately bold: DD-004 + DD-005** (stable synthetic IDs + an
+identity-anchored user/machine merge — because here "safe = copy Ghidra" inherits the very
+flaw that loses analysts' work) **and DD-028** (native single-binary + WASM distribution — so
+the Rust core's payoff isn't left on the table). Every DD is now DECIDED; the per-DD entries
+below carry the choice + a *safe* / *bold* tag.
 
 ---
 
@@ -159,31 +163,31 @@ technology), but it's a conscious bet. Defining our own IR is enormous scope.
 *Question:* How are entities identified such that IDs survive re-analysis and user
 edits? (address-based? content-hash? synthetic stable IDs?) *Tension:* re-running
 analysis must not orphan a user's renames/retypes/comments.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Synthetic stable IDs**, minted at first-sight; address is a mutable *attribute*, not the identity. Re-analysis re-anchors IDs to entities by structure/content so a user's renames/types/comments follow the *entity* when code shifts — the property that keeps the tool from losing work. (Safe-by-precedent here = Ghidra's address-keyed identity = the very thing that orphans edits; rejected.)
 
 **DD-005 — Mutability & the edit/analysis merge.**
 *Question:* Are model entities mutable in place? How do *user facts* (renames, types,
 comments) compose with *machine facts* (re-analysis) without clobbering each other?
 *Tension:* this is the classic RE-tool pain; get it wrong and analysis fights the user.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *bold exception.*** **User facts are edges onto the stable entity IDs (DD-004); re-analysis emits fresh machine facts that merge against those IDs — the user wins on conflict, non-conflicting machine updates flow through.** Not a blind overlay; a real identity-anchored merge. This is the differentiator: analysis never fights the user.
 
 **DD-006 — State & session model.**
 *Question:* Is the core session-based (a long-lived "program/project" handle holding
 accumulated analysis) or stateless-per-call? How is that state created, evolved,
 snapshotted? *Tension:* RE is deeply stateful; agents/clients need a handle, but
 statefulness complicates the ports and scaling.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Session-based**: a long-lived program/project handle, adopting Ghidra's own Program/Project model. Stateless-per-call would fight the engine.
 
 **DD-007 — Provenance & confidence.**
 *Question:* Does every fact carry provenance (which analyzer/user produced it) and a
 confidence? *Tension:* invaluable for AI consumers, diffing, and trust — but it bloats
 the model. Opt-in vs always-on.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Omit from v1**; the schema (DD-002) stays additive so provenance/confidence can slot in later without a break. Don't bloat the model now.
 
 **DD-008 — Contract versioning & capability negotiation.**
 *Question:* How does the domain-model contract evolve without breaking heads? (semver
 the contract; capability handshake per head; additive-only rules?)
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Semver the contract + additive-only changes + a per-head capability handshake.** The boring, proven schema-evolution discipline.
 
 ---
 
@@ -203,7 +207,7 @@ protocol; (d) **FFI straight to the C++ decompiler** + reimplement the framework
 program DB, decompiler-via-IPC) as the engine, or extract only pieces? *Tension:*
 whole-framework is fastest and most proven (P1) but drags the JVM in; piecemeal is
 leaner but re-implements proven glue (violates P1).
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Wrap the whole Ghidra Java framework** as the engine (loaders, analyzers, SLEIGH, program DB, decompiler-via-IPC). Zero re-implemented glue; honors P1.
 
 **DD-011 — Build on GayHydra or stock Ghidra?**
 *Question:* Is the wrapped engine **GayHydra** (the hardened fork — inherits the Rec
@@ -216,13 +220,13 @@ the fork's cadence; upstream is more standard but unhardened.
 *Question:* Leave Ghidra's Java↔C++ decompiler IPC *as-is* inside the engine box, or
 reach the C++ decompiler more directly? *Tension:* the IPC is proven (P1) — almost
 certainly leave it — but it's the historical pain; do we ever touch it?
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Leave Ghidra's Java↔C++ decompiler IPC exactly as-is** inside the engine box. Never touch the proven historical pain.
 
 **DD-013 — SLEIGH / processor specs.**
 *Question:* Reuse Ghidra's SLEIGH spec language + compiled `.sla` specs wholesale?
 (Near-certain *yes* — it's the crown-jewel ISA-decoupling — but confirm and define the
 boundary for adding/overriding specs.)
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Reuse SLEIGH + the compiled `.sla` specs wholesale**, no overrides in v1. The crown-jewel ISA decoupling; touching it is pure downside.
 
 **DD-014 — Process, isolation & trust boundary.**
 *Question:* How many processes, and where is the trust boundary? Binaries are
@@ -263,13 +267,13 @@ to reason with** vs power-user fine control — this is the hard, valuable desig
 an **engine port** (decompile/analyze), a **storage port** (persist RE state), a
 **binary-source port** (where bytes come from), maybe a **type-library / symbol-server
 port**. Define them so the engine and storage are themselves swappable adapters.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **The minimal trio only — engine port, storage port, binary-source port.** No speculative type-library / symbol-server ports until a head needs one.
 
 **DD-019 — Sync / async / streaming / cancellation.**
 *Question:* Analysis is long-running; decompilation is per-function. Do ports support
 async, progress streaming, and cancellation? *Tension:* simplicity vs the reality that
 a 200 MB firmware analysis can't be a blocking call.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Synchronous request/response everywhere, except a job handle (submit → poll) for long-running `analyze`.** Defer streaming + fine-grained cancellation.
 
 **DD-020 — Port granularity / chattiness.**
 *Question:* Coarse high-level verbs (`decompile_and_summarize`) vs fine-grained
@@ -280,7 +284,7 @@ powerful but chatty. Probably *both*, layered — but decide the primitive set.
 **DD-021 — Error & failure model.**
 *Question:* How do ports surface failure (malformed binary, decompile timeout, OOM on
 a hostile input)? A typed error taxonomy the heads can faithfully translate.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **A small typed error taxonomy that faithfully mirrors Ghidra's own exception classes.** Pass-through, not a clever new taxonomy.
 
 ---
 
@@ -291,23 +295,24 @@ a hostile input)? A typed error taxonomy the heads can faithfully translate.
 that reverse-engineer binaries*). After that — REST, gRPC, a CLI, a web UI, a
 Ghidra-plugin interop head? *Tension:* MCP-first is the strategic bet; everything else
 is sequencing.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **MCP only for v1.** One head = least surface, and it's the differentiator; REST/gRPC/CLI/UI all deferred (DD-023).
 
 **DD-023 — Name the six heads.**
 *Question:* Scylla has six heads — which six adapters define the v1 vision? (e.g.
 MCP · REST · gRPC · CLI · Web UI · Ghidra-plugin?) A concrete, finite head-set keeps
 scope honest.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Name MCP as head #1; leave the roster open.** "Six heads" is branding, not a v1 contract — committing to six now is premature scope.
 
 **DD-024 — The MCP head surface.**
 *Question:* Which RE verbs (DD-017) become MCP tools, at what granularity, with what
 schemas — designed so an agent can *plan* a reverse-engineering session, not just poke
-at primitives? *Status:* OPEN.
+at primitives?
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Expose the DD-017 command set 1:1 as MCP tools, nothing more.** Mirror the port; don't invent agent-specific verbs until usage shows the need.
 
 **DD-025 — Adapter-thinness enforcement.**
 *Question:* How do we *enforce* P6 (no domain logic in heads)? (architecture tests,
 a heads/core dependency boundary, code review rules?)
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **A hard core→heads dependency boundary (heads depend on core, never the reverse) + an architecture test in CI.** Mechanical enforcement of P6.
 
 ---
 
@@ -321,35 +326,39 @@ documented, versioned contract we control.
 
 **DD-027 — Collaboration / multi-user.**
 *Question:* Shared projects (a Ghidra-Server equivalent) — in scope for v1, or
-single-user first? *Status:* **DIRECTION SET (2026-06-21)** — the bespoke server *dissolves*: collaboration is **model-artifact sync** (git-for-RE — share/sync/diff/merge), a consequence of the narrow-waist (see "Why It's Shaped This Way"). Whether v1 ships merge tooling or stays single-user-first is still open; the *mechanism* is settled.
+single-user first? *Status:* **DIRECTION SET (2026-06-21)** — the bespoke server *dissolves*: collaboration is **model-artifact sync** (git-for-RE — share/sync/diff/merge), a consequence of the narrow-waist (see "Why It's Shaped This Way"). v1 scope (2026-06-21) — *safe:* **single-user; collaboration is manual artifact export/sync** (git-for-RE by hand), no merge tooling yet. The mechanism (artifact sync) was already settled.
 
 **DD-028 — Packaging & distribution.**
 *Question:* How is Scylla shipped, given it bundles a heavy engine? (container image,
-single binary + bundled JRE, a server you run?) *Status:* OPEN.
+single binary + bundled JRE, a server you run?)
+*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Ship the serving/navigation core as a single native binary + a WASM build for browser heads (using DD-016); the heavy JVM engine is a separately-bundled / on-demand-fetched producer, not part of the always-on serving artifact.** The safe container+JRE path would bank none of the Rust payoff we paid for; this spends it.
 
 **DD-029 — Security model.**
 *Question:* It parses adversarial binaries and exposes a network surface. Inherit the
 GayHydra deserialization lessons; sandbox the engine; harden the heads; supply-chain
-sign releases (cosign, as GayHydra does). *Status:* OPEN.
+sign releases (cosign, as GayHydra does).
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Inherit GayHydra's posture wholesale**: sandbox the engine producer (DD-014), cosign releases, carry the Rec 18/19 deserialization hardening + Rec 33/34 IPC modernization. Reuse proven, invent nothing.
 
 **DD-030 — Testing strategy.**
 *Question:* How do we test a RE platform? Golden-binary corpus, decompiler-output
 regression, a fixed multi-arch/compiler/opt-level recall corpus, contract conformance
-tests per head. *Status:* OPEN.
+tests per head.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **A golden-binary corpus + decompiler-output regression** (multi-arch/compiler/opt-level), plus per-head contract-conformance tests. Standard RE-tool discipline.
 
 **DD-031 — Observability & performance.**
 *Question:* Logging/metrics/tracing across the hexagon; and the core must not add
-latency over the engine — decompile-result caching, lazy analysis. *Status:* OPEN.
+latency over the engine — decompile-result caching, lazy analysis.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Structured logging + decompile-result caching; defer tracing/metrics.** The cache is the one must-have — the core must never regress engine latency.
 
 **DD-032 — Licensing & dependencies.**
 *Question:* Apache-2.0 (decided — matches Ghidra). Confirm dependency-license
-compatibility as the engine + adapter deps land; keep the NOTICE accurate. *Status:*
-OPEN (mostly settled — Apache 2.0).
+compatibility as the engine + adapter deps land; keep the NOTICE accurate.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Apache-2.0** (matches Ghidra); keep NOTICE accurate as engine + adapter deps land. Effectively closed.
 
 **DD-033 — Project governance.**
 *Question:* Contribution model, issue/PR lanes, triage SLA — explicitly *not*
 recreating the Ghidra PR-graveyard pathologies the GayHydra audit catalogued.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **A minimal CONTRIBUTING + clear issue/PR lanes + a triage SLA**, explicitly structured to avoid the Ghidra PR-graveyard the GayHydra audit catalogued. Copy GayHydra's discipline.
 
 ---
 

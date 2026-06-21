@@ -13,7 +13,7 @@
 
 use std::collections::HashMap;
 
-use scylla_model::{Function, Program, StableId, UserFact};
+use scylla_model::{FactKind, Function, Program, StableId, UserFact};
 
 /// Coarse structural signature: CFG size, byte size, out-degree. Two functions with the same
 /// signature are treated as indistinguishable (→ ambiguous → flagged), never guessed between.
@@ -61,6 +61,77 @@ pub fn merge_into(old: &Program, new: &mut Program) -> MergeReport {
     let report = MergeReport { merged: merged.len(), flagged: flagged.len() };
     new.facts.append(&mut merged);
     report
+}
+
+/// A disagreement found while merging another analyst's work: both gave the same *kind* of
+/// fact to the same entity, with different values. Surfaced, never auto-resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Conflict {
+    pub target: StableId,
+    pub ours: FactKind,
+    pub theirs: FactKind,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct CollabReport {
+    /// Incoming facts cleanly added to `base`.
+    pub merged: usize,
+    /// Same entity + same fact kind, different value — surfaced as a [`Conflict`].
+    pub conflicts: usize,
+    /// Incoming facts that couldn't be re-anchored onto `base` (flagged, not lost).
+    pub flagged: usize,
+}
+
+/// Merge another analyst's facts into `base` — **git for reverse engineering** (DD-027).
+///
+/// `incoming` is a *separate materialization of the same binary* (its own stable ids). Each
+/// incoming fact is re-anchored onto `base` structurally; clean ones are added, identical
+/// ones are no-ops, and genuine disagreements are returned as [`Conflict`]s — `base` is never
+/// silently overwritten.
+pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec<Conflict>) {
+    let mut base_by_sig: HashMap<(u32, u64, usize), Vec<StableId>> = HashMap::new();
+    for f in &base.functions {
+        base_by_sig.entry(signature(f)).or_default().push(f.id);
+    }
+    let incoming_by_id: HashMap<StableId, &Function> =
+        incoming.functions.iter().map(|f| (f.id, f)).collect();
+
+    let mut report = CollabReport::default();
+    let mut conflicts = Vec::new();
+    let mut to_add = Vec::new();
+    for fact in &incoming.facts {
+        let base_target = incoming_by_id
+            .get(&fact.target)
+            .and_then(|inf| base_by_sig.get(&signature(inf)))
+            .filter(|ids| ids.len() == 1)
+            .map(|ids| ids[0]);
+        let Some(tid) = base_target else {
+            report.flagged += 1;
+            continue;
+        };
+        let kind_disc = std::mem::discriminant(&fact.kind);
+        let existing = base
+            .facts
+            .iter()
+            .find(|bf| bf.target == tid && std::mem::discriminant(&bf.kind) == kind_disc);
+        match existing {
+            Some(bf) if bf.kind != fact.kind => {
+                conflicts.push(Conflict {
+                    target: tid,
+                    ours: bf.kind.clone(),
+                    theirs: fact.kind.clone(),
+                });
+                report.conflicts += 1;
+            }
+            Some(_) => {} // identical — the analysts already agree
+            None => {
+                to_add.push(UserFact { target: tid, kind: fact.kind.clone() });
+                report.merged += 1;
+            }
+        }
+    }
+    base.facts.extend(to_add);
+    (report, conflicts)
 }
 
 #[cfg(test)]
@@ -114,5 +185,38 @@ mod tests {
         let report = merge_into(&v1, &mut v2);
         assert!(report.merged >= 1, "gcd/fib (unchanged) should survive the edit");
         assert_zero_wrong(&v2);
+    }
+
+    // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---
+
+    #[test]
+    fn collaboration_merges_non_conflicting_facts() {
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let b_src = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = b_src;
+        let a_main = a.functions.iter().find(|f| f.name == "main").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        a.facts.push(UserFact { target: a_main, kind: FactKind::Rename("entrypoint".into()) });
+        b.facts.push(UserFact { target: b_fib, kind: FactKind::Comment("recursive".into()) });
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(conflicts.len(), 0);
+        assert_eq!(report.merged, 1, "fib's comment should merge in");
+        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Comment(c) if c == "recursive")));
+    }
+
+    #[test]
+    fn collaboration_surfaces_conflicts_without_overwriting() {
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        a.facts.push(UserFact { target: a_fib, kind: FactKind::Rename("fib_a".into()) });
+        b.facts.push(UserFact { target: b_fib, kind: FactKind::Rename("fib_b".into()) });
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(report.conflicts, 1);
+        assert_eq!(conflicts.len(), 1);
+        // base keeps its own value — incoming never silently overwrites it
+        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
+        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_b")));
     }
 }

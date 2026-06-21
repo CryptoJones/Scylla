@@ -1,108 +1,108 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="drawio" version="26.0.0">
   <diagram name="Scylla-hexagonal">
-    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1720" pageHeight="1520" math="0" shadow="0" background="#07090f">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1760" pageHeight="1480" math="0" shadow="0" background="#07090f">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
         <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#07090f;strokeColor=none;pointerEvents=0;" vertex="1" parent="1">
-          <mxGeometry x="-20" y="-20" width="1760" height="1560" as="geometry" />
+          <mxGeometry x="-20" y="-20" width="1800" height="1520" as="geometry" />
         </mxCell>
 
-        <mxCell id="title" value="Scylla — Hexagonal Architecture  (ports &amp; adapters)" style="text;html=1;fontSize=24;fontStyle=1;fontColor=#27d4ff;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="48" y="16" width="1100" height="36" as="geometry" />
+        <mxCell id="title" value="Scylla — Hexagonal Architecture  (ports &amp; adapters)" style="text;html=1;fontSize=27;fontStyle=1;fontColor=#27d4ff;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="16" width="1200" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="bestagons" value="⬢  HEXAGONS ARE THE BESTAGONS  ⬢" style="text;html=1;fontSize=22;fontStyle=1;fontColor=#55ff99;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="48" y="56" width="900" height="32" as="geometry" />
+        <mxCell id="bestagons" value="⬢  HEXAGONS ARE THE BESTAGONS  ⬢" style="text;html=1;fontSize=25;fontStyle=1;fontColor=#55ff99;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="60" width="1000" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="One durable core. Volatility pushed to the rim. Lop a head off and grow a new one." style="text;html=1;fontSize=15;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="48" y="92" width="1100" height="24" as="geometry" />
+        <mxCell id="subtitle" value="One durable core. Volatility pushed to the rim. Lop a head off and grow a new one." style="text;html=1;fontSize=16;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="100" width="1100" height="26" as="geometry" />
         </mxCell>
 
         <!-- ===================== THE CORE (center hexagon) ===================== -->
-        <mxCell id="core" value="◆  SCYLLA CORE&#xa;Rust · native&#xa;&#xa;THE DOMAIN MODEL&#xa;( the narrow waist )&#xa;&#xa;stable synthetic IDs · rich types&#xa;first-class, durable user facts&#xa;computed call graph / CFG&#xa;semantic zoom · P-code hatch&#xa;&#xa;⟲ identity-anchored merge&#xa;(re-anchoring — de-risked)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;fontFamily=Menlo;fontSize=17;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#d6f2ff;strokeWidth=3;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="600" y="430" width="540" height="540" as="geometry" />
+        <mxCell id="core" value="◆ SCYLLA CORE · Rust&#xa;&#xa;THE DOMAIN MODEL&#xa;(the narrow waist)&#xa;&#xa;stable IDs · rich types&#xa;durable user facts&#xa;call graph · CFG&#xa;semantic zoom&#xa;&#xa;⟲ re-anchoring merge" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.18;fontFamily=Menlo;fontSize=23;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#d6f2ff;strokeWidth=3;verticalAlign=middle;spacingLeft=4;spacingRight=4;" vertex="1" parent="1">
+          <mxGeometry x="610" y="430" width="600" height="500" as="geometry" />
         </mxCell>
 
         <!-- ===================== PORTS (small hexagons on the rim) ===================== -->
-        <mxCell id="p_engine" value="⟡ engine&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;fontFamily=Menlo;fontSize=14;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="520" y="560" width="150" height="120" as="geometry" />
+        <mxCell id="p_engine" value="⟡ engine&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;fontFamily=Menlo;fontSize=18;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="512" y="556" width="180" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="p_storage" value="⟡ storage&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;fontFamily=Menlo;fontSize=14;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="520" y="850" width="150" height="120" as="geometry" />
+        <mxCell id="p_storage" value="⟡ storage&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;fontFamily=Menlo;fontSize=18;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="512" y="850" width="180" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="p_client" value="⟡ client&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;fontFamily=Menlo;fontSize=14;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="1070" y="650" width="150" height="120" as="geometry" />
+        <mxCell id="p_client" value="⟡ client&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;fontFamily=Menlo;fontSize=18;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="640" width="180" height="140" as="geometry" />
         </mxCell>
 
         <!-- ===================== DRIVEN ADAPTERS (left — producers/storage) ===================== -->
-        <mxCell id="lbl_driven" value="DRIVEN side — the core drives these&#xa;(producers + storage)" style="text;html=1;fontSize=15;fontStyle=2;fontColor=#8fe6b3;fontFamily=Menlo;align=center;" vertex="1" parent="1">
-          <mxGeometry x="60" y="150" width="430" height="44" as="geometry" />
+        <mxCell id="lbl_driven" value="DRIVEN side — the core drives these" style="text;html=1;fontSize=17;fontStyle=2;fontColor=#8fe6b3;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="158" width="450" height="28" as="geometry" />
         </mxCell>
-        <mxCell id="bytes" value="Binary bytes&#xa;(adversarial input)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;fontFamily=Menlo;fontSize=16;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="90" y="220" width="320" height="230" as="geometry" />
+        <mxCell id="bytes" value="Binary bytes&#xa;(adversarial input)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;fontFamily=Menlo;fontSize=21;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="90" y="210" width="340" height="210" as="geometry" />
         </mxCell>
-        <mxCell id="engine" value="GayHydra Engine — JVM&#xa;&#xa;whole framework&#xa;SLEIGH → P-code&#xa;C++ decompiler (untouched)&#xa;&#xa;PROVEN · sandboxed&#xa;DROPPABLE producer" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.18;fontFamily=Menlo;fontSize=16;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="60" y="500" width="430" height="360" as="geometry" />
+        <mxCell id="engine" value="GayHydra Engine&#xa;JVM · whole framework&#xa;&#xa;SLEIGH → P-code&#xa;C++ decompiler&#xa;&#xa;PROVEN · droppable" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.14;fontFamily=Menlo;fontSize=21;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;strokeWidth=2;spacingLeft=4;spacingRight=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="450" height="360" as="geometry" />
         </mxCell>
-        <mxCell id="artifact" value="Cap'n Proto&#xa;model-artifact (.scylla)&#xa;&#xa;zero-copy · versioned&#xa;OWN FORMAT&#xa;&#xa;cache · share&#xa;git-for-RE sync" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.18;fontFamily=Menlo;fontSize=16;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="60" y="930" width="430" height="340" as="geometry" />
+        <mxCell id="artifact" value="Cap'n Proto artifact&#xa;(.scylla)&#xa;&#xa;zero-copy · versioned&#xa;OWN FORMAT&#xa;&#xa;git-for-RE sync" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.14;fontFamily=Menlo;fontSize=21;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;strokeWidth=2;spacingLeft=4;spacingRight=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="880" width="450" height="340" as="geometry" />
         </mxCell>
 
         <!-- ===================== DRIVING ADAPTERS (right — heads) ===================== -->
-        <mxCell id="lbl_driving" value="DRIVING side — heads drive the core&#xa;(disposable · polyglot · thin, P6)" style="text;html=1;fontSize=15;fontStyle=2;fontColor=#7fdcff;fontFamily=Menlo;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1230" y="150" width="430" height="44" as="geometry" />
+        <mxCell id="lbl_driving" value="DRIVING side — heads drive the core" style="text;html=1;fontSize=17;fontStyle=2;fontColor=#7fdcff;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="158" width="450" height="28" as="geometry" />
         </mxCell>
-        <mxCell id="mcp" value="MCP head ★ (v1)&#xa;&#xa;AI agents&#xa;reverse-engineer&#xa;binaries&#xa;&#xa;— the differentiator" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.18;fontFamily=Menlo;fontSize=16;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="1260" y="500" width="400" height="320" as="geometry" />
+        <mxCell id="mcp" value="MCP head ★&#xa;&#xa;AI agents&#xa;reverse-engineer&#xa;binaries&#xa;&#xa;(v1)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.14;fontFamily=Menlo;fontSize=21;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="470" width="430" height="360" as="geometry" />
         </mxCell>
-        <mxCell id="h_rest" value="REST" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;dashed=1;fontFamily=Menlo;fontSize=15;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1250" y="880" width="160" height="130" as="geometry" />
+        <mxCell id="h_rest" value="REST" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;dashed=1;fontFamily=Menlo;fontSize=19;fontStyle=1;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="880" width="190" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="h_grpc" value="gRPC" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;dashed=1;fontFamily=Menlo;fontSize=15;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1450" y="880" width="160" height="130" as="geometry" />
+        <mxCell id="h_grpc" value="gRPC" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;dashed=1;fontFamily=Menlo;fontSize=19;fontStyle=1;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="880" width="190" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="h_cli" value="CLI" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;dashed=1;fontFamily=Menlo;fontSize=15;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1250" y="1050" width="160" height="130" as="geometry" />
+        <mxCell id="h_cli" value="CLI" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;dashed=1;fontFamily=Menlo;fontSize=19;fontStyle=1;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="1050" width="190" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="h_web" value="Web UI&#xa;(WASM)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;dashed=1;fontFamily=Menlo;fontSize=15;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1450" y="1050" width="160" height="130" as="geometry" />
+        <mxCell id="h_web" value="Web UI&#xa;(WASM)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;dashed=1;fontFamily=Menlo;fontSize=19;fontStyle=1;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="1050" width="190" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="h_plugin" value="Ghidra-plugin" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.2;dashed=1;fontFamily=Menlo;fontSize=15;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1350" y="1220" width="190" height="130" as="geometry" />
+        <mxCell id="h_plugin" value="Ghidra-plugin" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;size=0.16;dashed=1;fontFamily=Menlo;fontSize=19;fontStyle=1;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1405" y="1220" width="200" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="roster" value="roster open (DD-023) — grow a new head when the era's adapter dies" style="text;html=1;fontSize=14;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1250" y="1360" width="360" height="30" as="geometry" />
+        <mxCell id="roster" value="roster open (DD-023) — grow a head when the era's adapter dies" style="text;html=1;fontSize=15;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="1370" width="400" height="28" as="geometry" />
         </mxCell>
 
-        <!-- ===================== DISTRIBUTION callout ===================== -->
-        <mxCell id="dist" value="Distribution (DD-028): native single-binary + WASM serving core;&#xa;heavy JVM engine fetched separately" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Menlo;fontSize=15;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;strokeWidth=2;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="600" y="1030" width="540" height="74" as="geometry" />
+        <!-- ===================== DISTRIBUTION callout (a NOTE, not a port/adapter — deliberately not a hexagon) ===================== -->
+        <mxCell id="dist" value="▸ note — Distribution (DD-028): native single-binary + WASM&#xa;serving core; heavy JVM engine fetched separately" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontFamily=Menlo;fontSize=16;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;strokeWidth=2;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="610" y="990" width="600" height="80" as="geometry" />
         </mxCell>
 
         <!-- ===================== LEGEND ===================== -->
-        <mxCell id="legend" value="Legend:  &lt;b style=&quot;color:#27d4ff&quot;&gt;cyan&lt;/b&gt; = durable Rust core &amp; ports (the bet)   ·   &lt;b style=&quot;color:#55ff99&quot;&gt;green&lt;/b&gt; = proven, droppable adapters   ·   &lt;b style=&quot;color:#ffb14e&quot;&gt;amber&lt;/b&gt; = bold choice   ·   &lt;b style=&quot;color:#8190a4&quot;&gt;grey dashed&lt;/b&gt; = deferred heads   ·   &lt;b style=&quot;color:#7fdcff&quot;&gt;⟡&lt;/b&gt; = a port (the seam)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0b101a;strokeColor=#5a6678;align=left;verticalAlign=middle;fontSize=14;fontFamily=Menlo;fontColor=#cfd8e3;spacingLeft=12;" vertex="1" parent="1">
-          <mxGeometry x="48" y="1420" width="1620" height="46" as="geometry" />
+        <mxCell id="legend" value="Legend:  &lt;b style=&quot;color:#27d4ff&quot;&gt;cyan&lt;/b&gt; = durable Rust core &amp; ports (the bet)   ·   &lt;b style=&quot;color:#55ff99&quot;&gt;green&lt;/b&gt; = proven, droppable adapters   ·   &lt;b style=&quot;color:#ffb14e&quot;&gt;amber dashed&lt;/b&gt; = a note (not a node)   ·   &lt;b style=&quot;color:#8190a4&quot;&gt;grey dashed&lt;/b&gt; = deferred heads   ·   &lt;b style=&quot;color:#7fdcff&quot;&gt;⟡&lt;/b&gt; = a port (the seam)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0b101a;strokeColor=#5a6678;align=left;verticalAlign=middle;fontSize=15;fontFamily=Menlo;fontColor=#cfd8e3;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="48" y="1390" width="1200" height="50" as="geometry" />
         </mxCell>
 
         <!-- ===================== EDGES ===================== -->
-        <mxCell id="e_bytes" value="load" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=13;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="bytes" target="engine">
+        <mxCell id="e_bytes" value="load" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=15;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="bytes" target="engine">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e_engine" value="materialize · analyze · decompile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=13;fontFamily=Menlo;fontColor=#bfffd9;strokeColor=#55ff99;labelBackgroundColor=#07090f;strokeWidth=2;startArrow=classicThin;startFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="engine" target="p_engine">
+        <mxCell id="e_engine" value="materialize · analyze · decompile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=15;fontFamily=Menlo;fontColor=#bfffd9;strokeColor=#55ff99;labelBackgroundColor=#07090f;strokeWidth=2;startArrow=classicThin;startFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="engine" target="p_engine">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_engine2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27d4ff;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="p_engine" target="core">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e_store" value="persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=13;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;strokeWidth=2;exitX=0;exitY=0.62;entryX=1;entryY=0.5;" edge="1" parent="1" source="core" target="p_storage">
+        <mxCell id="e_store" value="persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=15;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;strokeWidth=2;exitX=0;exitY=0.62;entryX=1;entryY=0.5;" edge="1" parent="1" source="core" target="p_storage">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_store2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#55ff99;strokeWidth=2;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="p_storage" target="artifact">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e_client" value="navigate · annotate&#xa;(semantic zoom)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=13;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="core" target="p_client">
+        <mxCell id="e_client" value="navigate · annotate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=15;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="core" target="p_client">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_mcp" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27d4ff;strokeWidth=2;startArrow=classicThin;startFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="p_client" target="mcp">

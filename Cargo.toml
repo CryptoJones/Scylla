@@ -4,6 +4,7 @@ resolver = "2"
 members = [
     "crates/scylla-model",
     "crates/scylla-schema",
+    "crates/scylla-ingest",
 ]
 
 [workspace.package]

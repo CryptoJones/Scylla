@@ -1,0 +1,13 @@
+[package]
+name = "scylla-ingest"
+description = "Materialize a GayHydra headless snapshot into the Scylla model artifact (DD-009 first path)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+scylla-model = { path = "../scylla-model" }
+scylla-schema = { path = "../scylla-schema" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

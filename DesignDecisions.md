@@ -19,43 +19,55 @@ is settled yet.
 
 ## Decisions Locked (2026-06-21)
 
-First working session. These are settled (`OPEN` → `DECIDED`); the per-DD entries below
-carry the same status. The two **outer port contracts** (storage-in, client-out) and the
-**inner engine/language** plumbing are now fixed; the rest still hangs off them.
+Settled below (`OPEN` → `DECIDED`); the per-DD entries carry the same status. **DD-009 and
+DD-016 were reversed mid-session** — the initial embed / Kotlin-JVM call was traded for
+**engine-as-service + a Rust core** under an explicit mandate from the project owner:
 
-**The two outer contracts (what Scylla *is*):**
-- **DD-026 / DD-015 — Persistence: own the format.** The canonical on-disk form is a clean,
-  documented, versioned serialization of the *domain model*. Ghidra's `.gpr` is demoted to
-  (i) the embedded engine's private cache (behind the engine port) and (ii) a disposable
-  import/export interop adapter — **never the canonical format.** Binary input is unchanged
-  (bytes + auto-detected arch/base/loader hints).
-- **DD-017 / DD-001 — Client port: data-centric, model-primary.** The port exposes the
-  **engine-independent domain model as a navigable graph** plus a curated command set
-  (`import`, `analyze`, `decompile`, `rename`, `retype`, `comment`, `diff`). Clients see the
-  model ("function F, its decompilation, its callers"), never engine operations.
-- **DD-020 — Altitude: the focal-length / semantic-zoom model.** One multi-resolution graph;
-  every request carries a *detail level*. The **domain vocabulary is the default resting
-  altitude**; finer (instructions, p-code, bytes) is one zoom *down* (an escape hatch);
-  coarser *intent* is one zoom *up*, composed by the **consumer/agent**, never baked into the
-  port. (Established names: *semantic zoom* + *level-of-detail / multi-resolution model*.)
+> *"Nobody is ever going to use it so it doesn't matter how long it takes. Let's do it right."*
+> — Aaron K. Clark, 2026-06-21
 
-**The inner engine/language plumbing (forced largely by the contracts):**
-- **DD-009 — Engine integration: embed in-process.** The core embeds the engine and calls
-  its API in-process — the semantic-zoom port demands constant fine-grained navigation that
-  would die across a core↔engine seam. The C++ decompiler stays behind Ghidra's internal
-  IPC, untouched (P1).
-- **DD-016 — Language: Kotlin / JVM core; heads polyglot.** Embedding puts the core in the
-  Ghidra JVM, so the core is Kotlin. **Only the core pays the JVM tax** — the adapter heads
-  are out-of-process, any language (Rust/Go/TS), projecting the client port.
+With time off the table, the native-serving payoff (DD-016) wins, and the core↔engine seam is
+recognized not as a wart but as the architecture's **second narrow waist** (the engine port).
+The two stable waists — *engine-port* on the producer side, *model-artifact* on the consumer
+side — leave everything pluggable above and below *both*. (See "Why It's Shaped This Way.")
+
+**The contracts & model (what Scylla *is*):**
+- **DD-026 / DD-015 — Persistence: own the format.** Canonical on-disk form is a clean,
+  documented, versioned serialization of the *domain model*. Ghidra's `.gpr` is demoted to a
+  disposable import/export interop adapter + the engine's private cache — **never canonical.**
+  Binary input unchanged (bytes + auto-detected arch/base/loader hints).
+- **DD-017 / DD-001 — Client port: data-centric, model-primary.** Exposes the
+  **engine-independent domain model as a navigable graph** + a curated command set (`import`,
+  `analyze`, `decompile`, `rename`, `retype`, `comment`, `diff`). The model: **rich type
+  system; user facts first-class & durable (survive re-analysis); graphs (call graph, CFGs)
+  computed, not stored** — "if a human RE says it out loud, it's in the model."
+- **DD-020 — Altitude: focal-length / semantic-zoom.** One multi-resolution graph; every
+  request carries a *detail level*. Domain vocabulary is the default; finer (p-code, bytes) is
+  one zoom *down* (escape hatch); coarser *intent* is the consumer/agent's job, never in the
+  port.
+- **DD-002 — Schema: Cap'n Proto.** Zero-copy (the large model is navigated lazily), schema-
+  first polyglot codegen + evolution, and promise-pipelining RPC for the navigation-heavy
+  client port. First-class now that the core is Rust (the FlatBuffers lean was a JVM-era
+  artifact).
+- **DD-003 — IR: adopt P-code**, parked at the fine-zoom escape hatch — the one place the
+  model is honestly engine-flavored; the domain level above it survives an engine swap.
+
+**The inner plumbing — two narrow waists, pluggable on both sides:**
+- **DD-009 — Engine integration: engine-as-service.** GayHydra runs as a separate JVM
+  *producer* behind the engine-port protocol; the Rust core calls it. Navigation runs over the
+  core's *materialized* model (in-core), so the seam carries only coarse ops — materialize,
+  analyze, decompile — not per-zoom traffic. *(Reversed from the initial embed call.)*
+- **DD-016 — Language: Rust core; heads polyglot.** The JVM is demoted to a transient analysis
+  producer; the always-on serving/navigation core is **native** — WASM-able into a browser,
+  embeddable as a library, distributable as a single binary. *(Reversed from Kotlin/JVM.)*
 - **DD-011 — Engine: GayHydra** (the hardened fork — inherits Rec 18/19 + 33/34; it's ours).
-- **DD-014 — Trust boundary: sandbox the unit.** The sandbox wraps the **whole core+engine
-  process**; the heads live *outside* it and reach it only through the client port. Boundary
-  is `core+engine ⟷ heads/host`, not `core ⟷ engine` — adversarial binaries are contained
-  without re-introducing the seam. In-process speed *and* isolation.
+- **DD-014 — Trust boundary: sandbox the engine.** With engine-as-service the sandbox wraps
+  only the **engine producer** (the adversarial-binary parser); the Rust core sits *outside*
+  the blast radius — a hostile binary can't reach it at all.
 
-**Still open** (now constrained by the above): the exact domain-model entity set (DD-001),
-the contract schema language (DD-002), the IR choice (DD-003 — leans P-code via the embed),
-and the rest of A / D / E.
+**Still open** (now constrained): the contract *schema details* (DD-002 chosen, schema TBD),
+DD-008 versioning, collaboration scope (DD-027 mechanism set — git-for-RE), and the rest of
+D / E.
 
 ---
 
@@ -76,8 +88,8 @@ once, because they were all symptoms of producer↔consumer coupling in the old 
   (or running several) is a pluggable concern, not a rewrite. Today it's GayHydra; the waist
   doesn't care.
 - **Consume-side portability (DD-016).** Everything *below* the waist consumes a portable
-  artifact, so the always-on serving/navigation half can be lightweight — and (with a native
-  core) WASM-able into a browser, embeddable as a library, distributable as a single binary.
+  artifact, so the always-on serving/navigation half can be lightweight — and, with the **Rust**
+  core (DD-016), WASM-able into a browser, embeddable as a library, distributable as one binary.
   The heavy JVM/engine becomes a *transient producer* you spin up to analyze and then drop.
 - **Collaboration / multi-user (DD-027).** The Ghidra-Server subsystem *disappears.* A
   shareable, mergeable model artifact makes collaboration **git for reverse engineering** —
@@ -127,21 +139,21 @@ blocks, instructions, the IR, data types, references (xrefs), the call graph, CF
 decompiled output, comments/annotations, bookmarks, equates, stack frames.
 *Tension:* minimal-but-complete vs kitchen-sink. Too small and adapters re-derive;
 too big and the contract ossifies around accidents.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — **rich type system** (structs/unions/enums/pointers/arrays/function signatures); **user facts first-class & durable** (renames, types, comments survive re-analysis — see DD-005); **graphs (call graph, CFGs) computed/navigable, not stored.** In/out line: if a human RE says it out loud it's in the model; engine bookkeeping stays behind the engine port.
 
 **DD-002 — Model contract & schema language.**
 *Question:* How is the model *specified* as a stable, transport-agnostic contract —
 protobuf? a custom IDL? JSON Schema? language-native types projected out?
 *Tension:* the contract outlives every transport, so it must be schema-language-neutral
 in spirit; but we need *one* canonical authoring form.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — **Cap'n Proto.** Zero-copy for the large, lazily-navigated model; schema-first polyglot codegen + evolution; promise-pipelining RPC fits the navigation-heavy client port. First-class now that the core is Rust (DD-016) — the FlatBuffers lean was a JVM-era artifact, and Cap'n Proto's weak JVM binding no longer applies.
 
 **DD-003 — The IR.**
 *Question:* Adopt Ghidra's **P-code** as the canonical IR, abstract over it, or define
 our own? *Tension:* P-code is proven and architecture-neutral (huge win), but adopting
 it couples the core to Ghidra's IR semantics — arguably fine (P-code *is* domain, not
 technology), but it's a conscious bet. Defining our own IR is enormous scope.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — **adopt P-code** as the canonical IR, parked at the fine-zoom escape hatch (periphery, not spine). The one place the model is honestly engine-flavored; the domain level above it survives an engine swap.
 
 **DD-004 — Entity identity & stability.**
 *Question:* How are entities identified such that IDs survive re-analysis and user
@@ -184,7 +196,7 @@ call its API; (c) a **long-lived engine service** the core talks to over a priva
 protocol; (d) **FFI straight to the C++ decompiler** + reimplement the framework glue.
 *Tension:* proximity/perf vs isolation vs effort. This decision constrains DD-016
 (language/runtime) and most of B/C.
-*Status:* **DECIDED (2026-06-21)** — embed the engine in-process (the semantic-zoom port needs in-process navigation; a service would re-create the chatty seam on the hot path). The C++ decompiler stays behind Ghidra's internal IPC, untouched.
+*Status:* **DECIDED (2026-06-21, revised)** — **engine-as-service** (option c): GayHydra runs as a separate JVM *producer* behind the engine-port protocol; the Rust core (DD-016) calls it. Navigation runs over the core's *materialized* model in-core, so the seam carries only coarse ops — materialize, analyze, decompile — not per-zoom traffic. The engine-port seam is the architecture's *second narrow waist*, not a wart. *Reverses the initial embed call* under the owner's "do it right, time is no constraint" mandate (see Decisions Locked). The C++ decompiler stays behind Ghidra's internal IPC, untouched.
 
 **DD-010 — Engine surface: whole framework vs parts.**
 *Question:* Do we wrap Ghidra's *entire* Java framework (loaders, analyzers, SLEIGH,
@@ -216,7 +228,7 @@ boundary for adding/overriding specs.)
 *Question:* How many processes, and where is the trust boundary? Binaries are
 **adversarial input** — the engine that parses them should be sandboxed/isolated from
 the core and the heads. *Tension:* isolation vs latency vs complexity.
-*Status:* **DECIDED (2026-06-21)** — sandbox the **whole core+engine process**; heads live outside it and reach it only via the client port. Boundary = `core+engine ⟷ heads/host`, not `core ⟷ engine`. In-process speed *and* isolation.
+*Status:* **DECIDED (2026-06-21, revised)** — with engine-as-service (DD-009) the sandbox wraps just the **engine producer** (the adversarial-binary parser); the Rust core sits *outside* the blast radius — a hostile binary can't reach it at all. (Supersedes the embed-era "sandbox the whole unit" boundary.)
 
 **DD-015 — Interop with existing Ghidra projects.**
 *Question:* Can Scylla open / round-trip existing Ghidra databases (`.gpr`, packed
@@ -236,7 +248,7 @@ DD-009 to option c); (c) polyglot. *Tension:* engine-proximity (JVM) vs a modern
 systems language — and note P1 (engine is sacred = Java) pulls hard toward a JVM core,
 which conflicts with the "kill the seam in Rust" instinct. **This is the single most
 consequential decision; it interacts with DD-009/010.**
-*Status:* **DECIDED (2026-06-21)** — core in **Kotlin/JVM** (embedding requires it). Only the core pays the JVM tax; the adapter heads are out-of-process and polyglot (Rust/Go/TS).
+*Status:* **DECIDED (2026-06-21, revised)** — core in **Rust** (native). The JVM is demoted to a transient analysis *producer* (the engine service, DD-009); the always-on serving/navigation core is native — WASM-able into a browser, embeddable as a library, distributable as a single binary. Heads stay out-of-process & polyglot. *Reverses the initial Kotlin/JVM call* under the "do it right, time is no constraint" mandate.
 
 **DD-017 — Inbound (driving) ports.**
 *Question:* Define the verbs an outside consumer uses to drive RE — e.g. `import`,

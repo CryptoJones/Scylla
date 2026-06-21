@@ -30,6 +30,20 @@ Tracked "later / someday" items that aren't on the current sprint path
   proved the signal exists; the production model just doesn't carry it yet. Landing the
   fingerprint raises the DD-038 ratcheted floors. **Never at the cost of `WRONG=0`.**
 
+## Engine-as-service (DD-040)
+
+- [ ] **Warm co-resident engine (perf).** Materialize cold-launches `analyzeHeadless` per call
+  (~25s). Keep a GayHydra analysis context warm in-process instead. Gated on the
+  classloader-coexistence spike (grpc-netty-shaded + GayHydra under one launcher); subprocess
+  mode ships v1 behind the same RPC, so this is an optimization, not a redesign.
+- [ ] **Wire the Rust core to the engine-port gRPC stream.** Today `scylla-ingest` reads the
+  snapshot JSON via `materialize.sh`; the gRPC engine-service is a parallel path. Make the core
+  consume the `Materialize` stream (resolve callee addrs → stable ids, mint via `IdMinter`) so
+  the engine-port is *the* path, not a second one.
+- [ ] **Config-ify the engine-service.** `GHIDRA_DIST` / `SCYLLA_SCRIPT_DIR` are
+  hardcoded-with-env-default for the spike; and ship `dump_model.java` with the service instead
+  of reaching into `prototype/harness`.
+
 ## Security
 
 - [ ] **Threat-model the seams before Sprint 9 / before exposing the MCP head to untrusted input.**

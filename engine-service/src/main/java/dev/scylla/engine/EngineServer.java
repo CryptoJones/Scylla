@@ -1,48 +1,107 @@
 package dev.scylla.engine;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import scylla.engine.v1.EngineGrpc;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import scylla.engine.v1.DecompileReply;
 import scylla.engine.v1.DecompileRequest;
+import scylla.engine.v1.EngineGrpc;
 import scylla.engine.v1.FunctionChunk;
 import scylla.engine.v1.InfoReply;
 import scylla.engine.v1.InfoRequest;
 import scylla.engine.v1.MaterializeRequest;
 
 /**
- * Scylla engine-as-service (DD-040) — STANDALONE JVM gRPC server.
+ * Scylla engine-as-service (DD-040) — STANDALONE JVM gRPC server fronting GayHydra.
  *
- * <p>This is the spike skeleton: it stands up grpc-java in a normal classpath and serves the
- * engine-port contract with stub data. Driving Ghidra headless as a library lands next, after
- * the classloader-coexistence milestone — keeping grpc-java OUT of Ghidra's plugin classloader
- * is the whole point of making this a standalone process, not a GUI plugin.
+ * <p>{@code Materialize} runs GayHydra's {@code analyzeHeadless} as a subprocess with the
+ * shared dump-model post-script, then streams the result. GayHydra runs under its own
+ * launcher (a clean separate process) and grpc-netty-shaded lives in this JVM — they never
+ * share a classloader. Cold-start per request for now; a warm co-resident engine is a backlog
+ * performance optimization, behind this same RPC. ALWAYS GayHydra, never stock Ghidra.
  */
 public final class EngineServer {
+
+    static final String DEFAULT_DIST =
+            "/home/hermes/Source/repos/GayHydra/build/dist/ghidra_26.3.0_GayHydra-26.3.0";
+    static final String DEFAULT_SCRIPT_DIR =
+            "/home/hermes/Source/repos/Scylla/prototype/harness";
+
+    static String env(String k, String fallback) {
+        String v = System.getenv(k);
+        return (v == null || v.isEmpty()) ? fallback : v;
+    }
 
     static final class EngineImpl extends EngineGrpc.EngineImplBase {
         @Override
         public void info(InfoRequest req, StreamObserver<InfoReply> resp) {
-            resp.onNext(InfoReply.newBuilder().setEngine("GayHydra").setVersion("spike-0").build());
+            resp.onNext(InfoReply.newBuilder().setEngine("GayHydra").setVersion("0.1-subprocess").build());
             resp.onCompleted();
         }
 
         @Override
         public void materialize(MaterializeRequest req, StreamObserver<FunctionChunk> resp) {
-            // Stub: two functions. Real analysis (Ghidra headless) replaces this next.
-            resp.onNext(FunctionChunk.newBuilder()
-                    .setEntry(0x401156L).setName("gcd").setSize(64).setBbCount(4).build());
-            resp.onNext(FunctionChunk.newBuilder()
-                    .setEntry(0x401249L).setName("main").setSize(180).setBbCount(4)
-                    .addCallees(0x401156L).build());
-            resp.onCompleted();
+            Path bin = null, out = null, proj = null;
+            try {
+                String dist = env("GHIDRA_DIST", DEFAULT_DIST);
+                String scriptDir = env("SCYLLA_SCRIPT_DIR", DEFAULT_SCRIPT_DIR);
+                bin = Files.createTempFile("scylla-bin", ".bin");
+                out = Files.createTempFile("scylla-snap", ".json");
+                proj = Files.createTempDirectory("scylla-proj");
+                Files.write(bin, req.getBinary().toByteArray());
+
+                ProcessBuilder pb = new ProcessBuilder(
+                        dist + "/support/analyzeHeadless", proj.toString(), "scylla_engine",
+                        "-import", bin.toString(),
+                        "-scriptPath", scriptDir,
+                        "-postScript", "dump_model.java", out.toString(),
+                        "-deleteProject");
+                pb.redirectErrorStream(true);
+                Process p = pb.start();
+                p.getInputStream().readAllBytes(); // drain so the engine never blocks on a full pipe
+                int code = p.waitFor();
+                if (code != 0 || !Files.exists(out) || Files.size(out) == 0) {
+                    resp.onError(Status.INTERNAL
+                            .withDescription("GayHydra headless failed (exit " + code + ")")
+                            .asRuntimeException());
+                    return;
+                }
+
+                JsonObject root = JsonParser.parseString(Files.readString(out)).getAsJsonObject();
+                for (JsonElement fe : root.getAsJsonArray("functions")) {
+                    JsonObject f = fe.getAsJsonObject();
+                    FunctionChunk.Builder b = FunctionChunk.newBuilder()
+                            .setEntry(Long.parseUnsignedLong(f.get("entry").getAsString(), 16))
+                            .setName(f.get("name").getAsString())
+                            .setSize(f.get("size").getAsLong())
+                            .setBbCount(f.get("bb_count").getAsInt());
+                    if (f.has("callees")) {
+                        for (JsonElement c : f.getAsJsonArray("callees")) {
+                            b.addCallees(Long.parseUnsignedLong(c.getAsString(), 16));
+                        }
+                    }
+                    resp.onNext(b.build());
+                }
+                resp.onCompleted();
+            } catch (Exception e) {
+                resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
+                        .asRuntimeException());
+            } finally {
+                try { if (bin != null) Files.deleteIfExists(bin); } catch (Exception ignored) {}
+                try { if (out != null) Files.deleteIfExists(out); } catch (Exception ignored) {}
+            }
         }
 
         @Override
         public void decompile(DecompileRequest req, StreamObserver<DecompileReply> resp) {
             resp.onNext(DecompileReply.newBuilder()
-                    .setC("/* decompilation pending Ghidra wiring */").build());
+                    .setC("/* decompilation: on-demand GayHydra call, pending */").build());
             resp.onCompleted();
         }
     }
@@ -50,7 +109,7 @@ public final class EngineServer {
     public static void main(String[] args) throws Exception {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : 50051;
         Server server = ServerBuilder.forPort(port).addService(new EngineImpl()).build().start();
-        System.out.println("scylla-engine-service (spike) listening on " + port);
+        System.out.println("scylla-engine-service (GayHydra subprocess) listening on " + port);
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown));
         server.awaitTermination();
     }

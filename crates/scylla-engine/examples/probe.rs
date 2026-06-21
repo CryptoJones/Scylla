@@ -11,8 +11,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let info = client.info(InfoRequest {}).await?.into_inner();
     println!("Info: engine={} version={}", info.engine, info.version);
 
+    // Send a real binary's bytes if a path is given (arg 2); else an empty request.
+    let binary = std::env::args().nth(2).map(|p| std::fs::read(p).unwrap_or_default()).unwrap_or_default();
     let mut stream = client
-        .materialize(MaterializeRequest { binary: vec![], arch_hint: String::new() })
+        .materialize(MaterializeRequest { binary, arch_hint: String::new() })
         .await?
         .into_inner();
     let mut n = 0;

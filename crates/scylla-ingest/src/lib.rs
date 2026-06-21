@@ -98,4 +98,23 @@ mod tests {
         let back = scylla_schema::from_bytes(&bytes).unwrap();
         assert_eq!(prog, back, "materialized model must round-trip losslessly");
     }
+
+    #[test]
+    fn ingest_is_total_on_malformed_json() {
+        // DD-039 per-commit replay: a compromised/buggy engine could emit anything. Parsing
+        // must never panic — bad input is an Err, not a crash.
+        assert!(snapshot_to_program("").is_err());
+        assert!(snapshot_to_program("not json").is_err());
+        assert!(snapshot_to_program("{}").is_err());
+        for bad in [
+            "null",
+            "[]",
+            "42",
+            r#"{"program":"p","language":"l","functions":"nope"}"#,
+            r#"{"program":"p","language":"l","functions":[{"entry":"zzz","name":3,"size":1,"bb_count":1}]}"#,
+            r#"{"program":"p","language":"l","functions":[{"entry":"deadbeef","name":"f","size":1,"bb_count":1,"callees":[42]}]}"#,
+        ] {
+            let _ = snapshot_to_program(bad); // must not panic
+        }
+    }
 }

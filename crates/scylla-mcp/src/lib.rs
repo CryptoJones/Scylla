@@ -188,4 +188,30 @@ mod tests {
             assert!(!toml.contains("scylla-mcp"), "scylla-{who} must not depend on the MCP head (P6/DD-025)");
         }
     }
+
+    #[test]
+    fn dispatch_is_total_on_hostile_jsonrpc() {
+        // DD-039 per-commit replay: hostile/malformed JSON-RPC must never panic, and must
+        // always come back as a well-formed envelope (jsonrpc 2.0 + exactly one of result/error).
+        let mut s = session();
+        let hostile = [
+            json!({}),
+            json!(null),
+            json!([]),
+            json!("string"),
+            json!({"method": 123}),
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call"}),
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_function"}}),
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_function", "arguments": {"id": "not-a-number"}}}),
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "💀", "arguments": {}}}),
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "rename", "arguments": {"id": 1}}}),
+        ];
+        for req in &hostile {
+            let resp = dispatch(&mut s, req);
+            assert_eq!(resp["jsonrpc"], "2.0", "must be a JSON-RPC 2.0 envelope: {resp}");
+            let has_result = resp.get("result").is_some();
+            let has_error = resp.get("error").is_some();
+            assert!(has_result ^ has_error, "exactly one of result/error: {resp}");
+        }
+    }
 }

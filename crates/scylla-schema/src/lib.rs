@@ -291,4 +291,30 @@ mod tests {
         assert!(matches!(load(&[0xde, 0xad, 0xbe, 0xef, 0x00, 0x01]), Err(LoadError::Decode(_))));
         assert!(load(&[]).is_err());
     }
+
+    #[test]
+    fn load_is_total_on_adversarial_bytes() {
+        // DD-039 per-commit replay: truncations + bit-flips of a valid artifact, plus junk.
+        // The contract is totality — every input yields Ok or a typed LoadError, never a
+        // panic/OOM. (The nightly cargo-fuzz lane explores beyond this fixed corpus.)
+        let valid = to_bytes(&sample());
+        let mut cases: Vec<Vec<u8>> = vec![
+            vec![],
+            vec![0u8],
+            vec![0xffu8; 64],
+            b"not a capnp message".to_vec(),
+            valid.clone(),
+        ];
+        for n in [1usize, valid.len() / 2, valid.len().saturating_sub(1)] {
+            cases.push(valid[..n.min(valid.len())].to_vec());
+        }
+        for i in (0..valid.len()).step_by(7) {
+            let mut v = valid.clone();
+            v[i] ^= 0xff;
+            cases.push(v);
+        }
+        for c in &cases {
+            let _ = load(c); // must not panic
+        }
+    }
 }

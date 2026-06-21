@@ -11,15 +11,16 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Possible future adapters (the whole point of the hexagon)
 
-- [ ] **Evaluate the x64dbg / Scylla dynamic-analysis ecosystem as a future *producer* adapter**
-  behind the engine port (DD-009/018). Found via x64dbg/**ScyllaHide** (an anti-anti-debug
-  plugin — runtime, tangential to our static model) — but the relevant neighbors are the
-  *dynamic* tools: **Scylla** (import reconstruction), debugger dumps, unpacked-at-runtime
-  images. These don't replace the GayHydra static engine; they're a *second producer* that
-  could feed runtime-resolved facts (real imports, dumped code, resolved indirect calls) into
-  the **same model artifact** through the engine/binary-source ports. The narrow-waist design
-  is exactly what makes "add a dynamic-analysis producer someday" a new adapter, not a rewrite.
-  (Bonus: the name collision is on-brand — the RE scene loves "Scylla".)
+- [x] **Evaluate the x64dbg / Scylla dynamic-analysis ecosystem as a future *producer* adapter.**
+  Done — [docs/eval-dynamic-analysis-producer.md](../docs/eval-dynamic-analysis-producer.md).
+  Verdict: a strong *eventual* adapter (it's exactly what the narrow waist absorbs without a
+  rewrite — a second producer feeding the same model), **deliberately deferred**: executing hostile
+  code is a categorically harder containment tier than the DD-034 parser sandbox, the static+dynamic
+  merge is confidence/coverage-asymmetric (a real `collaborate` extension), and the static path
+  (decompile, warm engine, cross-arch) isn't finished. No-regret groundwork noted: first-class
+  producer **provenance** (DD-007) + coverage-aware `collaborate` (DD-027). First real step: a
+  narrow seam prototype (ingest one runtime artifact, merge vs the static model) before betting on
+  the harness.
 
 ## Re-anchoring recovery
 

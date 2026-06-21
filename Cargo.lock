@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-ingest"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "scylla-model",
  "scylla-schema",
@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-mcp"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -78,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-merge"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -86,11 +86,11 @@ dependencies = [
 
 [[package]]
 name = "scylla-model"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "scylla-port"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -99,7 +99,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-schema"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "capnp",
  "capnpc",

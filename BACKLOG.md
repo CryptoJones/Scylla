@@ -66,13 +66,13 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Security
 
-- [ ] **Full no-egress lockdown for the engine sandbox (DD-034).** The container ships with a
-  read-only rootfs, all caps dropped, no-new-privileges, non-root, mem/CPU/PID caps, and a
-  size-capped RAM tmpfs — but gRPC is still published on host-loopback, so the parser *can*
-  reach the network if something inside it tries. The strongest form is `--network none` + gRPC
-  over a **bind-mounted unix socket**, so a hostile binary literally cannot phone home. That
-  needs UDS transport in both the JVM service and the tonic client. Until then the sandbox
-  contains blast radius (no host FS, no privilege, no core access) but not egress.
+- [x] **Full no-egress lockdown for the engine sandbox (DD-034 / GAP-1).** The container now runs
+  with `--network none` — no interfaces, no published port, no route out — and gRPC rides a
+  **bind-mounted Unix socket**: `EngineServer` listens on a UDS via the grpc-netty epoll transport
+  when `SCYLLA_ENGINE_UDS` is set, and the tonic client dials a `unix:/path` endpoint via a custom
+  connector. A hostile binary literally cannot phone home. Proven live: `--network none` +
+  `scylla materialize unix:…/engine.sock` → 13 functions, no network at all. Full DD-034: no host
+  FS, no privilege, no core access, **no egress**.
 - [x] **Threat-model the seams.** Done — [THREAT-MODEL.md](THREAT-MODEL.md): a seam-by-seam pass
   (S1 binary→engine, S2 engine→core, S3 artifact→core, S4 core→agent, S5 agent→core) over the
   three untrusted inputs, citing the mitigations and naming the residual gaps. It found four, the

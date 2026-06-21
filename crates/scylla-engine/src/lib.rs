@@ -81,6 +81,30 @@ fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), S
     Ok(())
 }
 
+/// Connect to the engine-service. A `unix:/path/to.sock` endpoint dials a **Unix-domain socket**
+/// (the no-egress sandbox — DD-034 GAP-1, where the container runs with `--network none` and a
+/// hostile binary has no network to phone home over); anything else is a normal TCP/HTTP endpoint.
+pub async fn connect_engine(
+    endpoint: String,
+) -> Result<pb::engine_client::EngineClient<tonic::transport::Channel>, Box<dyn std::error::Error>> {
+    if let Some(path) = endpoint.strip_prefix("unix:") {
+        let path = path.to_string();
+        // The URI is a placeholder — the connector ignores it and dials the socket path.
+        let channel = tonic::transport::Endpoint::try_from("http://[::1]:50051")?
+            .connect_with_connector(tower::service_fn(move |_: tonic::transport::Uri| {
+                let path = path.clone();
+                async move {
+                    let stream = tokio::net::UnixStream::connect(path).await?;
+                    Ok::<_, std::io::Error>(hyper_util::rt::TokioIo::new(stream))
+                }
+            }))
+            .await?;
+        Ok(pb::engine_client::EngineClient::new(channel))
+    } else {
+        Ok(pb::engine_client::EngineClient::connect(endpoint).await?)
+    }
+}
+
 /// The engine-port path: connect to the engine-service, materialize a binary over gRPC, and
 /// assemble the native model. This is the Rust core driving GayHydra over the DD-040 contract.
 /// The stream is a `ProgramInfo` header (name/language) then one `FunctionChunk` per function;
@@ -91,7 +115,7 @@ pub async fn materialize(
     binary: Vec<u8>,
 ) -> Result<Program, Box<dyn std::error::Error>> {
     use pb::materialize_event::Event;
-    let mut client = pb::engine_client::EngineClient::connect(endpoint).await?;
+    let mut client = connect_engine(endpoint).await?;
     let mut stream = client
         .materialize(pb::MaterializeRequest { binary, arch_hint: String::new() })
         .await?

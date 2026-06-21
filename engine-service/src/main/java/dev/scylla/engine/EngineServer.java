@@ -6,6 +6,10 @@ import com.google.gson.JsonParser;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.Status;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerDomainSocketChannel;
+import io.grpc.netty.shaded.io.netty.channel.unix.DomainSocketAddress;
 import io.grpc.stub.StreamObserver;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -222,10 +226,36 @@ public final class EngineServer {
             return;
         }
 
-        Server server =
-                ServerBuilder.forPort(port).addService(new EngineImpl(dist, scriptDir)).build().start();
-        System.out.println("scylla-engine-service (GayHydra subprocess) on " + port
-                + " | dist=" + dist + " | scripts=" + scriptDir);
+        String uds = System.getenv("SCYLLA_ENGINE_UDS");
+        Server server;
+        if (uds != null && !uds.isEmpty()) {
+            // No-egress sandbox (DD-034 GAP-1): listen on a Unix-domain socket so the container can
+            // run with `--network none` — a hostile binary has literally no network to phone home
+            // over. UDS needs the epoll NATIVE transport (the NIO transport can't do domain sockets).
+            java.io.File sock = new java.io.File(uds);
+            sock.delete(); // clear a stale socket from a previous run
+            server = NettyServerBuilder.forAddress(new DomainSocketAddress(sock))
+                    .channelType(EpollServerDomainSocketChannel.class)
+                    .bossEventLoopGroup(new EpollEventLoopGroup(1))
+                    .workerEventLoopGroup(new EpollEventLoopGroup())
+                    .addService(new EngineImpl(dist, scriptDir))
+                    .build().start();
+            // Netty creates the socket under the process umask; widen it so the host client (a
+            // different uid) can connect across the bind-mounted, host-private socket dir.
+            try {
+                java.nio.file.Files.setPosixFilePermissions(sock.toPath(),
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rwxrwxrwx"));
+            } catch (Exception ignored) {
+                // best-effort; if the host runs the client as the same uid it isn't needed
+            }
+            System.out.println("scylla-engine-service (GayHydra subprocess) on unix:" + uds
+                    + " | dist=" + dist + " | scripts=" + scriptDir);
+        } else {
+            server = ServerBuilder.forPort(port)
+                    .addService(new EngineImpl(dist, scriptDir)).build().start();
+            System.out.println("scylla-engine-service (GayHydra subprocess) on " + port
+                    + " | dist=" + dist + " | scripts=" + scriptDir);
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown));
         server.awaitTermination();
     }

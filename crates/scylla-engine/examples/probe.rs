@@ -1,12 +1,12 @@
 //! Cross-language smoke: the Rust engine-port client (tonic) calling the JVM engine-service
 //! (grpc-java). Start the service, then: `cargo run -p scylla-engine --example probe`.
-use scylla_engine::pb::engine_client::EngineClient;
 use scylla_engine::pb::{materialize_event::Event, InfoRequest, MaterializeRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // A `unix:/path` arg dials the no-egress sandbox over a domain socket; else TCP/HTTP.
     let addr = std::env::args().nth(1).unwrap_or_else(|| "http://127.0.0.1:50051".into());
-    let mut client = EngineClient::connect(addr).await?;
+    let mut client = scylla_engine::connect_engine(addr).await?;
 
     let info = client.info(InfoRequest {}).await?.into_inner();
     println!("Info: engine={} version={}", info.engine, info.version);

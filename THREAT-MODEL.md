@@ -49,12 +49,12 @@ Everything downstream is a defense of one of these:
         ▼  ╔═══════════ DD-034 sandbox (separate process, container) ═══════════╗
    ┌─────────┐  S1     ║  ro-rootfs · cap-drop ALL · no-new-privs · non-root     ║
    │ GayHydra│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
-   │ headless│  parses ║  (egress NOT closed yet — GAP-1; no wall-clock — GAP-2) ║
+   │ headless│  parses ║  --network none + UDS (no egress) · wall-clock deadline ║
    └────┬────┘         ╚═══════════════════════════════════════════════════════╝
         │ S2: gRPC Materialize stream (engine output is UNTRUSTED — DD-039)
         ▼  ╔══════════════════ durable Rust core (TRUSTED zone) ════════════════╗
    ┌─────────┐         ║  assemble(): id mint + callee resolution                ║
-   │  core   │         ║  (stream accepted UNBOUNDED — GAP-3)                    ║
+   │  core   │         ║  stream bounded: MAX_FUNCTIONS / MAX_TOTAL_MNEMONICS    ║
    └────┬────┘         ║                                                         ║
         │ S3: .scylla artifact ── DD-036 TOTAL LOADER (caps · validate ·         ║
         │      (UNTRUSTED on collab)   quarantine · never panic/OOM) ── fuzzed   ║
@@ -80,15 +80,14 @@ Everything downstream is a defense of one of these:
   sandbox buys an attacker a wiped tmpfs and nothing the core, the host FS, or any privilege can
   see. We **do not fuzz the engine** (DD-039) — the sandbox is the containment; fuzzing upstream's
   C++ is a campaign that never finishes.
-- **Residual:**
-  - **GAP-1 (egress).** The sandbox is read-only and capless but still publishes gRPC on
-    host-loopback — it is **not** `--network none`. A parser compromised into running attacker
-    code *can still reach the network*. Blast radius is contained (no host FS, no privilege); egress
-    is not. Fix: `--network none` + gRPC over a bind-mounted unix socket (BACKLOG, UDS lockdown).
-  - **GAP-2 (no wall-clock).** The container caps memory/CPU/PIDs but there is **no wall-clock
-    timeout**: `EngineServer` calls `p.waitFor()` with no bound, so a binary engineered to hang
-    `analyzeHeadless` ties up the engine slot indefinitely. DD-034 promised a wall-clock limit;
-    the code doesn't enforce one. Fix: a per-invocation deadline that kills the subprocess.
+- **Residual — both RESOLVED:**
+  - **GAP-1 (egress) — CLOSED.** The container now runs `--network none` (no interfaces, no
+    published port, no route out); gRPC rides a bind-mounted Unix socket (`SCYLLA_ENGINE_UDS` →
+    grpc-netty epoll UDS on the service, a `unix:/path` tonic connector on the client). A
+    compromised parser has no network to reach. Proven live: `--network none` + UDS materialize.
+  - **GAP-2 (wall-clock) — CLOSED.** `EngineServer` drains stdout off-thread and bounds the wait
+    (`SCYLLA_ENGINE_TIMEOUT_SEC`, default 300s), `destroyForcibly()` + `DEADLINE_EXCEEDED` on
+    timeout. A binary that hangs `analyzeHeadless` is killed at the deadline (verified live).
 
 ### S2 — engine → core (the engine-port, gRPC; engine *output* is untrusted)
 
@@ -99,12 +98,11 @@ Everything downstream is a defense of one of these:
   defensively (bad hex → dropped, never a panic), dangling callee edges are dropped, malformed
   JSON is an `Err` not a crash (`fuzz_snapshot_ingest`, `ingest_is_total_on_malformed_json`).
   Typed errors (DD-021) never leak host/engine internals over the wire.
-- **Residual:**
-  - **GAP-3 (unbounded stream).** `materialize()` does `while let Some(c) = stream.message().await?
-    { chunks.push(c) }` — it **buffers the entire `Materialize` stream with no cap**. A compromised
-    engine streaming millions of `FunctionChunk`s OOMs the *trusted core* — exactly the boundary
-    DD-036 defends for the on-disk artifact, left open for the live stream. Fix: cap the chunk
-    count / cumulative size accepted from the engine, and fail closed past it (a typed error).
+- **Residual — RESOLVED:**
+  - **GAP-3 (unbounded stream) — CLOSED.** `materialize()` now caps the cumulative function and
+    instruction counts (`MAX_FUNCTIONS`, `MAX_TOTAL_MNEMONICS`) and fails closed with a typed error
+    past either — the live-stream analogue of the DD-036 artifact caps. A compromised engine can no
+    longer OOM the trusted core.
 
 ### S3 — artifact → core (the `.scylla` loader; the second adversarial input)
 
@@ -133,13 +131,12 @@ Everything downstream is a defense of one of these:
   holds **no domain logic** (DD-025, enforced by an arch test) so there's nothing to confuse; v1 is
   local single-user (DD-035) so the network attack surface is nil.
 - **Residual:**
-  - **GAP-4 (injection delimiting NOT implemented).** DD-035 mandates that the head surface all
-    analysis content as **clearly delimited untrusted data, never as instructions** — and
-    `scylla-mcp` **does not do this today**: function names and (future) decompiled text are
-    returned as bare JSON values with no untrusted-content framing. This is the single most current,
-    most under-defended threat in the system per our own decision record. Fix: wrap
-    analysis-derived strings in an explicit untrusted-data envelope in the head's tool results, and
-    state the contract in the tool descriptions.
+  - **GAP-4 (injection delimiting) — CLOSED.** The head now wraps every binary-derived result
+    (`list_functions`/`get_function`/`callers`) in an explicit `<untrusted-data>` envelope with a
+    never-instructions preamble, and states the contract in the tool descriptions. It is
+    default-untrusted: only the head's own status acks (`STATUS_ONLY_TOOLS`) pass unwrapped, so a
+    future read tool (e.g. `decompile`) is delimited automatically. The named prompt-injection
+    threat is delimited at the seam.
   - **Networked exposure (tracked, not yet due).** When a future head is networked/multi-tenant
     (DD-035), it needs authn/authz, rate-limiting, and per-principal isolation. The identity seam
     (DD-035, `Option<Principal>`) is already threaded so that arrives without a core rewrite — but
@@ -155,20 +152,21 @@ Everything downstream is a defense of one of these:
 - **Residual:** no resource/rate limiting on request volume — irrelevant under v1 local trust,
   required when networked (folded into the networked-exposure item above).
 
-## Open gaps (consolidated → BACKLOG)
+## Gaps this model found (all now closed → BACKLOG)
 
-| # | Seam | Gap | Severity (v1 / when networked) |
-|---|------|-----|--------------------------------|
-| GAP-1 | S1 | Engine sandbox egress not closed (`--network none` + UDS) | Med / High |
-| GAP-2 | S1 | No wall-clock timeout on the engine subprocess (DoS / hang) | Med / Med |
-| GAP-3 | S2 | Core buffers the engine stream unbounded (core OOM) | Med / Med |
-| GAP-4 | S4 | MCP head doesn't delimit untrusted analysis content (prompt injection) | **High / High** |
-| — | build | Release signing (cosign, DD-029) not automated in CI | Low / Med |
-| — | S4 | Networked head: authn/authz/rate-limit (DD-035) — not yet due | n/a / High |
+| # | Seam | Gap | Status |
+|---|------|-----|--------|
+| GAP-1 | S1 | Engine sandbox egress (`--network none` + UDS) | **CLOSED** |
+| GAP-2 | S1 | Wall-clock timeout on the engine subprocess | **CLOSED** |
+| GAP-3 | S2 | Bound the engine stream (core OOM) | **CLOSED** |
+| GAP-4 | S4 | MCP head delimits untrusted analysis content | **CLOSED** |
+| cosign | build | Keyless release signing (DD-029) | **CLOSED** |
+| — | S4 | Networked head: authn/authz/rate-limit (DD-035) | deferred — no networked head yet |
 
-GAP-4 is the one to land first: it is the *current* threat (DD-035 calls it out by name), it needs
-no new infrastructure, and it is cheap. The rest are real but either contained (GAP-1/3: blast
-radius limited today) or not-yet-due (networked auth).
+Every gap this pass surfaced has since been closed (GAP-4 → untrusted-data envelope; GAP-3 → stream
+caps; GAP-2 → wall-clock; GAP-1 → `--network none` + UDS), plus keyless release signing. The one
+open item is networked-head auth, deliberately deferred until there is a networked head to attack —
+and the identity seam (DD-035) is already in place so it lands without a core rewrite.
 
 ## The closing line (DD-039, quoted because it's correct)
 

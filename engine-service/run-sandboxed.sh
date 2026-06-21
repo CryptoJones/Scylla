@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
-# DD-034: run the engine producer (the adversarial-binary parser) in a locked-down container.
-# A hostile sample can torch this sandbox without reaching the Rust core, the host FS, or — in
-# the full-lockdown variant — the network.
+# DD-034 + GAP-1: run the engine producer (the adversarial-binary parser) FULLY locked down.
+# No network namespace at all (`--network none`) — gRPC rides a bind-mounted Unix socket — so a
+# hostile sample can torch the sandbox without reaching the Rust core, the host FS, OR the
+# network. It literally cannot phone home.
 set -euo pipefail
 GHIDRA_DIST="${GHIDRA_DIST:-/home/hermes/Source/repos/GayHydra/build/dist/ghidra_26.3.0_GayHydra-26.3.0}"
-PORT="${PORT:-50051}"
+# A host-private dir for the gRPC socket, shared with the container. World-writable so the
+# container's uid 10001 can create the socket and the host client (a different uid) can connect.
+SOCK_DIR="${SOCK_DIR:-$(mktemp -d)}"
+chmod 777 "$SOCK_DIR"
+echo "engine socket: unix:$SOCK_DIR/engine.sock" >&2
+echo "  client: scylla materialize unix:$SOCK_DIR/engine.sock <binary> <out.scylla>" >&2
 
-# dump_model.java is baked into the image (engine-service/scripts/ -> the install's scripts/),
-# so there is no longer a host script mount — only the external GayHydra dist is mounted read-only.
 exec docker run --rm \
+  --network none \
   --read-only \
   --tmpfs /tmp:rw,exec,size=1g \
   --cap-drop ALL \
   --security-opt no-new-privileges \
   --memory 4g --cpus 2 --pids-limit 512 \
-  -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra \
+  -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
   -v "$GHIDRA_DIST":/opt/gayhydra:ro \
-  -p 127.0.0.1:"${PORT}":50051 \
+  -v "$SOCK_DIR":/run/scylla:rw \
   scylla-engine-service:dev
 
-# `/tmp` is the one writable surface (tmpfs) and is mounted `exec` on purpose: GayHydra's
-# launcher and the native decompiler extract and run code from temp, and the JVM's user.home
-# points here. It is RAM-backed, size-capped, and wiped on exit — the rootfs stays read-only.
-#
-# DD-034 full no-egress lockdown (BACKLOG): the strongest form is `--network none` + gRPC over a
-# bind-mounted unix socket, so a hostile binary literally cannot phone home. That needs UDS in
-# the service + Rust client. This v1 publishes gRPC on host-loopback only and applies every
-# other control: read-only rootfs, dropped caps, no-new-privileges, mem/CPU/PID limits, non-root.
+# THE FULL DD-034 LOCKDOWN (GAP-1 closed): `--network none` removes every interface but loopback,
+# so there is no published port and no route out; gRPC travels over a Unix socket on the
+# bind-mounted, host-private $SOCK_DIR. `/tmp` stays the one writable tmpfs (exec, RAM-backed,
+# size-capped, wiped on exit) the launcher + native decompiler need; the rootfs is read-only;
+# caps dropped; no-new-privileges; mem/CPU/PID-capped; non-root uid 10001. No host FS, no
+# privilege, no core access, NO egress.

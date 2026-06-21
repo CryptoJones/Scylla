@@ -717,11 +717,13 @@ dependencies = [
 name = "scylla-engine"
 version = "0.1.0"
 dependencies = [
+ "hyper-util",
  "prost",
  "scylla-model",
  "tokio",
  "tonic",
  "tonic-build",
+ "tower 0.5.3",
 ]
 
 [[package]]

@@ -67,6 +67,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "scylla-merge"
+version = "0.0.0"
+dependencies = [
+ "scylla-ingest",
+ "scylla-model",
+]
+
+[[package]]
 name = "scylla-model"
 version = "0.0.0"
 

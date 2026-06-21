@@ -1,0 +1,13 @@
+[package]
+name = "scylla-merge"
+description = "Identity-anchored re-anchoring of user facts across re-analysis (DD-005)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+scylla-model = { path = "../scylla-model" }
+
+[dev-dependencies]
+scylla-ingest = { path = "../scylla-ingest" }

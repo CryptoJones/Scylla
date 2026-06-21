@@ -5,6 +5,7 @@ members = [
     "crates/scylla-model",
     "crates/scylla-schema",
     "crates/scylla-ingest",
+    "crates/scylla-merge",
 ]
 
 [workspace.package]

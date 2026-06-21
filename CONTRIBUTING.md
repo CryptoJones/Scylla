@@ -31,4 +31,5 @@ Contributions get a fast, honest signal (DD-033).
 - Branch off the default branch; PRs target it.
 - Dual-remote: GitHub (canonical) + Codeberg mirror — changes land on both.
 - Commit history is the design record; see [DesignDecisions.md](DesignDecisions.md) for the
-  *why* behind any structural choice before proposing to change it.
+  *why* behind any structural choice before proposing to change it, and
+  [ARCHITECTURE.md](ARCHITECTURE.md) for the *what* — the crate map, data flow, and dev commands.

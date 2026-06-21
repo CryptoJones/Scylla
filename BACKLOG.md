@@ -46,10 +46,16 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Engine-as-service (DD-040)
 
-- [ ] **Warm co-resident engine (perf).** Materialize cold-launches `analyzeHeadless` per call
-  (~25s). Keep a GayHydra analysis context warm in-process instead. Gated on the
-  classloader-coexistence spike (grpc-netty-shaded + GayHydra under one launcher); subprocess
-  mode ships v1 behind the same RPC, so this is an optimization, not a redesign.
+- [ ] **Warm co-resident engine (perf) — DE-RISKED, GO; build pending.** Materialize cold-launches
+  `analyzeHeadless` per call (~6s host / ~25s container, almost all fixed JVM+Ghidra init). Keep a
+  GayHydra context warm in-process instead. The classloader-coexistence **spike is done**
+  ([spike/warm-engine/](spike/warm-engine/)): grpc-netty-shaded + in-process Ghidra
+  `Application.initializeApplication` coexist in ONE JVM under BOTH the default classloader and the
+  GhidraClassLoader (~700ms init) — the DD-040 nightmare doesn't happen. **Verdict GO.** Build:
+  serve `Materialize` from a warm context (in-process import+analyze), subprocess as the fallback
+  behind the same RPC (DD-040). Open implementation questions in SPIKE-REPORT.md: the in-process
+  analysis loop, and **concurrency** (Ghidra analysis isn't thread-safe per program → a serialized
+  queue / pool of warm contexts, not a free-for-all).
 - [x] **Wire the Rust core to the engine-port gRPC stream.** The new `scylla` CLI
   (`crates/scylla-cli`) is the composition root: `scylla materialize <endpoint> <binary>
   <out.scylla>` drives the engine-service over gRPC and consumes the `Materialize` stream straight

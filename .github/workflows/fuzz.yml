@@ -1,0 +1,28 @@
+name: fuzz (nightly)
+
+# DD-039 nightly lane: real coverage-guided fuzzing of the boundaries we wrote. The
+# per-commit replay (cargo test) is the gate; this finds *new* bugs. The engine is NOT
+# fuzzed here — it's a sandboxed black box (DD-034).
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [artifact_loader, mcp_dispatch, snapshot_ingest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Cap'n Proto compiler
+        run: sudo apt-get update && sudo apt-get install -y capnproto
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      - name: Fuzz ${{ matrix.target }} (5 min)
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=300

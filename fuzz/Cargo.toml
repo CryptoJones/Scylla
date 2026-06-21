@@ -1,0 +1,43 @@
+# DD-039 nightly fuzzing crate. Detached from the workspace (own [workspace] below) because
+# cargo-fuzz drives it with its own nightly + sanitizer flags. Fuzz what we WROTE and EXPOSE
+# (loader / dispatch / ingest) — never the engine, which the sandbox (DD-034) contains.
+[package]
+name = "scylla-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+scylla-model = { path = "../crates/scylla-model" }
+scylla-schema = { path = "../crates/scylla-schema" }
+scylla-ingest = { path = "../crates/scylla-ingest" }
+scylla-mcp = { path = "../crates/scylla-mcp" }
+scylla-port = { path = "../crates/scylla-port" }
+
+[[bin]]
+name = "artifact_loader"
+path = "fuzz_targets/artifact_loader.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mcp_dispatch"
+path = "fuzz_targets/mcp_dispatch.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "snapshot_ingest"
+path = "fuzz_targets/snapshot_ingest.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

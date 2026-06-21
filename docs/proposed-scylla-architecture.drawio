@@ -1,151 +1,116 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="drawio" version="26.0.0">
-  <diagram name="Scylla-proposed">
-    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1460" pageHeight="1080" math="0" shadow="0" background="#07090f">
+  <diagram name="Scylla-hexagonal">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1140" math="0" shadow="0" background="#07090f">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
         <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#07090f;strokeColor=none;pointerEvents=0;" vertex="1" parent="1">
-          <mxGeometry x="-20" y="-20" width="1500" height="1120" as="geometry" />
+          <mxGeometry x="-20" y="-20" width="1540" height="1180" as="geometry" />
         </mxCell>
 
-        <mxCell id="title" value="Scylla — Proposed Hexagonal Target  ·  durable Rust core · droppable engine · disposable heads" style="text;html=1;fontSize=20;fontStyle=1;fontColor=#27d4ff;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="40" y="12" width="1200" height="34" as="geometry" />
+        <mxCell id="title" value="Scylla — Hexagonal Architecture  (ports &amp; adapters)" style="text;html=1;fontSize=20;fontStyle=1;fontColor=#27d4ff;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="12" width="1000" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="bestagons" value="⬢  HEXAGONS ARE THE BESTAGONS  ⬢" style="text;html=1;fontSize=17;fontStyle=1;fontColor=#55ff99;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="46" width="760" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="One durable core. Volatility pushed to the rim. Lop a head off and grow a new one." style="text;html=1;fontSize=13;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="78" width="1000" height="22" as="geometry" />
         </mxCell>
 
-        <!-- ============ BAND 1 : PRODUCERS ============ -->
-        <mxCell id="ba" value="①  Producers — above the engine-port waist   (heavy · transient: spin up to analyze, then drop)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0a140e;strokeColor=#55ff99;fontColor=#8fe6b3;" vertex="1" parent="1">
-          <mxGeometry x="40" y="52" width="1380" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="a1" value="Binary bytes&#xa;(binary-source port)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
-          <mxGeometry x="70" y="92" width="200" height="68" as="geometry" />
-        </mxCell>
-        <mxCell id="a2" value="GayHydra Engine — one JVM process · whole framework (DD-010/011)&#xa;loaders · auto-analysis · SLEIGH → P-code · C++ decompiler (IPC untouched)&#xa;PROVEN — reused as-is, never rewritten (P1)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="300" y="88" width="780" height="76" as="geometry" />
-        </mxCell>
-        <mxCell id="a3" value="⚠ sandboxed (DD-014/029)&#xa;droppable producer:&#xa;spin up → analyze → drop" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;" vertex="1" parent="1">
-          <mxGeometry x="1110" y="88" width="280" height="76" as="geometry" />
+        <!-- ===================== THE CORE (center hexagon) ===================== -->
+        <mxCell id="core" value="◆  SCYLLA CORE — Rust, native&#xa;&#xa;THE DOMAIN MODEL&#xa;( the narrow waist )&#xa;&#xa;stable synthetic IDs · rich types&#xa;first-class, durable user facts&#xa;computed call graph / CFG&#xa;semantic zoom · P-code escape hatch&#xa;&#xa;⟲ identity-anchored merge&#xa;(re-anchoring — keystone, de-risked)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=13;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#d6f2ff;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="560" y="380" width="440" height="380" as="geometry" />
         </mxCell>
 
-        <!-- ============ WAIST 1 : ENGINE-PORT ============ -->
-        <mxCell id="w1" value="⟡  ENGINE-PORT — narrow waist #1   ·   JVM-friendly wire (gRPC / framed)   ·   coarse ops:  materialize · analyze · decompile   ·   NOT Cap'n Proto (weak JVM — DD-009/002)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;fontFamily=Menlo;align=center;verticalAlign=middle;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;" vertex="1" parent="1">
-          <mxGeometry x="40" y="190" width="1380" height="56" as="geometry" />
+        <!-- ===================== PORTS (small hexagons on the rim) ===================== -->
+        <mxCell id="p_engine" value="⟡ engine&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=11;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;" vertex="1" parent="1">
+          <mxGeometry x="486" y="440" width="120" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="p_storage" value="⟡ storage&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=11;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;" vertex="1" parent="1">
+          <mxGeometry x="486" y="624" width="120" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="p_client" value="⟡ client&#xa;port" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=11;fontStyle=1;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;" vertex="1" parent="1">
+          <mxGeometry x="954" y="530" width="120" height="80" as="geometry" />
         </mxCell>
 
-        <!-- ============ BAND 3 : THE RUST CORE (HERO) ============ -->
-        <mxCell id="bc" value="③  The Scylla Core — Rust, native (DD-016)   ·   the one irreplaceable bet (P5):  you can't shim your way out of a bad core" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b1626;strokeColor=#27d4ff;fontColor=#27d4ff;" vertex="1" parent="1">
-          <mxGeometry x="40" y="264" width="1380" height="250" as="geometry" />
+        <!-- ===================== DRIVEN ADAPTERS (left — producers/storage) ===================== -->
+        <mxCell id="lbl_driven" value="DRIVEN side — the core drives these (producers + storage)" style="text;html=1;fontSize=12;fontStyle=2;fontColor=#8fe6b3;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="420" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="c2" value="THE DOMAIN MODEL  (model-artifact — the narrow waist)&#xa;stable synthetic IDs (DD-004) · rich types · user facts first-class &amp; durable&#xa;computed graphs (call graph / CFG) · P-code escape hatch (DD-003) · semantic-zoom altitude (DD-020)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#d6f2ff;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="350" y="304" width="620" height="100" as="geometry" />
+        <mxCell id="bytes" value="Binary bytes&#xa;(adversarial input)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=12;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="186" width="240" height="110" as="geometry" />
         </mxCell>
-        <mxCell id="c1" value="Identity-anchored merge&#xa;user ⊕ machine (DD-005)&#xa;re-analysis never clobbers&#xa;the analyst's work" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
-          <mxGeometry x="70" y="304" width="250" height="100" as="geometry" />
+        <mxCell id="engine" value="GayHydra Engine — JVM&#xa;whole framework · SLEIGH → P-code&#xa;C++ decompiler (IPC untouched)&#xa;PROVEN · sandboxed · DROPPABLE producer" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=12;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;" vertex="1" parent="1">
+          <mxGeometry x="60" y="350" width="380" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="c3" value="⚠ KEYSTONE RISK (DD-004)&#xa;re-anchoring across&#xa;structural change&#xa;= binary-diff matching&#xa;→ PROTOTYPE FIRST" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c0c0c;strokeColor=#ff4f4f;fontColor=#ff9a9a;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="304" width="240" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="c4" value="Session = the model&#xa;(engine handle is ephemeral — DD-006/009)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
-          <mxGeometry x="70" y="424" width="250" height="74" as="geometry" />
-        </mxCell>
-        <mxCell id="c5" value="Persistence — OWN FORMAT (DD-026/015/002)&#xa;Cap'n Proto model-artifact · zero-copy · versioned&#xa;.gpr demoted to engine cache + interop only" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="350" y="416" width="620" height="86" as="geometry" />
-        </mxCell>
-        <mxCell id="c6" value="in-core = native mutable graph;&#xa;Cap'n Proto = its persisted&#xa;projection (DD-002 resolution)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="424" width="240" height="74" as="geometry" />
+        <mxCell id="artifact" value="Cap'n Proto model-artifact (.scylla)&#xa;zero-copy · versioned · OWN FORMAT&#xa;cache · share · git-for-RE sync" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=12;fontStyle=1;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;" vertex="1" parent="1">
+          <mxGeometry x="60" y="620" width="380" height="170" as="geometry" />
         </mxCell>
 
-        <!-- ============ WAIST 2 : CLIENT-PORT ============ -->
-        <mxCell id="w2" value="⟡  CLIENT-PORT — narrow waist #2   ·   data-centric, model-primary (DD-017)   ·   semantic zoom (DD-020)   ·   sync + job-handle (DD-019)   ·   typed errors (DD-021)   ·   Cap'n Proto RPC" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;fontFamily=Menlo;align=center;verticalAlign=middle;fillColor=#0a1622;strokeColor=#27d4ff;fontColor=#7fdcff;" vertex="1" parent="1">
-          <mxGeometry x="40" y="534" width="1380" height="56" as="geometry" />
+        <!-- ===================== DRIVING ADAPTERS (right — heads) ===================== -->
+        <mxCell id="lbl_driving" value="DRIVING side — heads drive the core (disposable · polyglot · thin, P6)" style="text;html=1;fontSize=12;fontStyle=2;fontColor=#7fdcff;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="150" width="400" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp" value="MCP head ★ (v1)&#xa;AI agents reverse-engineer binaries&#xa;— the differentiator" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Menlo;fontSize=12;fontStyle=1;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="320" width="320" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="h_rest" value="REST" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;dashed=1;fontFamily=Menlo;fontSize=11;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="520" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="h_grpc" value="gRPC" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;dashed=1;fontFamily=Menlo;fontSize=11;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="520" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="h_cli" value="CLI" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;dashed=1;fontFamily=Menlo;fontSize=11;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="630" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="h_web" value="Web UI&#xa;(WASM)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;dashed=1;fontFamily=Menlo;fontSize=11;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="630" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="h_plugin" value="Ghidra-plugin" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;dashed=1;fontFamily=Menlo;fontSize=11;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="740" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="roster" value="roster open (DD-023) — grow a new head when the era's adapter dies" style="text;html=1;fontSize=11;fontStyle=2;fontColor=#8190a4;fontFamily=Menlo;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="828" width="320" height="30" as="geometry" />
         </mxCell>
 
-        <!-- ============ BAND 5 : HEADS ============ -->
-        <mxCell id="be" value="⑤  Heads — below the client-port waist   ·   disposable · polyglot · thin · 1:1 port projection, no domain logic (P6 / DD-025)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="40" y="608" width="1380" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="h1" value="MCP head — v1 (DD-022/024)&#xa;AI agents reverse-engineer binaries&#xa;★ the differentiator" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="70" y="648" width="290" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h2" value="REST" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontSize=12;fontFamily=Menlo;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="400" y="648" width="120" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h3" value="gRPC" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontSize=12;fontFamily=Menlo;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="540" y="648" width="120" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h4" value="CLI" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontSize=12;fontFamily=Menlo;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="680" y="648" width="120" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h5" value="Web UI (WASM)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontSize=12;fontFamily=Menlo;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="820" y="648" width="160" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h6" value="Ghidra-plugin" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fontSize=12;fontFamily=Menlo;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="648" width="160" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h7" value="roster open&#xa;(DD-023 — deferred)" style="text;html=1;fontSize=11;fontStyle=2;fontFamily=Menlo;fontColor=#8190a4;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="1180" y="648" width="210" height="70" as="geometry" />
+        <!-- ===================== DISTRIBUTION callout ===================== -->
+        <mxCell id="dist" value="Distribution (DD-028): native single-binary + WASM serving core;&#xa;heavy JVM engine fetched separately" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Menlo;fontSize=12;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;" vertex="1" parent="1">
+          <mxGeometry x="560" y="820" width="440" height="56" as="geometry" />
         </mxCell>
 
-        <!-- ============ BAND 6 : CONSUME-SIDE CROSS-CUTTING ============ -->
-        <mxCell id="bf" value="⑥  Consume-side payoff of the model-artifact" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
-          <mxGeometry x="40" y="762" width="1380" height="120" as="geometry" />
-        </mxCell>
-        <mxCell id="f1" value="Distribution (DD-028 — bold)&#xa;native single binary + WASM serving core&#xa;heavy JVM engine fetched separately" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;" vertex="1" parent="1">
-          <mxGeometry x="70" y="802" width="380" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="f2" value="Collaboration (DD-027)&#xa;model-artifact sync = git-for-RE&#xa;share · diff · merge · NO server" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
-          <mxGeometry x="500" y="802" width="380" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="f3" value="Agent fan-out · independent scaling · caching&#xa;N agents read one zero-copy model concurrently" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
-          <mxGeometry x="930" y="802" width="460" height="70" as="geometry" />
+        <!-- ===================== LEGEND ===================== -->
+        <mxCell id="legend" value="Legend:  &lt;b style=&quot;color:#27d4ff&quot;&gt;cyan&lt;/b&gt; = durable Rust core &amp; ports (the bet)   ·   &lt;b style=&quot;color:#55ff99&quot;&gt;green&lt;/b&gt; = proven, droppable adapters (GayHydra engine, artifact)   ·   &lt;b style=&quot;color:#ffb14e&quot;&gt;amber&lt;/b&gt; = bold choice   ·   &lt;b style=&quot;color:#8190a4&quot;&gt;grey dashed&lt;/b&gt; = deferred heads   ·   &lt;b style=&quot;color:#7fdcff&quot;&gt;⟡&lt;/b&gt; = a port (the seam)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0b101a;strokeColor=#5a6678;align=left;verticalAlign=middle;fontSize=12;fontFamily=Menlo;fontColor=#cfd8e3;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1030" width="1420" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ============ LEGEND ============ -->
-        <mxCell id="legend" value="Legend:  &lt;b style=&quot;color:#27d4ff&quot;&gt;cyan&lt;/b&gt; = new durable Rust core (the bet)   ·   &lt;b style=&quot;color:#55ff99&quot;&gt;green&lt;/b&gt; = proven GayHydra engine (reused, droppable)   ·   &lt;b style=&quot;color:#ffb14e&quot;&gt;amber&lt;/b&gt; = bold choice / attention   ·   &lt;b style=&quot;color:#ff6b6b&quot;&gt;red ⚠&lt;/b&gt; = keystone risk   ·   &lt;b style=&quot;color:#8190a4&quot;&gt;grey dashed&lt;/b&gt; = deferred heads   ·   &lt;b style=&quot;color:#7fdcff&quot;&gt;⟡ bands&lt;/b&gt; = the two narrow waists" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0b101a;strokeColor=#5a6678;align=left;verticalAlign=middle;fontSize=12;fontFamily=Menlo;fontColor=#cfd8e3;spacingLeft=10;" vertex="1" parent="1">
-          <mxGeometry x="40" y="900" width="1380" height="40" as="geometry" />
-        </mxCell>
-
-        <!-- ============ EDGES ============ -->
-        <mxCell id="e1" value="load" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="a1" target="a2">
+        <!-- ===================== EDGES ===================== -->
+        <mxCell id="e_bytes" value="load" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="bytes" target="engine">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e2" value="materialize" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#bfffd9;strokeColor=#55ff99;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a2" target="w1">
+        <mxCell id="e_engine" value="materialize · analyze · decompile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#bfffd9;strokeColor=#55ff99;labelBackgroundColor=#07090f;startArrow=classicThin;startFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="engine" target="p_engine">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e3" value="into model" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="w1" target="c2">
+        <mxCell id="e_engine2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27d4ff;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="p_engine" target="core">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e4" value="merge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#cfe9ff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="c1" target="c2">
+        <mxCell id="e_store" value="persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0;exitY=0.65;entryX=1;entryY=0.5;" edge="1" parent="1" source="core" target="p_storage">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;fontSize=11;fontFamily=Menlo;strokeColor=#ff4f4f;labelBackgroundColor=#07090f;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="c3" target="c2">
+        <mxCell id="e_store2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#55ff99;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="p_storage" target="artifact">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e6" value="persist" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#bfffd9;strokeColor=#55ff99;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c2" target="c5">
+        <mxCell id="e_client" value="navigate · annotate&#xa;(semantic zoom)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="core" target="p_client">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e7" value="project" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#7fdcff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c5" target="w2">
+        <mxCell id="e_mcp" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#27d4ff;startArrow=classicThin;startFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="p_client" target="mcp">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e8" value="tools" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#cfe9ff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="w2" target="h1">
+        <mxCell id="e_h1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#5a6678;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="p_client" target="h_rest">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e9" value="ship native / WASM" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#ffd9a0;strokeColor=#ffb14e;labelBackgroundColor=#07090f;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c5" target="f1">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="410" y="760" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="e10" value="sync (git-for-RE)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;fontFamily=Menlo;fontColor=#cfe9ff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0.6;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c5" target="f2">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="690" y="760" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
       </root>
     </mxGraphModel>
   </diagram>

@@ -46,6 +46,13 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Security
 
+- [ ] **Full no-egress lockdown for the engine sandbox (DD-034).** The container ships with a
+  read-only rootfs, all caps dropped, no-new-privileges, non-root, mem/CPU/PID caps, and a
+  size-capped RAM tmpfs — but gRPC is still published on host-loopback, so the parser *can*
+  reach the network if something inside it tries. The strongest form is `--network none` + gRPC
+  over a **bind-mounted unix socket**, so a hostile binary literally cannot phone home. That
+  needs UDS transport in both the JVM service and the tonic client. Until then the sandbox
+  contains blast radius (no host FS, no privilege, no core access) but not egress.
 - [ ] **Threat-model the seams before Sprint 9 / before exposing the MCP head to untrusted input.**
   Decisions are locked (DD-014 sandbox the engine producer; DD-029 inherit GayHydra's
   deserialization posture + cosign), but a focused pass on (a) the engine producer that parses

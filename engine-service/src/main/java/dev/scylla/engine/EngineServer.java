@@ -38,6 +38,12 @@ public final class EngineServer {
         return (v == null || v.isEmpty()) ? fallback : v;
     }
 
+    /** Last {@code n} chars of {@code s}, trimmed — the useful end of a subprocess log. */
+    static String tail(String s, int n) {
+        s = s.strip();
+        return s.length() <= n ? s : "…" + s.substring(s.length() - n);
+    }
+
     static final class EngineImpl extends EngineGrpc.EngineImplBase {
         @Override
         public void info(InfoRequest req, StreamObserver<InfoReply> resp) {
@@ -64,11 +70,15 @@ public final class EngineServer {
                         "-deleteProject");
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
-                p.getInputStream().readAllBytes(); // drain so the engine never blocks on a full pipe
+                // Drain so the engine never blocks on a full pipe — but KEEP it: when a hostile
+                // or malformed binary kills the analyzer, a bare exit code is useless. Surface the
+                // tail over the wire so the failure says *why* (DD-021: errors carry meaning).
+                byte[] log = p.getInputStream().readAllBytes();
                 int code = p.waitFor();
                 if (code != 0 || !Files.exists(out) || Files.size(out) == 0) {
+                    String tail = tail(new String(log, java.nio.charset.StandardCharsets.UTF_8), 1200);
                     resp.onError(Status.INTERNAL
-                            .withDescription("GayHydra headless failed (exit " + code + ")")
+                            .withDescription("GayHydra headless failed (exit " + code + "): " + tail)
                             .asRuntimeException());
                     return;
                 }

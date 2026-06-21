@@ -1,0 +1,54 @@
+name: release
+
+# Keyless release signing (DD-029). On a version tag, build the release artifacts and sign them
+# with Sigstore KEYLESS cosign — there is NO private key: the signature is bound to this workflow's
+# GitHub Actions OIDC identity via Fulcio, with public proof in the Rekor transparency log. The
+# signed bundles are attached to the GitHub release. Verify with the identity in SECURITY.md.
+#
+# Scylla is Codeberg-authoritative; a release tag is created on Codeberg and mirrored to GitHub —
+# the mirrored tag triggers this workflow (GitHub keeps the CI + signing lane, per the repo norm).
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # attach the signed artifacts to the release
+  id-token: write   # the OIDC token for keyless signing — the whole point: no key to leak
+
+jobs:
+  sign-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cap'n Proto + protobuf compilers
+        run: sudo apt-get update && sudo apt-get install -y capnproto protobuf-compiler
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build the scylla CLI (release)
+        run: cargo build --release -p scylla-cli
+
+      - name: Stage artifacts + checksums
+        run: |
+          mkdir -p dist
+          cp target/release/scylla dist/scylla-linux-x86_64
+          ( cd dist && sha256sum scylla-linux-x86_64 > SHA256SUMS )
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Keyless-sign the artifacts (Sigstore — no key)
+        run: |
+          for f in dist/scylla-linux-x86_64 dist/SHA256SUMS; do
+            cosign sign-blob --yes "$f" --bundle "$f.cosign.bundle"
+          done
+
+      - name: Publish the signed artifacts to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/scylla-linux-x86_64
+            dist/SHA256SUMS
+            dist/scylla-linux-x86_64.cosign.bundle
+            dist/SHA256SUMS.cosign.bundle

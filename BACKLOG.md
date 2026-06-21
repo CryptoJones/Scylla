@@ -93,5 +93,9 @@ Tracked "later / someday" items that aren't on the current sprint path
   (`SCYLLA_ENGINE_TIMEOUT_SEC`, default 300); on timeout it `destroyForcibly()`s the subprocess and
   returns `DEADLINE_EXCEEDED`. A binary engineered to hang `analyzeHeadless` can no longer tie up
   the engine slot. Verified live (a 1s budget kills a real run; the default budget passes).
-- [ ] **Automate release signing (cosign, DD-029).** SECURITY.md and DD-029 promise cosign-signed
-  releases; CI has no signing lane. Wire it into the release path.
+- [x] **Automate release signing (cosign, DD-029).** `.github/workflows/release.yml` signs release
+  artifacts on a version tag with **Sigstore KEYLESS cosign** — no key (the GitHub Actions OIDC
+  identity via Fulcio + the Rekor transparency log). It builds the `scylla` CLI + checksums, signs
+  them (`cosign sign-blob --bundle`), and attaches binaries + bundles to the release. Verify per
+  SECURITY.md. Follow-up: extend to the engine-service container image (push to a registry +
+  `cosign sign` the digest) — the security-critical artifact, but it needs a registry-publish lane.

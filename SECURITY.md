@@ -20,7 +20,10 @@ architecture contains that risk at the seams rather than trusting the parser:
   the un-hardened paths.
 - **The model artifact is data, not code.** The Cap'n Proto `.scylla` artifact is parse-on-read
   with bounds; loading one never executes it.
-- **Signed releases.** Release artifacts are cosign-signed, matching GayHydra.
+- **Signed releases (keyless).** Release artifacts are signed with **Sigstore keyless cosign**
+  (`.github/workflows/release.yml`) — there is **no signing key to steal or rotate**: the
+  signature is bound to the release workflow's GitHub Actions OIDC identity via Fulcio, with public
+  proof in the Rekor transparency log. See *Verifying a release* below.
 
 ## Threat model
 
@@ -29,3 +32,21 @@ boundaries, the three untrusted inputs (the binary, the `.scylla` artifact, anal
 text), and the mitigations + residual gaps at each seam. It surfaced four open gaps, all tracked
 in [BACKLOG.md](BACKLOG.md); the highest-priority is that the MCP head does not yet delimit
 attacker-controlled analysis content as untrusted — the named prompt-injection threat (DD-035).
+
+## Verifying a release
+
+Each release artifact ships with a `*.cosign.bundle` (signature + certificate + Rekor proof). There
+is **no public key to fetch** — keyless verification checks the artifact was signed by *this repo's
+release workflow* and nothing else:
+
+```sh
+cosign verify-blob \
+  --bundle scylla-linux-x86_64.cosign.bundle \
+  --certificate-identity-regexp '^https://github\.com/CryptoJones/Scylla/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  scylla-linux-x86_64
+```
+
+A `Verified OK` means the bytes were signed by the Scylla release workflow at a real version tag —
+not by someone who stole a key (there is none) or rebuilt the binary elsewhere. Pin the identity
+regexp; do not relax the issuer.

@@ -116,6 +116,35 @@ the model is the waist; everything else is a pluggable producer or consumer.**
 
 ---
 
+## Cross-Decision Coherence (2026-06-21)
+
+A 10,000-ft pass over all 33 decisions interacting as one system. The set holds together; in
+three places the pieces actively reinforce each other, three tensions were resolved (folded
+into the cited DDs), and one keystone risk carries the whole bet.
+
+**Reinforcement loops (the design *wants* this shape):**
+- **DD-004/005 is the same primitive as DD-027.** Stable IDs + identity-anchored merge is
+  *both* how re-analysis avoids clobbering user facts *and* how two analysts' artifacts merge
+  (git-for-RE). The bold exception pays off twice.
+- **The Rust spine interlocks.** Native core (DD-016) + native/WASM distribution (DD-028) +
+  droppable engine (DD-009) + heavy whole-framework engine (DD-010): light always-on consumer,
+  heavy on-demand producer — each makes the others possible.
+- **The hard work lands where it can't be shed.** Thin heads (DD-024/025) push the valuable
+  agent-altitude design (DD-017/020) into the durable port, not a disposable adapter.
+
+**Tensions resolved (see the cited DDs):**
+- **Session vs droppable engine (DD-006 ↔ DD-009):** the durable session is the core's
+  model-artifact; the engine's Program handle is ephemeral.
+- **Zero-copy vs mutable merge (DD-002 ↔ DD-004/005):** Cap'n Proto is the persistence/transport
+  *projection*; the live in-core model is a native mutable graph keyed on stable IDs.
+- **One schema, two waists (DD-002 ↔ DD-009):** Cap'n Proto on the client/persistence side; a
+  JVM-friendly wire on the engine-port side. Two formats by design.
+
+**Keystone risk:** **DD-004's re-anchoring algorithm** — matching IDs across structural change.
+The technical heart of the platform; prototype first to de-risk (see DD-004).
+
+---
+
 ## Guiding principles (constraints on every decision — not themselves open)
 
 - **P1. The engine is sacred.** The proven C++ decompiler (and the analysis it
@@ -150,7 +179,7 @@ too big and the contract ossifies around accidents.
 protobuf? a custom IDL? JSON Schema? language-native types projected out?
 *Tension:* the contract outlives every transport, so it must be schema-language-neutral
 in spirit; but we need *one* canonical authoring form.
-*Status:* **DECIDED (2026-06-21)** — **Cap'n Proto.** Zero-copy for the large, lazily-navigated model; schema-first polyglot codegen + evolution; promise-pipelining RPC fits the navigation-heavy client port. First-class now that the core is Rust (DD-016) — the FlatBuffers lean was a JVM-era artifact, and Cap'n Proto's weak JVM binding no longer applies.
+*Status:* **DECIDED (2026-06-21)** — **Cap'n Proto.** Zero-copy for the large, lazily-navigated model; schema-first polyglot codegen + evolution; promise-pipelining RPC fits the navigation-heavy client port. First-class now that the core is Rust (DD-016) — the FlatBuffers lean was a JVM-era artifact, and Cap'n Proto's weak JVM binding no longer applies *on this side* (the Rust↔JVM engine-port wire is separate — DD-009). **Resolution (coherence pass, 2026-06-21):** Cap'n Proto is the **persistence + transport projection** of the model; the *in-core working model* is a native mutable Rust graph keyed on the stable IDs (DD-004). Zero-copy buffers are read-optimized, so the live edit/merge representation is native and serializes *to* Cap'n Proto — the buffer is never the live model.
 
 **DD-003 — The IR.**
 *Question:* Adopt Ghidra's **P-code** as the canonical IR, abstract over it, or define
@@ -163,7 +192,7 @@ technology), but it's a conscious bet. Defining our own IR is enormous scope.
 *Question:* How are entities identified such that IDs survive re-analysis and user
 edits? (address-based? content-hash? synthetic stable IDs?) *Tension:* re-running
 analysis must not orphan a user's renames/retypes/comments.
-*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Synthetic stable IDs**, minted at first-sight; address is a mutable *attribute*, not the identity. Re-analysis re-anchors IDs to entities by structure/content so a user's renames/types/comments follow the *entity* when code shifts — the property that keeps the tool from losing work. (Safe-by-precedent here = Ghidra's address-keyed identity = the very thing that orphans edits; rejected.)
+*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Synthetic stable IDs**, minted at first-sight; address is a mutable *attribute*, not the identity. Re-analysis re-anchors IDs to entities by structure/content so a user's renames/types/comments follow the *entity* when code shifts — the property that keeps the tool from losing work. (Safe-by-precedent here = Ghidra's address-keyed identity = the very thing that orphans edits; rejected.) **Keystone risk (coherence pass, 2026-06-21):** the *re-anchoring* algorithm — matching last run's IDs to this run's entities across structural change (a function that splits/merges, shifted code) — is the central technical bet of the whole platform; DD-005, DD-027, and "never lose the user's work" all stand or fall on it. Prototype this first to de-risk.
 
 **DD-005 — Mutability & the edit/analysis merge.**
 *Question:* Are model entities mutable in place? How do *user facts* (renames, types,
@@ -176,7 +205,7 @@ comments) compose with *machine facts* (re-analysis) without clobbering each oth
 accumulated analysis) or stateless-per-call? How is that state created, evolved,
 snapshotted? *Tension:* RE is deeply stateful; agents/clients need a handle, but
 statefulness complicates the ports and scaling.
-*Status:* **DECIDED (2026-06-21) — *safe.*** **Session-based**: a long-lived program/project handle, adopting Ghidra's own Program/Project model. Stateless-per-call would fight the engine.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Session-based**: a long-lived program/project handle. **Resolution (coherence pass, 2026-06-21):** the *durable* session is the **core's model-artifact** (DD-026), **not** the engine's Ghidra Program handle — that handle is ephemeral scaffolding, materialized out of and dropped (DD-009). "Session-based" = the core holds the long-lived model; the engine stays as stateless as possible between analysis bursts, so it can be spun up and dropped without losing the session.
 
 **DD-007 — Provenance & confidence.**
 *Question:* Does every fact carry provenance (which analyzer/user produced it) and a
@@ -200,7 +229,7 @@ call its API; (c) a **long-lived engine service** the core talks to over a priva
 protocol; (d) **FFI straight to the C++ decompiler** + reimplement the framework glue.
 *Tension:* proximity/perf vs isolation vs effort. This decision constrains DD-016
 (language/runtime) and most of B/C.
-*Status:* **DECIDED (2026-06-21, revised)** — **engine-as-service** (option c): GayHydra runs as a separate JVM *producer* behind the engine-port protocol; the Rust core (DD-016) calls it. Navigation runs over the core's *materialized* model in-core, so the seam carries only coarse ops — materialize, analyze, decompile — not per-zoom traffic. The engine-port seam is the architecture's *second narrow waist*, not a wart. *Reverses the initial embed call* under the owner's "do it right, time is no constraint" mandate (see Decisions Locked). The C++ decompiler stays behind Ghidra's internal IPC, untouched.
+*Status:* **DECIDED (2026-06-21, revised)** — **engine-as-service** (option c): GayHydra runs as a separate JVM *producer* behind the engine-port protocol; the Rust core (DD-016) calls it. Navigation runs over the core's *materialized* model in-core, so the seam carries only coarse ops — materialize, analyze, decompile — not per-zoom traffic. The engine-port seam is the architecture's *second narrow waist*, not a wart. *Reverses the initial embed call* under the owner's "do it right, time is no constraint" mandate (see Decisions Locked). The C++ decompiler stays behind Ghidra's internal IPC, untouched. **Resolution (coherence pass, 2026-06-21):** the engine-port wire is **not** Cap'n Proto (its JVM binding is weak — DD-002); the Rust↔JVM seam uses a JVM-friendly protocol (gRPC / a small framed protocol). Two wire formats by design — one per waist: Cap'n Proto on the client/persistence side, a JVM-friendly one on the engine side.
 
 **DD-010 — Engine surface: whole framework vs parts.**
 *Question:* Do we wrap Ghidra's *entire* Java framework (loaders, analyzers, SLEIGH,

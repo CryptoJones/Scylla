@@ -12,7 +12,7 @@
 //! Run with `cargo test -p scylla-merge --test reanchor_gate -- --nocapture` to see the board.
 
 use scylla_merge::merge_into;
-use scylla_model::{FactKind, Program, StableId, UserFact};
+use scylla_model::{FactKind, StableId, UserFact};
 
 const SRC_FUNCS: &[&str] = &[
     "gcd", "fib", "factorial", "sum_to", "main", "lcm", "my_strlen", "my_reverse", "count_vowels",
@@ -60,10 +60,7 @@ fn score(v1_json: &str, v2_json: &str) -> Score {
         .collect();
     for f in v1.functions.clone() {
         if SRC_FUNCS.contains(&f.name.as_str()) {
-            v1.facts.push(UserFact {
-                target: f.id,
-                kind: FactKind::Rename(format!("ANCHOR::{}", f.name)),
-            });
+            v1.facts.push(UserFact::new(f.id, FactKind::Rename(format!("ANCHOR::{}", f.name))));
         }
     }
 

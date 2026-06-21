@@ -10,7 +10,7 @@ pub mod model_capnp {
 
 use std::collections::HashSet;
 
-use scylla_model::{FactKind, Function, Program, StableId, UserFact};
+use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
 
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     match k {
@@ -57,6 +57,7 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             let (kind, value) = fact_discriminant(&fact.kind);
             fb.set_kind(kind);
             fb.set_value(value);
+            fb.set_author(fact.author.as_ref().map(|p| p.0.as_str()).unwrap_or(""));
         }
     }
     let mut buf = Vec::new();
@@ -87,9 +88,11 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
 
     let mut facts = Vec::new();
     for fact in p.get_facts()?.iter() {
+        let author = fact.get_author()?.to_str()?;
         facts.push(UserFact {
             target: StableId(fact.get_target()),
             kind: fact_from_parts(fact.get_kind(), fact.get_value()?.to_str()?),
+            author: (!author.is_empty()).then(|| Principal(author.to_owned())),
         });
     }
 
@@ -233,8 +236,8 @@ mod tests {
                 },
             ],
             facts: vec![
-                UserFact { target: gcd, kind: FactKind::Rename("gcd".into()) },
-                UserFact { target: main, kind: FactKind::Comment("entry point".into()) },
+                UserFact::new(gcd, FactKind::Rename("gcd".into())),
+                UserFact::new(main, FactKind::Comment("entry point".into())),
             ],
         }
     }
@@ -279,7 +282,7 @@ mod tests {
     #[test]
     fn load_drops_a_fact_with_a_dangling_target() {
         let mut p = sample();
-        p.facts.push(UserFact { target: StableId(88888), kind: FactKind::Comment("ghost".into()) });
+        p.facts.push(UserFact::new(StableId(88888), FactKind::Comment("ghost".into())));
         let bytes = to_bytes(&p);
         let (_, report) = load(&bytes).expect("load");
         assert_eq!(report.dropped_dangling_facts, 1);

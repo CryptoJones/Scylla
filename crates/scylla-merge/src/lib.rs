@@ -48,7 +48,7 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
             .filter(|ids| ids.len() == 1)
             .map(|ids| ids[0]);
         match unique_target {
-            Some(id) => merged.push(UserFact { target: id, kind: fact.kind.clone() }),
+            Some(id) => merged.push(fact.retarget(id)),
             None => flagged.push(fact.clone()),
         }
     }
@@ -125,7 +125,7 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
             }
             Some(_) => {} // identical — the analysts already agree
             None => {
-                to_add.push(UserFact { target: tid, kind: fact.kind.clone() });
+                to_add.push(fact.retarget(tid));
                 report.merged += 1;
             }
         }
@@ -145,8 +145,8 @@ mod tests {
     fn annotate(p: &mut Program) {
         let gcd = p.functions.iter().find(|f| f.name == "gcd").unwrap().id;
         let fib = p.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        p.facts.push(UserFact { target: gcd, kind: FactKind::Rename("euclid_gcd".into()) });
-        p.facts.push(UserFact { target: fib, kind: FactKind::Comment("recursive".into()) });
+        p.facts.push(UserFact::new(gcd, FactKind::Rename("euclid_gcd".into())));
+        p.facts.push(UserFact::new(fib, FactKind::Comment("recursive".into())));
     }
 
     /// Every merged fact must sit on the correctly-named function (names = ground truth).
@@ -196,8 +196,8 @@ mod tests {
         let mut b = b_src;
         let a_main = a.functions.iter().find(|f| f.name == "main").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact { target: a_main, kind: FactKind::Rename("entrypoint".into()) });
-        b.facts.push(UserFact { target: b_fib, kind: FactKind::Comment("recursive".into()) });
+        a.facts.push(UserFact::new(a_main, FactKind::Rename("entrypoint".into())));
+        b.facts.push(UserFact::new(b_fib, FactKind::Comment("recursive".into())));
         let (report, conflicts) = collaborate(&mut a, &b);
         assert_eq!(conflicts.len(), 0);
         assert_eq!(report.merged, 1, "fib's comment should merge in");
@@ -210,8 +210,8 @@ mod tests {
         let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
         let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact { target: a_fib, kind: FactKind::Rename("fib_a".into()) });
-        b.facts.push(UserFact { target: b_fib, kind: FactKind::Rename("fib_b".into()) });
+        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_a".into())));
+        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_b".into())));
         let (report, conflicts) = collaborate(&mut a, &b);
         assert_eq!(report.conflicts, 1);
         assert_eq!(conflicts.len(), 1);

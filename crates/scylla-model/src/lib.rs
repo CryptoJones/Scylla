@@ -55,12 +55,37 @@ pub enum FactKind {
     Comment(String),
 }
 
+/// Who authored a fact — the **identity seam** (DD-035). `None` in single-user / local v1; a
+/// future networked head stamps a real principal without reshaping the core. Provenance
+/// (DD-007) and collaboration (DD-027) are the consumers of "who".
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Principal(pub String);
+
 /// A durable user fact: an *edge* onto a stable id (DD-005). Survives re-analysis because
 /// it references the stable id, not an address.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UserFact {
     pub target: StableId,
     pub kind: FactKind,
+    pub author: Option<Principal>,
+}
+
+impl UserFact {
+    /// A fact with no recorded author (single-user / local).
+    pub fn new(target: StableId, kind: FactKind) -> Self {
+        UserFact { target, kind, author: None }
+    }
+
+    /// Stamp the authoring principal (the seam).
+    pub fn by(mut self, author: Principal) -> Self {
+        self.author = Some(author);
+        self
+    }
+
+    /// Clone this fact onto a new target, preserving kind + author (used by re-anchoring).
+    pub fn retarget(&self, target: StableId) -> Self {
+        UserFact { target, kind: self.kind.clone(), author: self.author.clone() }
+    }
 }
 
 /// The analyzed program — the materialized model artifact (DD-026: our own canonical form).
@@ -118,10 +143,7 @@ mod tests {
                 bb_count: 4,
                 callees: vec![],
             }],
-            facts: vec![UserFact {
-                target: gcd,
-                kind: FactKind::Rename("gcd".into()),
-            }],
+            facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };
         assert_eq!(prog.display_name(gcd).as_deref(), Some("gcd"));
     }

@@ -14,7 +14,7 @@
 
 use std::collections::BTreeSet;
 
-use scylla_model::{FactKind, Function, Program, StableId, UserFact};
+use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
 
 /// Typed port errors (DD-021).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,11 +63,18 @@ pub struct FunctionView {
 /// A live analysis session: the client port over one loaded model.
 pub struct Session {
     program: Program,
+    principal: Option<Principal>,
 }
 
 impl Session {
+    /// Open a session as the local user (v1 default principal — DD-035).
     pub fn open(program: Program) -> Self {
-        Session { program }
+        Session { program, principal: Some(Principal("local".into())) }
+    }
+
+    /// Open as a specific principal — the seam a future networked head uses (DD-035).
+    pub fn open_as(program: Program, principal: Principal) -> Self {
+        Session { program, principal: Some(principal) }
     }
 
     /// Load a session from a canonical model artifact (DD-026).
@@ -167,7 +174,7 @@ impl Session {
         self.program
             .facts
             .retain(|f| !(f.target == id && std::mem::discriminant(&f.kind) == d));
-        self.program.facts.push(UserFact { target: id, kind });
+        self.program.facts.push(UserFact { target: id, kind, author: self.principal.clone() });
         Ok(())
     }
 
@@ -247,5 +254,20 @@ mod tests {
     fn unknown_function_is_a_typed_error() {
         let s = session();
         assert_eq!(s.view(StableId(99999), Zoom::Domain), Err(PortError::NoSuchFunction(StableId(99999))));
+    }
+
+    #[test]
+    fn annotations_carry_the_session_principal_and_survive_round_trip() {
+        // DD-035 identity seam: an annotation is stamped with the session's principal, and
+        // the author persists through the artifact (so collaboration/provenance can use it).
+        let mut s = session(); // open() => principal "local"
+        let gcd = id_of(&s, "gcd");
+        s.rename(gcd, "euclid_gcd").unwrap();
+        let f = s.program().facts.iter().find(|f| f.target == gcd).unwrap();
+        assert_eq!(f.author, Some(Principal("local".into())));
+
+        let reloaded = Session::from_artifact(&s.to_artifact()).unwrap();
+        let rf = reloaded.program().facts.iter().find(|f| f.target == gcd).unwrap();
+        assert_eq!(rf.author, Some(Principal("local".into())));
     }
 }

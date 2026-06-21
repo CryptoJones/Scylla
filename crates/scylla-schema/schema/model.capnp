@@ -23,4 +23,5 @@ struct UserFact {
   target @0 :UInt64;   # edge onto a stable id (DD-005)
   kind   @1 :UInt16;   # 0=rename 1=retype 2=comment  (union refinement: TODO)
   value  @2 :Text;
+  author @3 :Text;     # who made it (DD-035 identity seam; empty string = none)
 }

@@ -11,8 +11,9 @@ option java_package = "scylla.engine.v1";
 // side stays Cap'n Proto. A new engine is just another implementation of this service.
 service Engine {
   // Analyze a binary and STREAM the materialized model back. Server-streaming because a model
-  // can be large and analysis is long-running (DD-019: progress + cancellation come free).
-  rpc Materialize(MaterializeRequest) returns (stream FunctionChunk);
+  // can be large and analysis is long-running (DD-019: progress + cancellation come free). The
+  // stream is a ProgramInfo header (once, first) followed by one FunctionChunk per function.
+  rpc Materialize(MaterializeRequest) returns (stream MaterializeEvent);
 
   // Decompile one function on demand.
   rpc Decompile(DecompileRequest) returns (DecompileReply);
@@ -24,6 +25,23 @@ service Engine {
 message MaterializeRequest {
   bytes binary = 1;      // the bytes to analyze — adversarial; the engine runs sandboxed (DD-034)
   string arch_hint = 2;  // optional loader/arch hint
+}
+
+// Program-level metadata — streamed ONCE, as the first Materialize event. Carries the
+// program name and SLEIGH language id so a gRPC-materialized artifact has the same program
+// metadata the offline snapshot path already records (it was empty over gRPC before).
+message ProgramInfo {
+  string name = 1;      // the engine's program name (e.g. the imported file)
+  string language = 2;  // SLEIGH language id, e.g. "x86:LE:64:default"
+}
+
+// One Materialize stream event: the ProgramInfo header first, then one per function. A oneof
+// envelope (header-then-data) keeps the single server-streaming RPC while carrying both shapes.
+message MaterializeEvent {
+  oneof event {
+    ProgramInfo info = 1;
+    FunctionChunk function = 2;
+  }
 }
 
 message FunctionChunk {

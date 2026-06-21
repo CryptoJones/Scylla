@@ -15,7 +15,9 @@ import scylla.engine.v1.EngineGrpc;
 import scylla.engine.v1.FunctionChunk;
 import scylla.engine.v1.InfoReply;
 import scylla.engine.v1.InfoRequest;
+import scylla.engine.v1.MaterializeEvent;
 import scylla.engine.v1.MaterializeRequest;
+import scylla.engine.v1.ProgramInfo;
 
 /**
  * Scylla engine-as-service (DD-040) — STANDALONE JVM gRPC server fronting GayHydra.
@@ -86,7 +88,7 @@ public final class EngineServer {
         }
 
         @Override
-        public void materialize(MaterializeRequest req, StreamObserver<FunctionChunk> resp) {
+        public void materialize(MaterializeRequest req, StreamObserver<MaterializeEvent> resp) {
             Path bin = null, out = null, proj = null;
             try {
                 bin = Files.createTempFile("scylla-bin", ".bin");
@@ -140,6 +142,18 @@ public final class EngineServer {
                 }
 
                 JsonObject root = JsonParser.parseString(Files.readString(out)).getAsJsonObject();
+
+                // Program header first (once): the SLEIGH language id (the analyzer emits it; over
+                // gRPC it used to be dropped, leaving Program.language empty). The NAME is left
+                // empty on purpose — this service receives bytes and imports them under a temp
+                // file, so the only name it knows is meaningless noise; the client names the
+                // program (its real filename), via materialize()'s fallback.
+                ProgramInfo info = ProgramInfo.newBuilder()
+                        .setName("")
+                        .setLanguage(root.has("language") ? root.get("language").getAsString() : "")
+                        .build();
+                resp.onNext(MaterializeEvent.newBuilder().setInfo(info).build());
+
                 for (JsonElement fe : root.getAsJsonArray("functions")) {
                     JsonObject f = fe.getAsJsonObject();
                     FunctionChunk.Builder b = FunctionChunk.newBuilder()
@@ -160,7 +174,7 @@ public final class EngineServer {
                             b.addMnemonics(m.getAsString());
                         }
                     }
-                    resp.onNext(b.build());
+                    resp.onNext(MaterializeEvent.newBuilder().setFunction(b.build()).build());
                 }
                 resp.onCompleted();
             } catch (Exception e) {

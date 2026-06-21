@@ -35,8 +35,8 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
 /// Assemble streamed wire chunks into a native model `Program`: mint a stable id per function
 /// (keyed by entry address), then resolve callee *addresses* to those stable ids in a second
 /// pass (dangling callees dropped). Pure — the gRPC-free core of materialization, testable
-/// without a live engine. (Program `language` isn't on the wire yet — see BACKLOG.)
-pub fn assemble(name: &str, chunks: &[pb::FunctionChunk]) -> Program {
+/// without a live engine. `name`/`language` come from the stream's `ProgramInfo` header.
+pub fn assemble(name: &str, language: &str, chunks: &[pb::FunctionChunk]) -> Program {
     let mut minter = IdMinter::new();
     let mut id_of: HashMap<u64, StableId> = HashMap::new();
     for c in chunks {
@@ -52,7 +52,7 @@ pub fn assemble(name: &str, chunks: &[pb::FunctionChunk]) -> Program {
         .collect();
     Program {
         name: name.to_string(),
-        language: String::new(),
+        language: language.to_string(),
         functions,
         facts: Vec::new(),
     }
@@ -83,11 +83,14 @@ fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), S
 
 /// The engine-port path: connect to the engine-service, materialize a binary over gRPC, and
 /// assemble the native model. This is the Rust core driving GayHydra over the DD-040 contract.
+/// The stream is a `ProgramInfo` header (name/language) then one `FunctionChunk` per function;
+/// `name` is the fallback program name if the engine sends none.
 pub async fn materialize(
     endpoint: String,
     name: &str,
     binary: Vec<u8>,
 ) -> Result<Program, Box<dyn std::error::Error>> {
+    use pb::materialize_event::Event;
     let mut client = pb::engine_client::EngineClient::connect(endpoint).await?;
     let mut stream = client
         .materialize(pb::MaterializeRequest { binary, arch_hint: String::new() })
@@ -95,13 +98,26 @@ pub async fn materialize(
         .into_inner();
     let mut chunks = Vec::new();
     let mut total_mnemonics = 0usize;
-    while let Some(c) = stream.message().await? {
-        // Bound the untrusted stream BEFORE retaining the chunk — fail closed, never OOM.
-        total_mnemonics += c.mnemonics.len();
-        check_stream_caps(chunks.len() + 1, total_mnemonics)?;
-        chunks.push(c);
+    let mut prog_name = name.to_string();
+    let mut language = String::new();
+    while let Some(ev) = stream.message().await? {
+        match ev.event {
+            Some(Event::Info(info)) => {
+                if !info.name.is_empty() {
+                    prog_name = info.name;
+                }
+                language = info.language;
+            }
+            Some(Event::Function(c)) => {
+                // Bound the untrusted stream BEFORE retaining the chunk — fail closed, never OOM.
+                total_mnemonics += c.mnemonics.len();
+                check_stream_caps(chunks.len() + 1, total_mnemonics)?;
+                chunks.push(c);
+            }
+            None => {} // an empty event — ignore
+        }
     }
-    Ok(assemble(name, &chunks))
+    Ok(assemble(&prog_name, &language, &chunks))
 }
 
 #[cfg(test)]
@@ -143,8 +159,9 @@ mod tests {
             pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![] },
             pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999], mnemonics: vec![] },
         ];
-        let p = assemble("prog", &chunks);
+        let p = assemble("prog", "x86:LE:64:default", &chunks);
         assert_eq!(p.name, "prog");
+        assert_eq!(p.language, "x86:LE:64:default", "language from the ProgramInfo header survives");
         let gcd = p.functions.iter().find(|f| f.name == "gcd").unwrap();
         let main = p.functions.iter().find(|f| f.name == "main").unwrap();
         assert!(main.callees.contains(&gcd.id), "main -> gcd resolved to a stable id");

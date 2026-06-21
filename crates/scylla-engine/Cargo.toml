@@ -1,0 +1,16 @@
+[package]
+name = "scylla-engine"
+description = "The engine port (DD-009/040): gRPC client for the sandboxed JVM engine-as-service."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+scylla-model = { path = "../scylla-model" }
+
+[build-dependencies]
+tonic-build = "0.12"

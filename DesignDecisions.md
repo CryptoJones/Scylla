@@ -506,4 +506,27 @@ the binary that is, at this exact moment, engineered specifically to make them r
 
 ---
 
+## H. The engine-as-service — DECIDED 2026-06-21
+
+**DD-040 — Engine-port transport: gRPC; engine-as-service is a STANDALONE JVM process
+(refines DD-009 / DD-034).** The Rust core drives the engine over **gRPC** (a `.proto`
+contract, `tonic` on the Rust side, grpc-java on the JVM). Chosen over a hand-rolled framed
+protocol because DD-019 demands streaming + cancellation and DD-009 demands a *swappable*
+producer — gRPC gives both for free, and "a small framed protocol" is a fiction that grows into
+a buggy, single-language gRPC the instant those requirements land. Two IDLs in the tree
+(protobuf on this seam, Cap'n Proto on the model/client side) is a deliberate, documented cost,
+not an accident: the two waists have different constraints, and DD-002 already kept capnp off
+this seam for its weak JVM binding.
+
+The engine-as-service is a **standalone JVM process that uses Ghidra *headless as a library*** —
+**not** a GUI plugin. This is the whole game: grpc-java + Netty inside Ghidra's notoriously
+fussy plugin classloader is exactly where this design would die; a normal-classpath standalone
+app sidesteps it, and a separate sandboxed process is what DD-014/DD-009 wanted anyway.
+**De-risk it before betting the build** — a spike proving a standalone JVM stands up grpc-java
+*and* drives Ghidra headless cleanly, the same way DD-004 re-anchoring was proven before the
+core was built. If the spike fights us, the fallback is a lean framed protocol over a unix
+socket — but we prove the standard path works before we abandon it.
+
+---
+
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

@@ -1,0 +1,39 @@
+syntax = "proto3";
+package scylla.engine.v1;
+
+// The engine port (DD-009/040): the Rust core drives a sandboxed JVM engine-as-service over
+// this contract. protobuf here (not Cap'n Proto — DD-002 weak JVM binding); the model/client
+// side stays Cap'n Proto. A new engine is just another implementation of this service.
+service Engine {
+  // Analyze a binary and STREAM the materialized model back. Server-streaming because a model
+  // can be large and analysis is long-running (DD-019: progress + cancellation come free).
+  rpc Materialize(MaterializeRequest) returns (stream FunctionChunk);
+
+  // Decompile one function on demand.
+  rpc Decompile(DecompileRequest) returns (DecompileReply);
+
+  // Liveness / identity.
+  rpc Info(InfoRequest) returns (InfoReply);
+}
+
+message MaterializeRequest {
+  bytes binary = 1;      // the bytes to analyze — adversarial; the engine runs sandboxed (DD-034)
+  string arch_hint = 2;  // optional loader/arch hint
+}
+
+message FunctionChunk {
+  uint64 entry = 1;             // current address (a mutable attribute, not identity — DD-004)
+  string name = 2;             // engine symbol (demangled); user renames live in the model
+  uint64 size = 3;
+  uint32 bb_count = 4;
+  repeated uint64 callees = 5; // callee entry addresses; resolved to stable ids core-side
+}
+
+message DecompileRequest { uint64 entry = 1; }
+message DecompileReply { string c = 1; }
+
+message InfoRequest {}
+message InfoReply {
+  string engine = 1;   // e.g. "GayHydra"
+  string version = 2;
+}

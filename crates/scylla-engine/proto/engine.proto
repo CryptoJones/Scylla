@@ -1,6 +1,11 @@
 syntax = "proto3";
 package scylla.engine.v1;
 
+// Java codegen options (ignored by prost/tonic on the Rust side); the JVM engine-service
+// builds its stubs from THIS same file — one contract, no drift.
+option java_multiple_files = true;
+option java_package = "scylla.engine.v1";
+
 // The engine port (DD-009/040): the Rust core drives a sandboxed JVM engine-as-service over
 // this contract. protobuf here (not Cap'n Proto — DD-002 weak JVM binding); the model/client
 // side stays Cap'n Proto. A new engine is just another implementation of this service.

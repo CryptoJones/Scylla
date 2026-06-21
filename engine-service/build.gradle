@@ -1,0 +1,49 @@
+// Scylla engine-as-service (DD-040): a STANDALONE JVM gRPC server. It will drive Ghidra
+// headless as a library; for now it serves stub responses, proving the cross-language gRPC
+// seam (Rust tonic client <-> grpc-java server) before the Ghidra coexistence milestone.
+plugins {
+    id 'application'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+repositories { mavenCentral() }
+
+ext {
+    grpcVersion = '1.68.1'
+    protobufVersion = '3.25.5'
+}
+
+dependencies {
+    // grpc-netty-SHADED: Netty is relocated, which is what keeps it from knifing Ghidra's
+    // classloader when the engine is wired in (DD-040).
+    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+    compileOnly "org.apache.tomcat:annotations-api:6.0.53"
+}
+
+// One proto, two languages: build the Java stubs from the canonical Rust-side contract.
+sourceSets {
+    main {
+        proto { srcDir '../crates/scylla-engine/proto' }
+    }
+}
+
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:${protobufVersion}" }
+    plugins {
+        grpc { artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}" }
+    }
+    generateProtoTasks {
+        all().each { task -> task.plugins { grpc {} } }
+    }
+}
+
+application {
+    mainClass = 'dev.scylla.engine.EngineServer'
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}

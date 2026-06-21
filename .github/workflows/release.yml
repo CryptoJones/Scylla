@@ -15,6 +15,7 @@ on:
 permissions:
   contents: write   # attach the signed artifacts to the release
   id-token: write   # the OIDC token for keyless signing — the whole point: no key to leak
+  packages: write   # push the engine-service image to ghcr.io (then keyless-sign it)
 
 jobs:
   sign-release:
@@ -52,3 +53,43 @@ jobs:
             dist/SHA256SUMS
             dist/scylla-linux-x86_64.cosign.bundle
             dist/SHA256SUMS.cosign.bundle
+
+  # The security-critical artifact: the engine-service sandbox image (the JVM wrapper + the gRPC
+  # service + dump_model.java; the GayHydra dist is a runtime mount, never baked in). Build it,
+  # push to ghcr.io, and keyless-sign the pushed DIGEST so an operator can verify the sandbox they
+  # pull. Same no-key model: bound to this workflow's OIDC identity, public proof in Rekor.
+  sign-engine-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build the engine-service install (Gradle)
+        working-directory: engine-service
+        run: gradle --no-daemon installDist
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push the engine-service image
+        id: build
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/$owner/scylla-engine-service"
+          docker build -t "$image:${GITHUB_REF_NAME}" engine-service
+          docker push "$image:${GITHUB_REF_NAME}"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:${GITHUB_REF_NAME}")
+          echo "ref=$digest" >> "$GITHUB_OUTPUT"
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Keyless-sign the image (Sigstore — no key)
+        run: cosign sign --yes "${{ steps.build.outputs.ref }}"

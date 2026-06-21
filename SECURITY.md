@@ -50,3 +50,12 @@ cosign verify-blob \
 A `Verified OK` means the bytes were signed by the Scylla release workflow at a real version tag —
 not by someone who stole a key (there is none) or rebuilt the binary elsewhere. Pin the identity
 regexp; do not relax the issuer.
+
+The **engine-service sandbox image** is signed the same way (pushed to `ghcr.io`, keyless). Verify
+the image you pull before you run a parser inside it:
+
+```sh
+cosign verify ghcr.io/cryptojones/scylla-engine-service:vX.Y.Z \
+  --certificate-identity-regexp '^https://github\.com/CryptoJones/Scylla/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+```

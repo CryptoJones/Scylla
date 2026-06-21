@@ -3,20 +3,19 @@
 # A hostile sample can torch this sandbox without reaching the Rust core, the host FS, or — in
 # the full-lockdown variant — the network.
 set -euo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"
 GHIDRA_DIST="${GHIDRA_DIST:-/home/hermes/Source/repos/GayHydra/build/dist/ghidra_26.3.0_GayHydra-26.3.0}"
-SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$HERE/../prototype/harness" && pwd)}"
 PORT="${PORT:-50051}"
 
+# dump_model.java is baked into the image (engine-service/scripts/ -> the install's scripts/),
+# so there is no longer a host script mount — only the external GayHydra dist is mounted read-only.
 exec docker run --rm \
   --read-only \
   --tmpfs /tmp:rw,exec,size=1g \
   --cap-drop ALL \
   --security-opt no-new-privileges \
   --memory 4g --cpus 2 --pids-limit 512 \
-  -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra -e SCYLLA_SCRIPT_DIR=/opt/scripts \
+  -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra \
   -v "$GHIDRA_DIST":/opt/gayhydra:ro \
-  -v "$SCRIPT_DIR":/opt/scripts:ro \
   -p 127.0.0.1:"${PORT}":50051 \
   scylla-engine-service:dev
 

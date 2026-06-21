@@ -45,6 +45,17 @@ application {
     mainClass = 'dev.scylla.engine.EngineServer'
 }
 
+// Ship dump_model.java (the GayHydra post-script) WITH the service: it lands at
+// <install>/scripts/dump_model.java, which EngineServer resolves relative to its own jar. The
+// service no longer reaches into prototype/harness at run time (DD-040 config-ify).
+distributions {
+    main {
+        contents {
+            from('scripts') { into 'scripts' }
+        }
+    }
+}
+
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
 }

@@ -28,14 +28,29 @@ import scylla.engine.v1.MaterializeRequest;
  */
 public final class EngineServer {
 
-    static final String DEFAULT_DIST =
-            "/home/hermes/Source/repos/GayHydra/build/dist/ghidra_26.3.0_GayHydra-26.3.0";
-    static final String DEFAULT_SCRIPT_DIR =
-            "/home/hermes/Source/repos/Scylla/prototype/harness";
+    /** The post-script directory: {@code SCYLLA_SCRIPT_DIR} if set, else the {@code scripts/}
+     *  dir shipped beside this service in the install — so dump_model.java travels WITH the
+     *  service instead of being read out of the prototype tree at run time. */
+    static String resolveScriptDir() {
+        String env = System.getenv("SCYLLA_SCRIPT_DIR");
+        return (env != null && !env.isEmpty()) ? env : shippedScriptDir();
+    }
 
-    static String env(String k, String fallback) {
-        String v = System.getenv(k);
-        return (v == null || v.isEmpty()) ? fallback : v;
+    /** The {@code scripts/} dir the install lays down beside the app jar
+     *  ({@code <install>/lib/<jar>} → {@code <install>/scripts}), or {@code ""} if it cannot be
+     *  resolved (e.g. running from a classes dir in dev — set SCYLLA_SCRIPT_DIR there). */
+    static String shippedScriptDir() {
+        try {
+            java.net.URI loc =
+                    EngineServer.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+            Path scripts = Path.of(loc).getParent().getParent().resolve("scripts");
+            if (Files.isDirectory(scripts)) {
+                return scripts.toString();
+            }
+        } catch (Exception ignored) {
+            // fall through to "" — main() validates and errors clearly
+        }
+        return "";
     }
 
     /** Last {@code n} chars of {@code s}, trimmed — the useful end of a subprocess log. */
@@ -45,6 +60,14 @@ public final class EngineServer {
     }
 
     static final class EngineImpl extends EngineGrpc.EngineImplBase {
+        private final String dist;
+        private final String scriptDir;
+
+        EngineImpl(String dist, String scriptDir) {
+            this.dist = dist;
+            this.scriptDir = scriptDir;
+        }
+
         @Override
         public void info(InfoRequest req, StreamObserver<InfoReply> resp) {
             resp.onNext(InfoReply.newBuilder().setEngine("GayHydra").setVersion("0.1-subprocess").build());
@@ -55,15 +78,14 @@ public final class EngineServer {
         public void materialize(MaterializeRequest req, StreamObserver<FunctionChunk> resp) {
             Path bin = null, out = null, proj = null;
             try {
-                String dist = env("GHIDRA_DIST", DEFAULT_DIST);
-                String scriptDir = env("SCYLLA_SCRIPT_DIR", DEFAULT_SCRIPT_DIR);
                 bin = Files.createTempFile("scylla-bin", ".bin");
                 out = Files.createTempFile("scylla-snap", ".json");
                 proj = Files.createTempDirectory("scylla-proj");
                 Files.write(bin, req.getBinary().toByteArray());
 
                 ProcessBuilder pb = new ProcessBuilder(
-                        dist + "/support/analyzeHeadless", proj.toString(), "scylla_engine",
+                        Path.of(dist, "support", "analyzeHeadless").toString(), proj.toString(),
+                        "scylla_engine",
                         "-import", bin.toString(),
                         "-scriptPath", scriptDir,
                         "-postScript", "dump_model.java", out.toString(),
@@ -118,8 +140,36 @@ public final class EngineServer {
 
     public static void main(String[] args) throws Exception {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : 50051;
-        Server server = ServerBuilder.forPort(port).addService(new EngineImpl()).build().start();
-        System.out.println("scylla-engine-service (GayHydra subprocess) listening on " + port);
+
+        // GHIDRA_DIST is REQUIRED — the GayHydra dist is an external ~890MB mount, never baked
+        // into the image, and a hardcoded laptop path is a footgun that works on exactly one box.
+        // Validate the whole config at START (fail-fast) rather than dying per-request with a
+        // cryptic headless exit code.
+        String dist = System.getenv("GHIDRA_DIST");
+        if (dist == null || dist.isEmpty()) {
+            System.err.println("FATAL: GHIDRA_DIST is not set — point it at the GayHydra dist "
+                    + "(the directory containing support/analyzeHeadless). ALWAYS GayHydra.");
+            System.exit(2);
+            return;
+        }
+        if (!Files.isExecutable(Path.of(dist, "support", "analyzeHeadless"))) {
+            System.err.println("FATAL: no executable support/analyzeHeadless under GHIDRA_DIST="
+                    + dist + " — wrong path, or not a GayHydra dist.");
+            System.exit(2);
+            return;
+        }
+        String scriptDir = resolveScriptDir();
+        if (scriptDir.isEmpty() || !Files.isRegularFile(Path.of(scriptDir, "dump_model.java"))) {
+            System.err.println("FATAL: dump_model.java not found (scriptDir='" + scriptDir
+                    + "'). It ships in the install's scripts/ dir; set SCYLLA_SCRIPT_DIR to override.");
+            System.exit(2);
+            return;
+        }
+
+        Server server =
+                ServerBuilder.forPort(port).addService(new EngineImpl(dist, scriptDir)).build().start();
+        System.out.println("scylla-engine-service (GayHydra subprocess) on " + port
+                + " | dist=" + dist + " | scripts=" + scriptDir);
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown));
         server.awaitTermination();
     }

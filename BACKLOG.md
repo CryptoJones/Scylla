@@ -40,9 +40,12 @@ Tracked "later / someday" items that aren't on the current sprint path
   snapshot JSON via `materialize.sh`; the gRPC engine-service is a parallel path. Make the core
   consume the `Materialize` stream (resolve callee addrs → stable ids, mint via `IdMinter`) so
   the engine-port is *the* path, not a second one.
-- [ ] **Config-ify the engine-service.** `GHIDRA_DIST` / `SCYLLA_SCRIPT_DIR` are
-  hardcoded-with-env-default for the spike; and ship `dump_model.java` with the service instead
-  of reaching into `prototype/harness`.
+- [x] **Config-ify the engine-service.** `dump_model.java` now lives in `engine-service/scripts/`
+  (single source of truth) and ships in the install/image; `EngineServer` resolves it relative to
+  its own jar, so the service no longer reaches into `prototype/harness` at run time and the
+  sandbox runner drops the script mount. `GHIDRA_DIST` is now a REQUIRED, fail-fast config (no
+  laptop-specific default), validated at startup; `SCYLLA_SCRIPT_DIR` defaults to the shipped
+  scripts dir and is override-only.
 
 ## Security
 

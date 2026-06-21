@@ -41,7 +41,7 @@ real targets are stripped, so the matcher must *not* rely on symbols.
 
 - [x] GayHydra headless available (`build/dist/ghidra_26.3.0_GayHydra-26.3.0/support/analyzeHeadless`)
 - [x] Test-binary corpus generator + corpus
-- [x] Model-snapshot dumper — `harness/dump_model.java` (Java GhidraScript; Ghidra 26.x dropped Jython for PyGhidra) + `harness/snapshot.sh`. Proven on the corpus: correct call edges, BB counts, mnemonic fingerprints.
+- [x] Model-snapshot dumper — `engine-service/scripts/dump_model.java` (Java GhidraScript; Ghidra 26.x dropped Jython for PyGhidra), driven by `harness/snapshot.sh`. The service owns the post-script now (single source of truth); the harness points `-scriptPath` at it. Proven on the corpus: correct call edges, BB counts, mnemonic fingerprints.
 - [x] Annotate / perturb / re-anchor / measure harness — `harness/reanchor.py` + `snapshots/`. See [REPORT.md](REPORT.md).
 - [x] Matcher hardened — runtime-function exclusion + ordered-trigram signal + confidence threshold → **WRONG = 0 across every class** (failures degrade to flagged *orphans*, never silent clobber). **Verdict: GO** — same-opt re-analysis 100%; hard cases (O0→O2, cross-arch) fail safely and are an optimization, not a wall.
 - [ ] Evaluate Ghidra Version Tracking head-to-head (lift hard-case *recovery*) + p-code signals for cross-arch *(Sprint 2 cont.)*

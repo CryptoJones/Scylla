@@ -10,6 +10,8 @@ FROM eclipse-temurin:21-jdk
 # the writable /tmp tmpfs. Otherwise Ghidra's launcher dies writing its JDK-detection save file
 # under the read-only rootfs (FileNotFoundException: user home directory does not exist).
 RUN useradd -r -u 10001 -d /tmp scylla
+# The install carries the service AND its GayHydra post-script (scripts/dump_model.java) —
+# EngineServer resolves it relative to its own jar, so no script mount is needed at run time.
 COPY build/install/scylla-engine-service /opt/engine-service
 
 ENV HOME=/tmp

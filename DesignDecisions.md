@@ -411,4 +411,99 @@ Not every decision is equal or independent. Rough order:
 
 ---
 
+## G. Security & Testing Hardening — DECIDED 2026-06-21
+
+The threat model fits in one sentence: **three inputs are hostile — the binary, the `.scylla`
+artifact, and the MCP head's caller** — and every decision below defends one of those
+boundaries. If you are reading this because you want to "just trust the input this once," you
+are the reason this section exists.
+
+**DD-034 — Engine sandbox: container baseline (refines DD-014).** The adversarial-binary
+parser runs in a locked-down container: read-only rootfs, **no network**, dropped capabilities,
+hard mem/CPU/wall-clock limits, **one binary per invocation**. The policy is a *named set of
+knobs*, so tightening to raw OS primitives (seccomp/Landlock) or a microVM later costs nothing
+at the core↔engine protocol — best isolation-per-effort, and it matches "the engine is a
+droppable producer" (DD-009). Do **not** run the engine in-process with the core to "save a
+fork": that hands a malformed PE a seat inside the Rust core, and the entire reason the hexagon
+exists evaporates in a single `Segmentation fault`.
+
+**DD-035 — MCP head exposure: stdio/local-trust v1 + an auth-ready identity seam (refines
+DD-022).** v1 is stdio, single-user, **no authz** — the agent is launched by the user and
+inherits the user's trust, like every other MCP server on the planet. We do **not** build a
+networked auth subsystem (tokens, TLS, sessions, rate-limiting, key rotation) for a surface
+with zero users; that is gold-plating a door nobody can knock on, and auth stacks fossilize
+exactly like the era-bound adapters this architecture exists to shed. What we **do** build is
+cheap and load-bearing: an **optional principal/author** threaded through the session and onto
+every user fact — because provenance (DD-007) and collaboration (DD-027) need "who" regardless.
+The core therefore stops assuming single-user; a future networked head supplies a real
+principal without a rewrite. The genuinely *current* threat is **prompt injection through the
+binary** — a hostile sample's strings and decompiled output are attacker-controlled text
+flowing into an agent's context — so the head surfaces all analysis content as **clearly
+delimited untrusted data, never as instructions**, and typed errors (DD-021) never leak engine
+or host internals.
+
+**DD-036 — Artifact-loader trust: untrusted by default (refines DD-029).** The `.scylla`
+artifact becomes the **second** adversarial input the instant collaboration (DD-027) exists,
+and *we wrote the loader*, so this surface is ours to answer for. Cap'n Proto buys memory
+safety and amplification-bomb defense **only if you set the reader limits on purpose** —
+`ReaderOptions::new()` defaults are a security decision you are otherwise making *by accident*;
+pin explicit, documented traversal + nesting caps and reject anything that blows them. The
+loader is **total: it never panics and never OOMs** — a malformed artifact is a typed error,
+not a stack trace. Structural invariants are validated on load (ids unique, refs resolve or the
+edge is dropped-and-flagged, lengths bounded). Soft faults **quarantine-and-flag** (one
+dangling comment does not nuke a collaborator's whole artifact); cap-busting or structural
+corruption **hard-rejects**. And a foreign artifact's facts **never rule** — they enter through
+the `collaborate()` conflict path (DD-027), surfaced, never silently authoritative. "It's just
+our own format, it's fine" is the sentence at the top of every parser CVE.
+
+**DD-037 — Test corpus: tiered, pinned, structural oracle (refines DD-030).** Two ways a
+corpus rots, both forbidden. (1) **Golden means pinned *bytes*, not regenerated** — rebuild
+from source in CI and compiler codegen drift silently rewrites your "golden," at which point
+your oracle lies to your face; commit the actual bytes and keep the generator only for *growing*
+the set. (2) **Assert structure, not decompiled prose** — full-text diffs red-flag on every
+Ghidra point release; the oracle is the function set, boundaries, call edges, and symbols,
+which is also exactly what re-anchoring needs. Three deliberate tiers, **not** a combinatorial
+arch×compiler×opt explosion: **Tier 0** (committed, tiny, every-CI — the DD-038 fuel),
+**Tier 1** (pinned, nightly — breadth: a 32-bit arch + an exotic to flex SLEIGH, C++ and Go),
+**Tier 2** (out-of-tree, fetch-by-hash, release lane — UPX-packed, malformed ELF/PE,
+license-clean real binaries). **No malware in the repo. Ever.** Not "encrypted," not "in a
+password zip" — not in the repo.
+
+**DD-038 — Re-anchoring regression: the keystone's release gate (refines DD-030).** This is
+*the* test; if it regresses, the platform's one promise (DD-004/005 — "analysis never loses
+your work") is broken, so it gates releases — and you will **gate two different things
+differently**, because conflating a safety invariant with a quality metric is precisely how
+this test goes flaky or blind. **(1) `WRONG = 0` is a hard, never-relaxed invariant** across
+every perturbation class — a single silent mis-attachment fails the build, full stop; that is
+the DD-005 contract, not a knob you turn down when it's inconvenient on a Friday. **(2)
+Survival % is a *ratcheted floor*, not a guessed number** — record current per-class survival
+as the committed floor and fail on any drop; improving the matcher raises it. The floor is
+enforced only where recovery is *promised* (same-opt re-analysis / minor edit); the hard
+classes (O0→O2, cross-arch) enforce `WRONG=0` and **track recovery as informational** — we do
+not gate a release on a number we have honestly labelled future work. Every run emits the
+per-class correct/wrong/orphaned **scoreboard** — no silent caps, ever. The regression
+exercises the **shipping `scylla-merge`** over the Tier-0 committed snapshots (engine-free,
+CI-able), not the prototype's Python: test what ships, not what you wish you shipped.
+
+**DD-039 — Fuzzing: fuzz what you wrote, sandbox what you wrap (refines DD-030).** The sharpest
+line in this section: **do not fuzz the engine.** Ghidra/GayHydra is a 20-year C++/Java
+codebase we have *decided* to treat as a sandboxed black box (DD-034) and never rewrite (P1);
+fuzzing it is upstream's job and the sandbox is *our* containment — anything else is a fuzzing
+campaign you will never finish, substituted for a boundary you already drew. We fuzz the
+**three Rust seams we actually wrote and expose**, with cargo-fuzz/libFuzzer:
+`fuzz_artifact_loader` (the primary — it is what turns DD-036's "total" from a hope into a
+*proven* claim; property: total, and valid inputs round-trip), `fuzz_mcp_dispatch` (property:
+never panics, always returns well-formed JSON-RPC, even on garbage), and `fuzz_snapshot_ingest`
+(malformed or compromised engine output). Fuzzing is **not** a per-commit gate — that is how
+you earn flaky, glacial CI; split it: **per-commit replays the committed crash/seed corpus**
+(deterministic — a bug that returns fails the build, because the crash corpus is committed and
+found stays found), **nightly runs real coverage-guided fuzzing** and files new crashes.
+Assert *properties*, not "it didn't crash this time." The loader target gates v1.
+
+These six refine DD-014/022/029/030 and are non-negotiable for any path that touches an
+adversarial input. If a future contributor calls one of them "overkill for now," point them at
+the binary that is, at this exact moment, engineered specifically to make them regret saying so.
+
+---
+
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

@@ -79,6 +79,15 @@ name = "scylla-model"
 version = "0.0.0"
 
 [[package]]
+name = "scylla-port"
+version = "0.0.0"
+dependencies = [
+ "scylla-ingest",
+ "scylla-model",
+ "scylla-schema",
+]
+
+[[package]]
 name = "scylla-schema"
 version = "0.0.0"
 dependencies = [

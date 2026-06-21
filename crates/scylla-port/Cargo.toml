@@ -1,0 +1,14 @@
+[package]
+name = "scylla-port"
+description = "The client port (DD-017): data-centric, model-primary command surface + semantic zoom."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+scylla-model = { path = "../scylla-model" }
+scylla-schema = { path = "../scylla-schema" }
+
+[dev-dependencies]
+scylla-ingest = { path = "../scylla-ingest" }

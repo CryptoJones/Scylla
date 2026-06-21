@@ -23,12 +23,23 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Re-anchoring recovery
 
-- [ ] **Add a structural fingerprint to `scylla-model::Function`** (mnemonic histogram / hash, or
-  bytes) and use it in `scylla-merge`'s signature. The model-only signature (bb-count / size /
-  out-degree) is conservative and safe (`WRONG=0` holds) but **caps recovery**: the DD-038 gate
-  shows the aarch64 edit class at 40% vs the prototype's ~100% with mnemonics. The prototype
-  proved the signal exists; the production model just doesn't carry it yet. Landing the
-  fingerprint raises the DD-038 ratcheted floors. **Never at the cost of `WRONG=0`.**
+- [x] **Add a structural fingerprint to `scylla-model::Function`.** `Function.fingerprint` is the
+  FNV-1a hash of the mnemonic histogram (computed in `scylla-ingest` from the snapshot's
+  `mnemonics`), folded into `scylla-merge`'s signature. It disambiguates coarse-signature
+  collisions, lifting the **DD-038 aarch64 edit floor 40% → 80%** with `WRONG=0` held by
+  construction (a richer signature only adds *unique* matches; a fingerprint collision is
+  ambiguous → flagged, never wrong). Two follow-ups it opens:
+  - [ ] **Carry the mnemonic histogram over the engine.proto wire.** The gRPC path
+    (`scylla-engine`) produces `fingerprint = 0` (the `Materialize` `FunctionChunk` has no
+    mnemonics), so artifacts materialized live don't yet benefit from the better re-anchoring —
+    only the offline snapshot path does. Add mnemonics to `FunctionChunk` + populate them in
+    `EngineServer` from `dump_model.java`, then set the fingerprint in `chunk_to_function`.
+  - [ ] **Fuzzy / cross-build recovery for the hard classes.** Exact-fingerprint matching can't
+    cross an optimization or architecture boundary (recompile/cross-arch dropped to 0% honest
+    exact-match). The prototype's cosine + ordered-trigram + confidence-threshold matcher
+    recovered those; bring it to production behind a confidence gate (still `WRONG=0`), or wire
+    Ghidra Version Tracking. Needs the raw mnemonic histogram stored on the model, not just the
+    hash.
 
 ## Engine-as-service (DD-040)
 

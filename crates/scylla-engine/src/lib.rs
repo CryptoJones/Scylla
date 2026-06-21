@@ -25,6 +25,10 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         size: chunk.size,
         bb_count: chunk.bb_count,
         callees: Vec::new(),
+        // The engine.proto FunctionChunk doesn't carry mnemonics yet, so the gRPC path produces
+        // no fingerprint (0 = no data, degrades gracefully to the coarse signature). Carrying the
+        // mnemonic histogram over the wire is the tracked follow-up (see BACKLOG.md).
+        fingerprint: 0,
     }
 }
 

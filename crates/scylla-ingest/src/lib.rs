@@ -19,6 +19,10 @@ struct SnapFunc {
     bb_count: u32,
     #[serde(default)]
     callees: Vec<String>,
+    /// The function's instruction mnemonics, in order (the engine already emits these). We fold
+    /// them into a structural fingerprint (DD-038); absent → no fingerprint (0).
+    #[serde(default)]
+    mnemonics: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +64,7 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             size: f.size,
             bb_count: f.bb_count,
             callees,
+            fingerprint: scylla_model::mnemonic_fingerprint(&f.mnemonics),
         });
     }
 

@@ -45,6 +45,41 @@ pub struct Function {
     pub size: u64,
     pub bb_count: u32,
     pub callees: Vec<StableId>,
+    /// A structural fingerprint of the instruction mix — see [`mnemonic_fingerprint`]. `0` means
+    /// the engine emitted no mnemonic data. Used to disambiguate coarse-signature collisions in
+    /// re-anchoring (DD-038); it only ever *adds* discrimination, never causes a wrong match.
+    pub fingerprint: u64,
+}
+
+/// A stable structural fingerprint of a function: the FNV-1a hash of its **mnemonic histogram**
+/// (the instruction multiset, sorted — so it is order-independent and deterministic). This is the
+/// model-side echo of the prototype's strongest re-anchoring signal (the mnemonic cosine).
+///
+/// `0` is reserved to mean "no mnemonic data" (e.g. an engine that didn't emit it); a non-empty
+/// input never returns `0`. Two functions with the same instruction mix share a fingerprint —
+/// which, in the merge signature, makes them *ambiguous* (flagged), never a silent wrong match.
+pub fn mnemonic_fingerprint<S: AsRef<str>>(mnemonics: &[S]) -> u64 {
+    if mnemonics.is_empty() {
+        return 0;
+    }
+    let mut counts: std::collections::BTreeMap<&str, u32> = std::collections::BTreeMap::new();
+    for m in mnemonics {
+        *counts.entry(m.as_ref()).or_default() += 1;
+    }
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325; // FNV-1a offset basis
+    for (mnem, count) in &counts {
+        for b in mnem.bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        h ^= u64::from(*count);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    if h == 0 {
+        1
+    } else {
+        h
+    }
 }
 
 /// The kinds of fact an analyst attaches to an entity (DD-001 first-class user facts).
@@ -142,9 +177,21 @@ mod tests {
                 size: 64,
                 bb_count: 4,
                 callees: vec![],
+                fingerprint: 0,
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };
         assert_eq!(prog.display_name(gcd).as_deref(), Some("gcd"));
+    }
+
+    #[test]
+    fn fingerprint_is_order_independent_and_reserves_zero() {
+        assert_eq!(mnemonic_fingerprint::<&str>(&[]), 0, "no data -> 0 sentinel");
+        let a = mnemonic_fingerprint(&["MOV", "PUSH", "MOV", "RET"]);
+        let b = mnemonic_fingerprint(&["MOV", "MOV", "RET", "PUSH"]); // same multiset, reordered
+        assert_eq!(a, b, "the histogram is order-independent");
+        assert_ne!(a, 0, "non-empty input never collides with the no-data sentinel");
+        // A different instruction mix is a different fingerprint.
+        assert_ne!(a, mnemonic_fingerprint(&["MOV", "PUSH", "RET"]));
     }
 }

@@ -44,6 +44,7 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             fb.set_name(f.name.as_str());
             fb.set_size(f.size);
             fb.set_bb_count(f.bb_count);
+            fb.set_fingerprint(f.fingerprint);
             let mut cs = fb.reborrow().init_callees(f.callees.len() as u32);
             for (j, c) in f.callees.iter().enumerate() {
                 cs.set(j as u32, c.0);
@@ -83,6 +84,7 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
             size: f.get_size(),
             bb_count: f.get_bb_count(),
             callees,
+            fingerprint: f.get_fingerprint(),
         });
     }
 
@@ -225,6 +227,7 @@ mod tests {
                     size: 64,
                     bb_count: 4,
                     callees: vec![],
+                    fingerprint: 0x1111_2222_3333_4444,
                 },
                 Function {
                     id: main,
@@ -233,6 +236,7 @@ mod tests {
                     size: 180,
                     bb_count: 4,
                     callees: vec![gcd],
+                    fingerprint: 0xAAAA_BBBB_CCCC_DDDD,
                 },
             ],
             facts: vec![

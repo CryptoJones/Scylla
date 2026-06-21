@@ -97,11 +97,14 @@ struct Class {
 #[test]
 fn reanchoring_release_gate() {
     let classes = [
-        // Floors are RATCHETED from current reality (DD-038), not guessed. The model-only
-        // signature (bb/size/callees) caps recovery below the prototype's mnemonic matcher;
-        // adding a structural fingerprint to the model (see BACKLOG.md) is what lifts these.
+        // Floors are RATCHETED from current reality (DD-038), not guessed. The signature now
+        // folds in the model's mnemonic fingerprint, which disambiguates the collision-heavy
+        // aarch64 edit class (40% -> 80%). The hard classes (recompile, cross-arch) stay
+        // track-only: an EXACT fingerprint cannot cross an optimization or architecture boundary
+        // (the instruction stream is wholly different), so they drop to 0% honest exact-match —
+        // fuzzy/cosine recovery (the prototype's threshold matcher) is the next lever (BACKLOG.md).
         Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(0.80) },
-        Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(0.40) },
+        Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(0.80) },
         Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: None },
         Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: None },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },

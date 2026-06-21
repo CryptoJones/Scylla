@@ -11,12 +11,14 @@ struct Program {
 }
 
 struct Function {
-  id      @0 :UInt64;   # synthetic stable id (DD-004) — NOT the address
-  addr    @1 :UInt64;   # mutable attribute
-  name    @2 :Text;     # engine symbol; user renames live in UserFact
-  size    @3 :UInt64;
-  bbCount @4 :UInt32;
-  callees @5 :List(UInt64);
+  id          @0 :UInt64;   # synthetic stable id (DD-004) — NOT the address
+  addr        @1 :UInt64;   # mutable attribute
+  name        @2 :Text;     # engine symbol; user renames live in UserFact
+  size        @3 :UInt64;
+  bbCount     @4 :UInt32;
+  callees     @5 :List(UInt64);
+  fingerprint @6 :UInt64;   # structural hash of the mnemonic histogram; 0 = engine emitted none.
+                            # Disambiguates coarse-signature collisions in re-anchoring (DD-038).
 }
 
 struct UserFact {

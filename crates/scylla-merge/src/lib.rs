@@ -6,19 +6,25 @@
 //!
 //! **Safety first (the keystone-spike finding, now a code invariant):** a fact only carries
 //! across on a *unique* structural match. Anything ambiguous or absent is **flagged**, never
-//! silently mis-attached. Zero-wrong is the contract; recovery rate is the thing to improve
-//! later (richer signals — a stored fingerprint, or Ghidra Version Tracking — per the
-//! prototype REPORT.md). The v0 model carries no mnemonic fingerprint yet, so the signature
-//! here is deliberately coarse and conservative.
+//! silently mis-attached. Zero-wrong is the contract; recovery rate is the thing we lift with
+//! richer signals. The signature now folds in the model's **mnemonic fingerprint** (DD-038) on
+//! top of the coarse CFG/size/out-degree tuple — which disambiguates collisions and lifts the
+//! re-anchoring floors, while keeping zero-wrong by construction (more signature → more *unique*
+//! matches, never a wrong one). Fuzzy/cross-build recovery (cosine similarity, Ghidra Version
+//! Tracking) is the next lever, per the prototype REPORT.md.
 
 use std::collections::HashMap;
 
 use scylla_model::{FactKind, Function, Program, StableId, UserFact};
 
-/// Coarse structural signature: CFG size, byte size, out-degree. Two functions with the same
-/// signature are treated as indistinguishable (→ ambiguous → flagged), never guessed between.
-fn signature(f: &Function) -> (u32, u64, usize) {
-    (f.bb_count, f.size, f.callees.len())
+/// Structural signature: CFG size, byte size, out-degree, and the **mnemonic fingerprint**
+/// (DD-038). Two functions with the same signature are indistinguishable (→ ambiguous → flagged),
+/// never guessed between — so a richer signature only ever *adds* discrimination (more functions
+/// become uniquely matchable, so more facts survive) and can never turn an ambiguous case into a
+/// wrong one. A `0` fingerprint (engine emitted no mnemonics) contributes nothing, degrading
+/// cleanly to the old coarse tuple.
+fn signature(f: &Function) -> (u32, u64, usize, u64) {
+    (f.bb_count, f.size, f.callees.len(), f.fingerprint)
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -32,7 +38,7 @@ pub struct MergeReport {
 /// Compute the re-anchoring of `old`'s facts against `new`, without mutating either.
 /// Returns `(merged_facts, flagged_facts)`.
 pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserFact>) {
-    let mut new_by_sig: HashMap<(u32, u64, usize), Vec<StableId>> = HashMap::new();
+    let mut new_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
     for f in &new.functions {
         new_by_sig.entry(signature(f)).or_default().push(f.id);
     }
@@ -89,7 +95,7 @@ pub struct CollabReport {
 /// ones are no-ops, and genuine disagreements are returned as [`Conflict`]s — `base` is never
 /// silently overwritten.
 pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec<Conflict>) {
-    let mut base_by_sig: HashMap<(u32, u64, usize), Vec<StableId>> = HashMap::new();
+    let mut base_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
     for f in &base.functions {
         base_by_sig.entry(signature(f)).or_default().push(f.id);
     }

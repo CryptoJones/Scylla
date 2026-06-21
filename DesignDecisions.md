@@ -17,6 +17,48 @@ is settled yet.
 
 ---
 
+## Decisions Locked (2026-06-21)
+
+First working session. These are settled (`OPEN` → `DECIDED`); the per-DD entries below
+carry the same status. The two **outer port contracts** (storage-in, client-out) and the
+**inner engine/language** plumbing are now fixed; the rest still hangs off them.
+
+**The two outer contracts (what Scylla *is*):**
+- **DD-026 / DD-015 — Persistence: own the format.** The canonical on-disk form is a clean,
+  documented, versioned serialization of the *domain model*. Ghidra's `.gpr` is demoted to
+  (i) the embedded engine's private cache (behind the engine port) and (ii) a disposable
+  import/export interop adapter — **never the canonical format.** Binary input is unchanged
+  (bytes + auto-detected arch/base/loader hints).
+- **DD-017 / DD-001 — Client port: data-centric, model-primary.** The port exposes the
+  **engine-independent domain model as a navigable graph** plus a curated command set
+  (`import`, `analyze`, `decompile`, `rename`, `retype`, `comment`, `diff`). Clients see the
+  model ("function F, its decompilation, its callers"), never engine operations.
+- **DD-020 — Altitude: the focal-length / semantic-zoom model.** One multi-resolution graph;
+  every request carries a *detail level*. The **domain vocabulary is the default resting
+  altitude**; finer (instructions, p-code, bytes) is one zoom *down* (an escape hatch);
+  coarser *intent* is one zoom *up*, composed by the **consumer/agent**, never baked into the
+  port. (Established names: *semantic zoom* + *level-of-detail / multi-resolution model*.)
+
+**The inner engine/language plumbing (forced largely by the contracts):**
+- **DD-009 — Engine integration: embed in-process.** The core embeds the engine and calls
+  its API in-process — the semantic-zoom port demands constant fine-grained navigation that
+  would die across a core↔engine seam. The C++ decompiler stays behind Ghidra's internal
+  IPC, untouched (P1).
+- **DD-016 — Language: Kotlin / JVM core; heads polyglot.** Embedding puts the core in the
+  Ghidra JVM, so the core is Kotlin. **Only the core pays the JVM tax** — the adapter heads
+  are out-of-process, any language (Rust/Go/TS), projecting the client port.
+- **DD-011 — Engine: GayHydra** (the hardened fork — inherits Rec 18/19 + 33/34; it's ours).
+- **DD-014 — Trust boundary: sandbox the unit.** The sandbox wraps the **whole core+engine
+  process**; the heads live *outside* it and reach it only through the client port. Boundary
+  is `core+engine ⟷ heads/host`, not `core ⟷ engine` — adversarial binaries are contained
+  without re-introducing the seam. In-process speed *and* isolation.
+
+**Still open** (now constrained by the above): the exact domain-model entity set (DD-001),
+the contract schema language (DD-002), the IR choice (DD-003 — leans P-code via the embed),
+and the rest of A / D / E.
+
+---
+
 ## Guiding principles (constraints on every decision — not themselves open)
 
 - **P1. The engine is sacred.** The proven C++ decompiler (and the analysis it
@@ -101,7 +143,7 @@ call its API; (c) a **long-lived engine service** the core talks to over a priva
 protocol; (d) **FFI straight to the C++ decompiler** + reimplement the framework glue.
 *Tension:* proximity/perf vs isolation vs effort. This decision constrains DD-016
 (language/runtime) and most of B/C.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — embed the engine in-process (the semantic-zoom port needs in-process navigation; a service would re-create the chatty seam on the hot path). The C++ decompiler stays behind Ghidra's internal IPC, untouched.
 
 **DD-010 — Engine surface: whole framework vs parts.**
 *Question:* Do we wrap Ghidra's *entire* Java framework (loaders, analyzers, SLEIGH,
@@ -115,7 +157,7 @@ leaner but re-implements proven glue (violates P1).
 18/19 deserialization hardening and Rec 33/34 IPC modernization) or upstream Ghidra?
 *Tension:* GayHydra gives us the security/IPC hardening for free, but couples Scylla to
 the fork's cadence; upstream is more standard but unhardened.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — **GayHydra** (inherit the Rec 18/19 + 33/34 hardening; it's ours).
 
 **DD-012 — Decompiler boundary.**
 *Question:* Leave Ghidra's Java↔C++ decompiler IPC *as-is* inside the engine box, or
@@ -133,13 +175,13 @@ boundary for adding/overriding specs.)
 *Question:* How many processes, and where is the trust boundary? Binaries are
 **adversarial input** — the engine that parses them should be sandboxed/isolated from
 the core and the heads. *Tension:* isolation vs latency vs complexity.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — sandbox the **whole core+engine process**; heads live outside it and reach it only via the client port. Boundary = `core+engine ⟷ heads/host`, not `core ⟷ engine`. In-process speed *and* isolation.
 
 **DD-015 — Interop with existing Ghidra projects.**
 *Question:* Can Scylla open / round-trip existing Ghidra databases (`.gpr`, packed
 files)? *Tension:* a migration path wins existing users, but binds us to Ghidra's
 storage format (and its deserialization surface — see security).
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — `.gpr` is an import/export interop adapter **and** the engine's private cache — never the canonical store (see DD-026).
 
 ---
 
@@ -153,7 +195,7 @@ DD-009 to option c); (c) polyglot. *Tension:* engine-proximity (JVM) vs a modern
 systems language — and note P1 (engine is sacred = Java) pulls hard toward a JVM core,
 which conflicts with the "kill the seam in Rust" instinct. **This is the single most
 consequential decision; it interacts with DD-009/010.**
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — core in **Kotlin/JVM** (embedding requires it). Only the core pays the JVM tax; the adapter heads are out-of-process and polyglot (Rust/Go/TS).
 
 **DD-017 — Inbound (driving) ports.**
 *Question:* Define the verbs an outside consumer uses to drive RE — e.g. `import`,
@@ -161,7 +203,7 @@ consequential decision; it interacts with DD-009/010.**
 `annotate(rename|retype|comment)`, `navigate(callgraph|cfg)`, `diff`, `export`. What's
 the verb set, and at what *altitude*? *Tension:* the right altitude for an **AI agent
 to reason with** vs power-user fine control — this is the hard, valuable design work.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — data-centric, model-primary: the port exposes the engine-independent domain model as a navigable graph + a curated command set, *not* engine operations. Altitude per DD-020.
 
 **DD-018 — Outbound (driven) ports.**
 *Question:* What does the core need *from* the outside, as ports it depends on? Likely:
@@ -180,7 +222,7 @@ a 200 MB firmware analysis can't be a blocking call.
 *Question:* Coarse high-level verbs (`decompile_and_summarize`) vs fine-grained
 (`get_pcode_op`)? *Tension:* coarse is agent-friendly and network-cheap; fine is
 powerful but chatty. Probably *both*, layered — but decide the primitive set.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — focal-length / semantic-zoom: one multi-resolution model, domain vocabulary as the default; finer = escape hatch (one zoom down); coarser intent = composed by the consumer/agent (one zoom up), never baked into the port.
 
 **DD-021 — Error & failure model.**
 *Question:* How do ports surface failure (malformed binary, decompile timeout, OOM on
@@ -222,7 +264,7 @@ a heads/core dependency boundary, code review rules?)
 *Question:* What stores RE state (the program-DB equivalent)? Reuse Ghidra's DB, a new
 format, an embedded DB, file-based? *Tension:* reuse (interop, DD-015) vs a clean,
 documented, versioned contract we control.
-*Status:* OPEN.
+*Status:* **DECIDED (2026-06-21)** — **own the format**: a clean, documented, versioned serialization of the domain model is canonical; `.gpr` is the engine's private cache + a disposable interop adapter (DD-015), never canonical.
 
 **DD-027 — Collaboration / multi-user.**
 *Question:* Shared projects (a Ghidra-Server equivalent) — in scope for v1, or

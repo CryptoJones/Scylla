@@ -59,6 +59,47 @@ and the rest of A / D / E.
 
 ---
 
+## Why It's Shaped This Way — the model as a narrow waist
+
+The reference answer for "why did Scylla do X." The whole architecture follows from one
+structural choice: **the domain model is not data *inside* Scylla — it is the narrow waist
+of the system.** A single stable, portable, engine-independent, zero-copy artifact, with
+*producers* above it and *consumers* below it, everything on both sides pluggable. (The same
+move IP made for networking, or the file/byte-stream made for Unix: one stable thing in the
+middle, infinite variety on either side.)
+
+That single move — decoupling every producer from every consumer through the model-artifact —
+is *why* the design looks the way it does, and it dissolves a whole cluster of sub-problems at
+once, because they were all symptoms of producer↔consumer coupling in the old monolith:
+
+- **Engine-swap (DD-009/011).** The engine sits *above* the waist as one producer. Swapping it
+  (or running several) is a pluggable concern, not a rewrite. Today it's GayHydra; the waist
+  doesn't care.
+- **Consume-side portability (DD-016).** Everything *below* the waist consumes a portable
+  artifact, so the always-on serving/navigation half can be lightweight — and (with a native
+  core) WASM-able into a browser, embeddable as a library, distributable as a single binary.
+  The heavy JVM/engine becomes a *transient producer* you spin up to analyze and then drop.
+- **Collaboration / multi-user (DD-027).** The Ghidra-Server subsystem *disappears.* A
+  shareable, mergeable model artifact makes collaboration **git for reverse engineering** —
+  share, sync, diff, merge two analysts' work. No bespoke collaboration server.
+- **Independent scaling.** Producing (analyze: heavy, one binary at a time) and consuming
+  (serve: light, massively concurrent) are opposite workloads. The artifact lets each scale to
+  its own shape — analysis on a beefy box or a worker fleet, serving from featherweight nodes.
+- **Agent fan-out.** The model is read-only and zero-copy, so **N agents read the same model
+  concurrently with zero engine contention** — a *swarm* on one analyzed binary. This is what
+  makes "AI agents reverse-engineering binaries" actually scale.
+- **Caching / reuse / distribution.** The model is a *compiled* RE artifact — cache it, ship it,
+  version it, reopen it instantly with no re-analysis. Analyze once, consume forever, everywhere.
+- **Testability.** The consume side tests against fixed model artifacts with no engine in the
+  loop — fast, deterministic, hermetic.
+
+The monolith (`docs/architecture/` — the "before") had every one of these knotted together
+inside the Java-framework slice. The waist severs the whole knot in a single cut. **When a
+"why did you do it this way" question comes up, the answer almost always traces back to here:
+the model is the waist; everything else is a pluggable producer or consumer.**
+
+---
+
 ## Guiding principles (constraints on every decision — not themselves open)
 
 - **P1. The engine is sacred.** The proven C++ decompiler (and the analysis it
@@ -268,7 +309,7 @@ documented, versioned contract we control.
 
 **DD-027 — Collaboration / multi-user.**
 *Question:* Shared projects (a Ghidra-Server equivalent) — in scope for v1, or
-single-user first? *Status:* OPEN.
+single-user first? *Status:* **DIRECTION SET (2026-06-21)** — the bespoke server *dissolves*: collaboration is **model-artifact sync** (git-for-RE — share/sync/diff/merge), a consequence of the narrow-waist (see "Why It's Shaped This Way"). Whether v1 ships merge tooling or stays single-user-first is still open; the *mechanism* is settled.
 
 **DD-028 — Packaging & distribution.**
 *Question:* How is Scylla shipped, given it bundles a heavy engine? (container image,

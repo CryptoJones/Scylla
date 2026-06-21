@@ -77,11 +77,12 @@ Tracked "later / someday" items that aren't on the current sprint path
   (S1 binary→engine, S2 engine→core, S3 artifact→core, S4 core→agent, S5 agent→core) over the
   three untrusted inputs, citing the mitigations and naming the residual gaps. It found four, the
   four items below (GAP-4 is the priority — it's the *current* threat).
-- [ ] **GAP-4 — the MCP head doesn't delimit untrusted analysis content (DD-035).** Function names
-  and (future) decompiled text are returned as bare JSON, so a hostile binary's strings flow into
-  an agent's context unframed — the named prompt-injection threat. Wrap analysis-derived strings in
-  an explicit untrusted-data envelope in the head's tool results and state the contract in the tool
-  descriptions. Cheap, no new infra, highest priority.
+- [x] **GAP-4 — the MCP head now delimits untrusted analysis content (DD-035).** Every tool result
+  carrying binary-derived text (`list_functions`/`get_function`/`callers`) is wrapped in an
+  explicit `<untrusted-data>` envelope with a never-instructions preamble; the contract is also
+  stated in the tool descriptions. Default-untrusted — only the head's own status acks
+  (`STATUS_ONLY_TOOLS` = rename/comment) and typed errors pass through unwrapped, so a future read
+  tool (e.g. `decompile`) is marked automatically. Regression-tested.
 - [ ] **GAP-3 — the core accepts the engine `Materialize` stream unbounded.** `materialize()` buffers
   every `FunctionChunk` (`chunks.push`) with no cap; a compromised/buggy engine streaming millions
   of functions OOMs the trusted core. Cap the chunk count / cumulative size and fail closed past it

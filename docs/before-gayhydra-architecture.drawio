@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="GayHydra-current">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="1050" math="0" shadow="0" background="#07090f">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#07090f;strokeColor=none;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="-20" y="-20" width="1490" height="1090" as="geometry" />
+        </mxCell>
+
+        <mxCell id="title" value="GayHydra / Ghidra — Current Implementation (warts and all)" style="text;html=1;fontSize=20;fontStyle=1;fontColor=#27d4ff;fontFamily=Menlo;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="12" width="900" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ba" value="①  Clients &amp; Entry Points" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="55" width="1370" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="bb" value="②  Java Framework — one JVM process  (the monolith: UI + model + analysis + loaders fused; the 'proven-but-aging' layer)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b101a;strokeColor=#27d4ff;fontColor=#27d4ff;" vertex="1" parent="1">
+          <mxGeometry x="40" y="205" width="1370" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="bc" value="③  ⚠ Host↔Worker IPC Seam  (serialized over std pipes — the central structural wart)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#140a0c;strokeColor=#ff4f4f;fontColor=#ff6b6b;" vertex="1" parent="1">
+          <mxGeometry x="40" y="520" width="1370" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="bd" value="④  C++ Decompiler — separate process — PROVEN ENGINE  (sacred: do not rewrite)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0a140e;strokeColor=#55ff99;fontColor=#55ff99;" vertex="1" parent="1">
+          <mxGeometry x="40" y="645" width="1370" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="be" value="⑤  Persistent State / Storage" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;verticalAlign=top;align=left;fontStyle=2;fontFamily=Menlo;fontSize=13;spacingLeft=8;spacingTop=6;pointerEvents=0;fillColor=#0b101a;strokeColor=#5a6678;fontColor=#8190a4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="820" width="1370" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1" value="Ghidra GUI (Swing/Java)&#xa;⚠ aging — Phase-2 target" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;" vertex="1" parent="1">
+          <mxGeometry x="70" y="95" width="250" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="Headless&#xa;(analyzeHeadless)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="360" y="95" width="210" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="Ghidra Server client" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="610" y="95" width="200" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="Scripts&#xa;(Jython / PyGhidra)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="850" y="95" width="220" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1" value="Plugin / Tool Framework&#xa;(GUI-coupled)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="70" y="255" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="Program Database&#xa;funcs · symbols · types · xrefs · memory&#xa;(the durable RE domain model)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="255" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="Auto-Analysis&#xa;(analyzers)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="680" y="255" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="Loaders&#xa;(ELF / PE / Mach-O)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="910" y="255" width="190" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" value="SLEIGH&#xa;compiler / loader" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0d1526;strokeColor=#27d4ff;fontColor=#cfe9ff;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="255" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b7" value="⚠ Java deserialization surface&#xa;ItemDeserializer · packed files&#xa;SafeObjectInput   [Rec 18/19]" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c0c0c;strokeColor=#ff4f4f;fontColor=#ff9a9a;" vertex="1" parent="1">
+          <mxGeometry x="70" y="390" width="270" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="b6" value="DecompInterface&#xa;(Java client → C++)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c1408;strokeColor=#ffb14e;fontColor=#ffd9a0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="400" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="⚠ IPC protocol: framing v1 + schema payload v1&#xa;(PackedEncode / XML over std pipes)   [Rec 33/34]" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#1c0c0c;strokeColor=#ff4f4f;fontColor=#ff9a9a;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="548" width="440" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1" value="decompile process (C++)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="690" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="P-code → dataflow / SSA → C" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;" vertex="1" parent="1">
+          <mxGeometry x="690" y="690" width="270" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="SLEIGH runtime (.sla)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0c1a12;strokeColor=#55ff99;fontColor=#bfffd9;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="690" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="Program DB / packed files (.gpr)" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="855" width="270" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="Ghidra Server&#xa;(shared multi-user repo)" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
+          <mxGeometry x="470" y="855" width="300" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="SLEIGH .sla specs" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=12;fontFamily=Menlo;fillColor=#0e131c;strokeColor=#5a6678;fontColor=#aeb9c8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="855" width="220" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Legend:  &lt;b style=&quot;color:#27d4ff&quot;&gt;cyan&lt;/b&gt; = Java framework (proven-but-aging)   ·   &lt;b style=&quot;color:#55ff99&quot;&gt;green&lt;/b&gt; = proven C++ engine / durable model (do not rewrite)   ·   &lt;b style=&quot;color:#ff6b6b&quot;&gt;red ⚠&lt;/b&gt; = the warts GayHydra hardened   ·   &lt;b style=&quot;color:#ffb14e&quot;&gt;orange&lt;/b&gt; = aging / bridge   ·   grey = storage" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0b101a;strokeColor=#5a6678;align=left;verticalAlign=middle;fontSize=12;fontFamily=Menlo;fontColor=#cfd8e3;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="975" width="1370" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ed1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a1" target="b1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a2" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.65;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a3" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.6;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a4" target="b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed5" value="import" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed6" value="populate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.6;entryDx=0;entryDy=0;" edge="1" parent="1" source="b3" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed7" value="decompile(func)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#cfe9ff;strokeColor=#27d4ff;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b2" target="b6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed8" value="request / response" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#ff9a9a;strokeColor=#ff4f4f;labelBackgroundColor=#07090f;startArrow=classicThin;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b6" target="c1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed9" value="IPC" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#ff9a9a;strokeColor=#ff4f4f;labelBackgroundColor=#07090f;startArrow=classicThin;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c1" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;strokeColor=#55ff99;labelBackgroundColor=#07090f;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1" target="d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed11" value="spec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3" target="d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed12" value="deserialize ⚠" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#ff9a9a;strokeColor=#ff4f4f;labelBackgroundColor=#07090f;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="e1" target="b7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="55" y="897" />
+              <mxPoint x="55" y="432" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ed13" value="into model" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="b7" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed14" value="load .sla" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.3;exitY=0;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="e2" target="d3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed15" value="compile .sla" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#aab4c2;strokeColor=#6f8aa3;labelBackgroundColor=#07090f;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b5" target="e2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed16" value="project repo (collab)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;fontFamily=Menlo;fontColor=#8190a4;strokeColor=#5a6678;labelBackgroundColor=#07090f;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="e3" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="45" y="897" />
+              <mxPoint x="45" y="290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

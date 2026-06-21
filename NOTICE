@@ -1,0 +1,9 @@
+Scylla
+Copyright 2026 Aaron K. Clark
+
+Licensed under the Apache License, Version 2.0 (the "License").
+
+This project is designed to interoperate with and build upon Ghidra
+(https://github.com/NationalSecurityAgency/ghidra), a reverse-engineering
+framework developed by the National Security Agency and released under the
+Apache License, Version 2.0.

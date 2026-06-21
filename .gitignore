@@ -1,0 +1,19 @@
+# Build / deps
+target/
+build/
+dist/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local env
+.env
+*.log

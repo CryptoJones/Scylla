@@ -8,6 +8,8 @@ pub mod model_capnp {
     include!(concat!(env!("OUT_DIR"), "/model_capnp.rs"));
 }
 
+use std::collections::HashSet;
+
 use scylla_model::{FactKind, Function, Program, StableId, UserFact};
 
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
@@ -64,8 +66,7 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
 
 /// Deserialize the canonical artifact bytes back into a native Program.
 pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
-    let reader =
-        capnp::serialize::read_message(&mut &bytes[..], capnp::message::ReaderOptions::new())?;
+    let reader = capnp::serialize::read_message(&mut &bytes[..], reader_options())?;
     let p = reader.get_root::<model_capnp::program::Reader>()?;
 
     let mut functions = Vec::new();
@@ -100,10 +101,111 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
     })
 }
 
+// ----------------------------------------------------------------------------------------
+// DD-036 — the total artifact loader.
+// Reader limits are set ON PURPOSE; the capnp defaults are a security decision made by
+// accident. The loader never panics and never OOMs — a structurally broken artifact is a
+// LoadError, and soft faults (dangling refs, over-long strings) are quarantined and counted.
+// ----------------------------------------------------------------------------------------
+
+/// Amplification-bomb ceiling: words the reader will traverse before refusing (~512 MiB).
+pub const MAX_TRAVERSAL_WORDS: usize = 64 * 1024 * 1024;
+/// Max pointer-nesting depth.
+pub const MAX_NESTING: i32 = 64;
+/// A name/comment longer than this is hostile, not data — truncated on load.
+pub const MAX_STRING_LEN: usize = 64 * 1024;
+
+fn reader_options() -> capnp::message::ReaderOptions {
+    let mut o = capnp::message::ReaderOptions::new();
+    o.traversal_limit_in_words(Some(MAX_TRAVERSAL_WORDS));
+    o.nesting_limit(MAX_NESTING);
+    o
+}
+
+/// What the loader had to quarantine to keep a hostile or buggy artifact total.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct LoadReport {
+    pub dropped_dangling_callees: usize,
+    pub dropped_dangling_facts: usize,
+    pub truncated_strings: usize,
+}
+
+impl LoadReport {
+    pub fn clean(&self) -> bool {
+        self.dropped_dangling_callees == 0
+            && self.dropped_dangling_facts == 0
+            && self.truncated_strings == 0
+    }
+}
+
+/// Hard load failure — the artifact is structurally unusable (DD-036 hard-reject).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadError {
+    Decode(String),
+}
+
+impl std::fmt::Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoadError::Decode(e) => write!(f, "artifact decode failed: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for LoadError {}
+
+/// Truncate a String to at most `max` bytes, on a char boundary (never panics, unlike
+/// `String::truncate`). Returns whether it truncated.
+fn truncate_to(s: &mut String, max: usize) -> bool {
+    if s.len() <= max {
+        return false;
+    }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    s.truncate(end);
+    true
+}
+
+/// **The total artifact loader (DD-036).** Decodes with explicit reader caps, then validates
+/// and *quarantines* soft faults — dangling callee/fact refs dropped, over-long strings
+/// truncated, every quarantine counted in the [`LoadReport`]. Never panics, never OOMs;
+/// cap-busting is refused by the reader limits during decode and surfaces as a [`LoadError`].
+pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
+    let mut prog = from_bytes(bytes).map_err(|e| LoadError::Decode(e.to_string()))?;
+    let mut report = LoadReport::default();
+
+    let valid_ids: HashSet<u64> = prog.functions.iter().map(|f| f.id.0).collect();
+
+    for func in &mut prog.functions {
+        let before = func.callees.len();
+        func.callees.retain(|c| valid_ids.contains(&c.0));
+        report.dropped_dangling_callees += before - func.callees.len();
+        if truncate_to(&mut func.name, MAX_STRING_LEN) {
+            report.truncated_strings += 1;
+        }
+    }
+
+    let before_facts = prog.facts.len();
+    prog.facts.retain(|f| valid_ids.contains(&f.target.0));
+    report.dropped_dangling_facts += before_facts - prog.facts.len();
+    for fact in &mut prog.facts {
+        let s = match &mut fact.kind {
+            FactKind::Rename(s) | FactKind::Retype(s) | FactKind::Comment(s) => s,
+        };
+        if truncate_to(s, MAX_STRING_LEN) {
+            report.truncated_strings += 1;
+        }
+    }
+
+    Ok((prog, report))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scylla_model::{FactKind, Function, IdMinter, Program, UserFact};
+    use scylla_model::{FactKind, Function, IdMinter, Program, StableId, UserFact};
 
     fn sample() -> Program {
         let mut m = IdMinter::new();
@@ -151,5 +253,42 @@ mod tests {
         assert!(!bytes.is_empty());
         // A second decode of the same bytes is stable (cacheable artifact, DD-026).
         assert_eq!(from_bytes(&bytes).unwrap(), from_bytes(&bytes).unwrap());
+    }
+
+    // --- DD-036: the total artifact loader ---
+
+    #[test]
+    fn load_accepts_a_clean_artifact() {
+        let bytes = to_bytes(&sample());
+        let (prog, report) = load(&bytes).expect("load");
+        assert!(report.clean(), "a well-formed artifact needs no quarantine");
+        assert_eq!(prog, sample());
+    }
+
+    #[test]
+    fn load_quarantines_a_dangling_callee() {
+        let mut p = sample();
+        p.functions[1].callees.push(StableId(99999)); // main calls a non-existent function
+        let bytes = to_bytes(&p);
+        let (prog, report) = load(&bytes).expect("load");
+        assert_eq!(report.dropped_dangling_callees, 1);
+        assert!(!prog.functions[1].callees.contains(&StableId(99999)));
+        assert!(prog.functions[1].callees.contains(&prog.functions[0].id)); // real edge survives
+    }
+
+    #[test]
+    fn load_drops_a_fact_with_a_dangling_target() {
+        let mut p = sample();
+        p.facts.push(UserFact { target: StableId(88888), kind: FactKind::Comment("ghost".into()) });
+        let bytes = to_bytes(&p);
+        let (_, report) = load(&bytes).expect("load");
+        assert_eq!(report.dropped_dangling_facts, 1);
+    }
+
+    #[test]
+    fn load_is_total_on_garbage() {
+        // arbitrary non-capnp bytes -> typed error, never a panic
+        assert!(matches!(load(&[0xde, 0xad, 0xbe, 0xef, 0x00, 0x01]), Err(LoadError::Decode(_))));
+        assert!(load(&[]).is_err());
     }
 }

@@ -72,8 +72,9 @@ impl Session {
 
     /// Load a session from a canonical model artifact (DD-026).
     pub fn from_artifact(bytes: &[u8]) -> Result<Self, PortError> {
-        scylla_schema::from_bytes(bytes)
-            .map(Session::open)
+        // Go through the total validating loader (DD-036), not raw decode.
+        scylla_schema::load(bytes)
+            .map(|(program, _report)| Session::open(program))
             .map_err(|e| PortError::Decode(e.to_string()))
     }
 

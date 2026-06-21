@@ -18,7 +18,14 @@ struct Function {
   bbCount     @4 :UInt32;
   callees     @5 :List(UInt64);
   fingerprint @6 :UInt64;   # structural hash of the mnemonic histogram; 0 = engine emitted none.
-                            # Disambiguates coarse-signature collisions in re-anchoring (DD-038).
+                            # Disambiguates coarse-signature collisions in EXACT re-anchoring (DD-038).
+  mnemonics   @7 :List(MnemonicCount);  # the instruction histogram itself — the FUZZY re-anchoring
+                                        # matcher scores cosine over these (DD-038 follow-up).
+}
+
+struct MnemonicCount {
+  mnemonic @0 :Text;
+  count    @1 :UInt32;
 }
 
 struct UserFact {

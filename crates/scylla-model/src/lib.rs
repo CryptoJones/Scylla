@@ -45,29 +45,37 @@ pub struct Function {
     pub size: u64,
     pub bb_count: u32,
     pub callees: Vec<StableId>,
-    /// A structural fingerprint of the instruction mix — see [`mnemonic_fingerprint`]. `0` means
-    /// the engine emitted no mnemonic data. Used to disambiguate coarse-signature collisions in
-    /// re-anchoring (DD-038); it only ever *adds* discrimination, never causes a wrong match.
+    /// A structural fingerprint of the instruction mix — the FNV-1a hash of [`Function::mnemonics`]
+    /// (see [`mnemonic_fingerprint`]). `0` = the engine emitted no mnemonic data. Used to
+    /// disambiguate coarse-signature collisions in EXACT re-anchoring (DD-038); it only ever *adds*
+    /// discrimination, never a wrong match.
     pub fingerprint: u64,
+    /// The function's **mnemonic histogram** — the instruction multiset, sorted by mnemonic (so it
+    /// is order-independent and deterministic). Empty = no data. The FUZZY re-anchoring matcher
+    /// scores cosine similarity over these to recover cross-build matches the exact fingerprint
+    /// can't; the `fingerprint` above is just its hash, cached for the fast exact path.
+    pub mnemonics: Vec<(String, u32)>,
 }
 
-/// A stable structural fingerprint of a function: the FNV-1a hash of its **mnemonic histogram**
-/// (the instruction multiset, sorted — so it is order-independent and deterministic). This is the
-/// model-side echo of the prototype's strongest re-anchoring signal (the mnemonic cosine).
-///
-/// `0` is reserved to mean "no mnemonic data" (e.g. an engine that didn't emit it); a non-empty
-/// input never returns `0`. Two functions with the same instruction mix share a fingerprint —
-/// which, in the merge signature, makes them *ambiguous* (flagged), never a silent wrong match.
-pub fn mnemonic_fingerprint<S: AsRef<str>>(mnemonics: &[S]) -> u64 {
-    if mnemonics.is_empty() {
-        return 0;
-    }
+/// The mnemonic histogram of a function: the instruction multiset, sorted by mnemonic (so it is
+/// order-independent and deterministic). The fuzzy re-anchoring matcher scores cosine over these.
+pub fn mnemonic_histogram<S: AsRef<str>>(mnemonics: &[S]) -> Vec<(String, u32)> {
     let mut counts: std::collections::BTreeMap<&str, u32> = std::collections::BTreeMap::new();
     for m in mnemonics {
         *counts.entry(m.as_ref()).or_default() += 1;
     }
+    counts.into_iter().map(|(m, c)| (m.to_string(), c)).collect()
+}
+
+/// FNV-1a hash of a (sorted) mnemonic histogram. `0` is reserved to mean "no mnemonic data"; a
+/// non-empty histogram never returns `0`. Two functions with the same instruction mix share a
+/// fingerprint — which, in the merge signature, makes them *ambiguous* (flagged), never wrong.
+pub fn histogram_fingerprint(histogram: &[(String, u32)]) -> u64 {
+    if histogram.is_empty() {
+        return 0;
+    }
     let mut h: u64 = 0xcbf2_9ce4_8422_2325; // FNV-1a offset basis
-    for (mnem, count) in &counts {
+    for (mnem, count) in histogram {
         for b in mnem.bytes() {
             h ^= u64::from(b);
             h = h.wrapping_mul(0x0000_0100_0000_01b3);
@@ -80,6 +88,12 @@ pub fn mnemonic_fingerprint<S: AsRef<str>>(mnemonics: &[S]) -> u64 {
     } else {
         h
     }
+}
+
+/// FNV-1a fingerprint of a function's mnemonics (convenience over the raw, in-order list). Equal
+/// to `histogram_fingerprint(&mnemonic_histogram(mnemonics))`. `0` = no data.
+pub fn mnemonic_fingerprint<S: AsRef<str>>(mnemonics: &[S]) -> u64 {
+    histogram_fingerprint(&mnemonic_histogram(mnemonics))
 }
 
 /// The kinds of fact an analyst attaches to an entity (DD-001 first-class user facts).
@@ -178,6 +192,7 @@ mod tests {
                 bb_count: 4,
                 callees: vec![],
                 fingerprint: 0,
+                mnemonics: vec![],
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };
@@ -193,5 +208,9 @@ mod tests {
         assert_ne!(a, 0, "non-empty input never collides with the no-data sentinel");
         // A different instruction mix is a different fingerprint.
         assert_ne!(a, mnemonic_fingerprint(&["MOV", "PUSH", "RET"]));
+        // The histogram is the sorted multiset; the fingerprint is its hash.
+        let h = mnemonic_histogram(&["MOV", "PUSH", "MOV", "RET"]);
+        assert_eq!(h, vec![("MOV".into(), 2), ("PUSH".into(), 1), ("RET".into(), 1)]);
+        assert_eq!(histogram_fingerprint(&h), a);
     }
 }

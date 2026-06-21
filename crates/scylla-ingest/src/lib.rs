@@ -57,6 +57,7 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             .iter()
             .filter_map(|c| id_of.get(&parse_addr(c)).copied())
             .collect();
+        let histogram = scylla_model::mnemonic_histogram(&f.mnemonics);
         functions.push(Function {
             id: id_of[&addr],
             addr,
@@ -64,7 +65,8 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             size: f.size,
             bb_count: f.bb_count,
             callees,
-            fingerprint: scylla_model::mnemonic_fingerprint(&f.mnemonics),
+            fingerprint: scylla_model::histogram_fingerprint(&histogram),
+            mnemonics: histogram,
         });
     }
 

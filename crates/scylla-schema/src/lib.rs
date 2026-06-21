@@ -45,6 +45,12 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             fb.set_size(f.size);
             fb.set_bb_count(f.bb_count);
             fb.set_fingerprint(f.fingerprint);
+            let mut ms = fb.reborrow().init_mnemonics(f.mnemonics.len() as u32);
+            for (j, (m, c)) in f.mnemonics.iter().enumerate() {
+                let mut mc = ms.reborrow().get(j as u32);
+                mc.set_mnemonic(m.as_str());
+                mc.set_count(*c);
+            }
             let mut cs = fb.reborrow().init_callees(f.callees.len() as u32);
             for (j, c) in f.callees.iter().enumerate() {
                 cs.set(j as u32, c.0);
@@ -85,6 +91,13 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
             bb_count: f.get_bb_count(),
             callees,
             fingerprint: f.get_fingerprint(),
+            mnemonics: {
+                let mut h = Vec::new();
+                for mc in f.get_mnemonics()?.iter() {
+                    h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
+                }
+                h
+            },
         });
     }
 
@@ -190,6 +203,12 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         if truncate_to(&mut func.name, MAX_STRING_LEN) {
             report.truncated_strings += 1;
         }
+        // A hostile artifact's mnemonic strings are untrusted too — truncate the absurd ones.
+        for (mnem, _) in &mut func.mnemonics {
+            if truncate_to(mnem, MAX_STRING_LEN) {
+                report.truncated_strings += 1;
+            }
+        }
     }
 
     let before_facts = prog.facts.len();
@@ -228,6 +247,7 @@ mod tests {
                     bb_count: 4,
                     callees: vec![],
                     fingerprint: 0x1111_2222_3333_4444,
+                    mnemonics: vec![("MOV".into(), 2), ("RET".into(), 1)],
                 },
                 Function {
                     id: main,
@@ -237,6 +257,7 @@ mod tests {
                     bb_count: 4,
                     callees: vec![gcd],
                     fingerprint: 0xAAAA_BBBB_CCCC_DDDD,
+                    mnemonics: vec![("CALL".into(), 1), ("PUSH".into(), 3)],
                 },
             ],
             facts: vec![
@@ -281,6 +302,17 @@ mod tests {
         assert_eq!(report.dropped_dangling_callees, 1);
         assert!(!prog.functions[1].callees.contains(&StableId(99999)));
         assert!(prog.functions[1].callees.contains(&prog.functions[0].id)); // real edge survives
+    }
+
+    #[test]
+    fn load_truncates_an_over_long_mnemonic() {
+        // The mnemonic histogram is untrusted too — an absurd mnemonic string is truncated, counted.
+        let mut p = sample();
+        p.functions[0].mnemonics.push(("Z".repeat(MAX_STRING_LEN + 16), 1));
+        let bytes = to_bytes(&p);
+        let (prog, report) = load(&bytes).expect("load");
+        assert!(report.truncated_strings >= 1, "the over-long mnemonic must be truncated");
+        assert!(prog.functions[0].mnemonics.iter().all(|(m, _)| m.len() <= MAX_STRING_LEN));
     }
 
     #[test]

@@ -18,6 +18,10 @@ use scylla_model::{Function, IdMinter, Program, StableId};
 /// untouched; resolving them to stable ids happens core-side in a second pass (as ingest does),
 /// because the id mint is the core's job, not the wire's.
 pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
+    // The histogram from the mnemonics the engine streams — and its hash. The SAME computation the
+    // snapshot path uses, so a gRPC-materialized artifact and a snapshot one share both and
+    // re-anchor against each other (DD-038, exact + fuzzy).
+    let histogram = scylla_model::mnemonic_histogram(&chunk.mnemonics);
     Function {
         id,
         addr: chunk.entry,
@@ -25,10 +29,8 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         size: chunk.size,
         bb_count: chunk.bb_count,
         callees: Vec::new(),
-        // The SAME fingerprint the snapshot path computes (scylla_model::mnemonic_fingerprint),
-        // from the mnemonics the engine now streams — so a gRPC-materialized artifact and a
-        // snapshot-materialized one share fingerprints and re-anchor against each other (DD-038).
-        fingerprint: scylla_model::mnemonic_fingerprint(&chunk.mnemonics),
+        fingerprint: scylla_model::histogram_fingerprint(&histogram),
+        mnemonics: histogram,
     }
 }
 
@@ -163,8 +165,9 @@ mod tests {
         assert_eq!(f.addr, 0x401156);
         assert_eq!(f.name, "gcd");
         assert_eq!(f.bb_count, 4);
-        // The wire mnemonics fold into the SAME fingerprint the snapshot path computes.
+        // The wire mnemonics fold into the SAME fingerprint + histogram the snapshot path computes.
         assert_eq!(f.fingerprint, scylla_model::mnemonic_fingerprint(&chunk.mnemonics));
+        assert_eq!(f.mnemonics, scylla_model::mnemonic_histogram(&chunk.mnemonics));
         assert_ne!(f.fingerprint, 0, "a chunk with mnemonics gets a real fingerprint");
     }
 

@@ -41,5 +41,5 @@ real targets are stripped, so the matcher must *not* rely on symbols.
 
 - [x] GayHydra headless available (`build/dist/ghidra_26.3.0_GayHydra-26.3.0/support/analyzeHeadless`)
 - [x] Test-binary corpus generator + corpus
-- [ ] Model-snapshot dumper (Ghidra post-script → JSON)
-- [ ] Annotate / perturb / re-anchor / measure harness → the GO/ADJUST report
+- [x] Model-snapshot dumper — `harness/dump_model.java` (Java GhidraScript; Ghidra 26.x dropped Jython for PyGhidra) + `harness/snapshot.sh`. Proven on the corpus: correct call edges, BB counts, mnemonic fingerprints.
+- [ ] Annotate / perturb / re-anchor / measure harness → the GO/ADJUST report *(Sprint 2, next)*

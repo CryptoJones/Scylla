@@ -26,4 +26,21 @@ for prog in "${PROGS[@]}"; do
     done
   done
 done
+# C++ (DD-037 Tier-1): mangled names + vtables. aarch64-g++ usually absent -> skipped.
+declare -A CXX=( [x86-64]="g++" [aarch64]="aarch64-linux-gnu-g++" )
+CPPPROGS=( shapes )
+for prog in "${CPPPROGS[@]}"; do
+  for arch in "${!CXX[@]}"; do
+    cxx="${CXX[$arch]}"
+    if ! command -v "$cxx" >/dev/null 2>&1; then echo "skip $arch C++ ($cxx missing)"; continue; fi
+    for opt in "${OPTS[@]}"; do
+      out="$OUT/${prog}.${arch}.${opt}.elf"
+      "$cxx" "-${opt}" -g -no-pie -o "$out" "$SRC/${prog}.cpp" 2>/dev/null \
+        || "$cxx" "-${opt}" -g -o "$out" "$SRC/${prog}.cpp"
+      echo "built $(basename "$out")  [$(file -b "$out" | cut -d, -f1-2)]"
+      n=$((n+1))
+    done
+  done
+done
+
 echo "corpus: $n binaries in $OUT"

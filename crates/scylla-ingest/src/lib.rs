@@ -117,4 +117,22 @@ mod tests {
             let _ = snapshot_to_program(bad); // must not panic
         }
     }
+
+    // DD-037 Tier-1: the model handles C++ (mangling/vtables/templates), not just flat C.
+    const SHAPES: &str = include_str!("../../../prototype/snapshots/shapes.x86-64.O0.json");
+
+    #[test]
+    fn ingests_cpp_with_demangled_names_vtables_and_templates() {
+        let prog = snapshot_to_program(SHAPES).expect("parse C++ snapshot");
+        let names: Vec<&str> = prog.functions.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains(&"main"));
+        // Ghidra demangles: the template instantiation comes through readable.
+        assert!(names.contains(&"max_of<int>"), "template instantiation should materialize");
+        // Both virtual area() overrides (Circle::area, Square::area), demangled to "area".
+        assert!(
+            names.iter().filter(|n| **n == "area").count() >= 2,
+            "both vtable area() overrides should materialize"
+        );
+        assert!(names.contains(&"Circle") && names.contains(&"Square"), "constructors present");
+    }
 }

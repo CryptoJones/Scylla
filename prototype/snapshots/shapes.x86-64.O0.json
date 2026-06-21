@@ -1,0 +1,28 @@
+{
+  "program": "shapes.x86-64.O0.elf",
+  "language": "x86:LE:64:default",
+  "function_count": 21,
+  "functions": [
+    {"entry": "00401000", "name": "_init", "size": 27, "bb_count": 3, "mnemonic_count": 8, "callees": ["00405040"], "mnemonics": ["ENDBR64", "SUB", "MOV", "TEST", "JZ", "CALL", "ADD", "RET"]},
+    {"entry": "00401020", "name": "FUN_00401020", "size": 12, "bb_count": 1, "mnemonic_count": 2, "callees": [], "mnemonics": ["PUSH", "JMP"]},
+    {"entry": "004010b0", "name": "_start", "size": 38, "bb_count": 1, "mnemonic_count": 13, "callees": ["00405010"], "mnemonics": ["ENDBR64", "XOR", "MOV", "POP", "MOV", "AND", "PUSH", "PUSH", "XOR", "XOR", "MOV", "CALL", "HLT"]},
+    {"entry": "004010e0", "name": "_dl_relocate_static_pie", "size": 5, "bb_count": 1, "mnemonic_count": 2, "callees": [], "mnemonics": ["ENDBR64", "RET"]},
+    {"entry": "004010f0", "name": "deregister_tm_clones", "size": 31, "bb_count": 4, "mnemonic_count": 9, "callees": [], "mnemonics": ["MOV", "CMP", "JZ", "MOV", "TEST", "JZ", "MOV", "JMP", "RET"]},
+    {"entry": "00401120", "name": "register_tm_clones", "size": 49, "bb_count": 4, "mnemonic_count": 14, "callees": [], "mnemonics": ["MOV", "SUB", "MOV", "SHR", "SAR", "ADD", "SAR", "JZ", "MOV", "TEST", "JZ", "MOV", "JMP", "RET"]},
+    {"entry": "00401160", "name": "__do_global_dtors_aux", "size": 32, "bb_count": 3, "mnemonic_count": 10, "callees": ["004010f0"], "mnemonics": ["ENDBR64", "CMP", "JNZ", "PUSH", "MOV", "CALL", "MOV", "POP", "RET", "RET"]},
+    {"entry": "00401196", "name": "main", "size": 297, "bb_count": 8, "mnemonic_count": 75, "callees": ["00401070", "00401090", "004012fd", "0040138a", "004013fa", "0040145e", "004014bc"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "PUSH", "SUB", "MOV", "MOV", "XOR", "MOV", "LEA", "MOVQ", "MOV", "CALL", "MOV", "LEA", "MOVQ", "MOV", "CALL", "LEA", "MOV", "LEA", "MOV", "PXOR", "MOVSD", "LEA", "MOV", "MOV", "MOV", "MOV", "ADD", "MOV", "JMP", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "CALL", "MOVSD", "ADDSD", "MOVSD", "ADD", "MOV", "CMP", "JNZ", "MOV", "MOV", "CALL", "MOV", "MOV", "LEA", "MOV", "MOVQ", "MOV", "MOV", "CALL", "MOV", "LEA", "MOV", "CALL", "LEA", "MOV", "CALL", "MOV", "MOV", "SUB", "JZ", "JMP", "CALL", "MOV", "LEAVE", "RET"]},
+    {"entry": "004012fd", "name": "max_of<int>", "size": 32, "bb_count": 4, "mnemonic_count": 13, "callees": [], "mnemonics": ["ENDBR64", "PUSH", "MOV", "MOV", "MOV", "MOV", "CMP", "JLE", "MOV", "JMP", "MOV", "POP", "RET"]},
+    {"entry": "0040131e", "name": "~Shape", "size": 29, "bb_count": 1, "mnemonic_count": 10, "callees": [], "mnemonics": ["ENDBR64", "PUSH", "MOV", "MOV", "LEA", "MOV", "MOV", "NOP", "POP", "RET"]},
+    {"entry": "0040133c", "name": "~Shape", "size": 47, "bb_count": 1, "mnemonic_count": 14, "callees": ["00401080", "0040131e"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "MOV", "MOV", "CALL", "MOV", "MOV", "MOV", "CALL", "LEAVE", "RET"]},
+    {"entry": "0040136c", "name": "Shape", "size": 29, "bb_count": 1, "mnemonic_count": 10, "callees": [], "mnemonics": ["ENDBR64", "PUSH", "MOV", "MOV", "LEA", "MOV", "MOV", "NOP", "POP", "RET"]},
+    {"entry": "0040138a", "name": "Circle", "size": 64, "bb_count": 1, "mnemonic_count": 18, "callees": ["0040136c"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "MOVSD", "MOV", "MOV", "CALL", "LEA", "MOV", "MOV", "MOV", "MOVSD", "MOVSD", "NOP", "LEAVE", "RET"]},
+    {"entry": "004013ca", "name": "area", "size": 48, "bb_count": 1, "mnemonic_count": 13, "callees": [], "mnemonics": ["ENDBR64", "PUSH", "MOV", "MOV", "MOV", "MOVSD", "MOVSD", "MULSD", "MOV", "MOVSD", "MULSD", "POP", "RET"]},
+    {"entry": "004013fa", "name": "Square", "size": 64, "bb_count": 1, "mnemonic_count": 18, "callees": ["0040136c"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "MOVSD", "MOV", "MOV", "CALL", "LEA", "MOV", "MOV", "MOV", "MOVSD", "MOVSD", "NOP", "LEAVE", "RET"]},
+    {"entry": "0040143a", "name": "area", "size": 36, "bb_count": 1, "mnemonic_count": 11, "callees": [], "mnemonics": ["ENDBR64", "PUSH", "MOV", "MOV", "MOV", "MOVSD", "MOV", "MOVSD", "MULSD", "POP", "RET"]},
+    {"entry": "0040145e", "name": "~Circle", "size": 45, "bb_count": 1, "mnemonic_count": 14, "callees": ["0040131e"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "LEA", "MOV", "MOV", "MOV", "MOV", "CALL", "NOP", "LEAVE", "RET"]},
+    {"entry": "0040148c", "name": "~Circle", "size": 47, "bb_count": 1, "mnemonic_count": 14, "callees": ["00401080", "0040145e"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "MOV", "MOV", "CALL", "MOV", "MOV", "MOV", "CALL", "LEAVE", "RET"]},
+    {"entry": "004014bc", "name": "~Square", "size": 45, "bb_count": 1, "mnemonic_count": 14, "callees": ["0040131e"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "LEA", "MOV", "MOV", "MOV", "MOV", "CALL", "NOP", "LEAVE", "RET"]},
+    {"entry": "004014ea", "name": "~Square", "size": 47, "bb_count": 1, "mnemonic_count": 14, "callees": ["00401080", "004014bc"], "mnemonics": ["ENDBR64", "PUSH", "MOV", "SUB", "MOV", "MOV", "MOV", "CALL", "MOV", "MOV", "MOV", "CALL", "LEAVE", "RET"]},
+    {"entry": "0040151c", "name": "_fini", "size": 13, "bb_count": 1, "mnemonic_count": 4, "callees": [], "mnemonics": ["ENDBR64", "SUB", "ADD", "RET"]}
+  ]
+}

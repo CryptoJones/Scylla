@@ -1,0 +1,22 @@
+{
+  "program": "mathlib_v2.aarch64.O0.elf",
+  "language": "AARCH64:LE:64:v8A",
+  "function_count": 15,
+  "functions": [
+    {"entry": "00400520", "name": "_init", "size": 28, "bb_count": 1, "mnemonic_count": 7, "callees": ["00400618"], "mnemonics": ["paciasp", "stp", "mov", "bl", "ldp", "autiasp", "ret"]},
+    {"entry": "00400540", "name": "FUN_00400540", "size": 20, "bb_count": 1, "mnemonic_count": 5, "callees": [], "mnemonics": ["stp", "adrp", "ldr", "add", "br"]},
+    {"entry": "004005c0", "name": "_start", "size": 52, "bb_count": 1, "mnemonic_count": 13, "callees": ["00400560", "00400590"], "mnemonics": ["bti", "mov", "mov", "mov", "ldr", "add", "mov", "adrp", "add", "mov", "mov", "bl", "bl"]},
+    {"entry": "00400600", "name": "_dl_relocate_static_pie", "size": 24, "bb_count": 1, "mnemonic_count": 6, "callees": [], "mnemonics": ["paciasp", "stp", "mov", "ldp", "autiasp", "ret"]},
+    {"entry": "00400618", "name": "call_weak_fn", "size": 20, "bb_count": 3, "mnemonic_count": 5, "callees": ["00400580"], "mnemonics": ["adrp", "ldr", "cbz", "b", "ret"]},
+    {"entry": "00400640", "name": "deregister_tm_clones", "size": 48, "bb_count": 4, "mnemonic_count": 12, "callees": ["00421008"], "mnemonics": ["adrp", "add", "adrp", "add", "cmp", "b.eq", "adrp", "ldr", "cbz", "mov", "br", "ret"]},
+    {"entry": "00400670", "name": "register_tm_clones", "size": 60, "bb_count": 4, "mnemonic_count": 15, "callees": ["00421028"], "mnemonics": ["adrp", "add", "adrp", "add", "sub", "lsr", "add", "asr", "cbz", "adrp", "ldr", "cbz", "mov", "br", "ret"]},
+    {"entry": "004006ac", "name": "__do_global_dtors_aux", "size": 56, "bb_count": 3, "mnemonic_count": 14, "callees": ["00400640"], "mnemonics": ["paciasp", "stp", "mov", "str", "adrp", "ldrb", "tbnz", "bl", "mov", "strb", "ldr", "ldp", "autiasp", "ret"]},
+    {"entry": "004006ec", "name": "gcd", "size": 84, "bb_count": 4, "mnemonic_count": 21, "callees": [], "mnemonics": ["sub", "str", "str", "b", "ldr", "str", "ldr", "ldr", "udiv", "ldr", "mul", "sub", "str", "ldr", "str", "ldr", "cmp", "b.ne", "ldr", "add", "ret"]},
+    {"entry": "00400740", "name": "lcm", "size": 88, "bb_count": 5, "mnemonic_count": 22, "callees": ["004006ec"], "mnemonics": ["stp", "mov", "str", "str", "ldr", "cmp", "b.eq", "ldr", "cmp", "b.ne", "mov", "b", "ldr", "ldr", "bl", "mov", "ldr", "udiv", "ldr", "mul", "ldp", "ret"]},
+    {"entry": "00400798", "name": "factorial", "size": 84, "bb_count": 4, "mnemonic_count": 21, "callees": [], "mnemonics": ["sub", "str", "mov", "str", "mov", "str", "b", "ldr", "ldr", "mul", "str", "ldr", "add", "str", "ldr", "ldr", "cmp", "b.ls", "ldr", "add", "ret"]},
+    {"entry": "004007ec", "name": "fib", "size": 80, "bb_count": 4, "mnemonic_count": 20, "callees": ["004007ec"], "mnemonics": ["stp", "mov", "str", "str", "ldr", "cmp", "b.hi", "ldr", "b", "ldr", "sub", "bl", "mov", "ldr", "sub", "bl", "add", "ldr", "ldp", "ret"]},
+    {"entry": "0040083c", "name": "sum_to", "size": 80, "bb_count": 4, "mnemonic_count": 20, "callees": [], "mnemonics": ["sub", "str", "str", "mov", "str", "b", "ldr", "ldr", "add", "str", "ldr", "add", "str", "ldr", "ldr", "cmp", "b.ls", "ldr", "add", "ret"]},
+    {"entry": "0040088c", "name": "main", "size": 220, "bb_count": 4, "mnemonic_count": 55, "callees": ["00400570", "004005a0", "004006ec", "00400740", "00400798", "004007ec", "0040083c"], "mnemonics": ["stp", "mov", "str", "str", "ldr", "cmp", "b.le", "ldr", "add", "ldr", "bl", "str", "b", "mov", "str", "ldr", "mov", "bl", "mov", "ldr", "adrp", "add", "bl", "ldr", "mov", "bl", "mov", "ldr", "adrp", "add", "bl", "ldr", "bl", "mov", "ldr", "adrp", "add", "bl", "ldr", "bl", "mov", "ldr", "adrp", "add", "bl", "ldr", "bl", "mov", "ldr", "adrp", "add", "bl", "mov", "ldp", "ret"]},
+    {"entry": "00400968", "name": "_fini", "size": 24, "bb_count": 1, "mnemonic_count": 6, "callees": [], "mnemonics": ["paciasp", "stp", "mov", "ldp", "autiasp", "ret"]}
+  ]
+}

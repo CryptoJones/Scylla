@@ -67,6 +67,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "scylla-mcp"
+version = "0.0.0"
+dependencies = [
+ "scylla-ingest",
+ "scylla-model",
+ "scylla-port",
+ "serde_json",
+]
+
+[[package]]
 name = "scylla-merge"
 version = "0.0.0"
 dependencies = [

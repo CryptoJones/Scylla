@@ -1,0 +1,15 @@
+[package]
+name = "scylla-mcp"
+description = "MCP head (DD-022/024): projects the client port 1:1 as agent tools."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+scylla-model = { path = "../scylla-model" }
+scylla-port = { path = "../scylla-port" }
+serde_json = "1"
+
+[dev-dependencies]
+scylla-ingest = { path = "../scylla-ingest" }

@@ -32,6 +32,10 @@ message FunctionChunk {
   uint64 size = 3;
   uint32 bb_count = 4;
   repeated uint64 callees = 5; // callee entry addresses; resolved to stable ids core-side
+  repeated string mnemonics = 6; // instruction mnemonics, in order. The CORE hashes these into
+                                 // Function.fingerprint (DD-038) — the SAME hash the snapshot path
+                                 // uses, so gRPC- and snapshot-materialized artifacts re-anchor
+                                 // against each other. Sent raw so the hash lives in one place.
 }
 
 message DecompileRequest { uint64 entry = 1; }

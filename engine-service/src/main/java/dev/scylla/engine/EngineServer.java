@@ -118,6 +118,14 @@ public final class EngineServer {
                             b.addCallees(Long.parseUnsignedLong(c.getAsString(), 16));
                         }
                     }
+                    // The mnemonics the analyzer already emits — streamed raw so the CORE folds
+                    // them into Function.fingerprint with the same hash the snapshot path uses
+                    // (DD-038). The engine does not hash; one hash, one place.
+                    if (f.has("mnemonics")) {
+                        for (JsonElement m : f.getAsJsonArray("mnemonics")) {
+                            b.addMnemonics(m.getAsString());
+                        }
+                    }
                     resp.onNext(b.build());
                 }
                 resp.onCompleted();

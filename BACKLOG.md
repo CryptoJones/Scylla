@@ -29,11 +29,12 @@ Tracked "later / someday" items that aren't on the current sprint path
   collisions, lifting the **DD-038 aarch64 edit floor 40% → 80%** with `WRONG=0` held by
   construction (a richer signature only adds *unique* matches; a fingerprint collision is
   ambiguous → flagged, never wrong). Two follow-ups it opens:
-  - [ ] **Carry the mnemonic histogram over the engine.proto wire.** The gRPC path
-    (`scylla-engine`) produces `fingerprint = 0` (the `Materialize` `FunctionChunk` has no
-    mnemonics), so artifacts materialized live don't yet benefit from the better re-anchoring —
-    only the offline snapshot path does. Add mnemonics to `FunctionChunk` + populate them in
-    `EngineServer` from `dump_model.java`, then set the fingerprint in `chunk_to_function`.
+  - [x] **Carry the mnemonic histogram over the engine.proto wire.** `FunctionChunk.mnemonics @6`
+    carries the instruction stream raw; `EngineServer` populates it from `dump_model.java`, and
+    `chunk_to_function` hashes it with the SAME `scylla_model::mnemonic_fingerprint` the snapshot
+    path uses. Verified live: a gRPC-materialized mathlib artifact has 13/13 non-zero fingerprints
+    that MATCH the snapshot path's exactly (0 mismatch) — the two producers re-anchor against each
+    other. The engine never hashes; one hash, one place.
   - [ ] **Fuzzy / cross-build recovery for the hard classes.** Exact-fingerprint matching can't
     cross an optimization or architecture boundary (recompile/cross-arch dropped to 0% honest
     exact-match). The prototype's cosine + ordered-trigram + confidence-threshold matcher

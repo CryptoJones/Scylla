@@ -25,10 +25,10 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         size: chunk.size,
         bb_count: chunk.bb_count,
         callees: Vec::new(),
-        // The engine.proto FunctionChunk doesn't carry mnemonics yet, so the gRPC path produces
-        // no fingerprint (0 = no data, degrades gracefully to the coarse signature). Carrying the
-        // mnemonic histogram over the wire is the tracked follow-up (see BACKLOG.md).
-        fingerprint: 0,
+        // The SAME fingerprint the snapshot path computes (scylla_model::mnemonic_fingerprint),
+        // from the mnemonics the engine now streams — so a gRPC-materialized artifact and a
+        // snapshot-materialized one share fingerprints and re-anchor against each other (DD-038).
+        fingerprint: scylla_model::mnemonic_fingerprint(&chunk.mnemonics),
     }
 }
 
@@ -89,19 +89,23 @@ mod tests {
             size: 64,
             bb_count: 4,
             callees: vec![],
+            mnemonics: vec!["PUSH".into(), "MOV".into(), "DIV".into(), "RET".into()],
         };
         let f = chunk_to_function(&chunk, StableId(1));
         assert_eq!(f.id, StableId(1));
         assert_eq!(f.addr, 0x401156);
         assert_eq!(f.name, "gcd");
         assert_eq!(f.bb_count, 4);
+        // The wire mnemonics fold into the SAME fingerprint the snapshot path computes.
+        assert_eq!(f.fingerprint, scylla_model::mnemonic_fingerprint(&chunk.mnemonics));
+        assert_ne!(f.fingerprint, 0, "a chunk with mnemonics gets a real fingerprint");
     }
 
     #[test]
     fn assemble_mints_ids_and_resolves_callees() {
         let chunks = vec![
-            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![] },
-            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999] },
+            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![] },
+            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999], mnemonics: vec![] },
         ];
         let p = assemble("prog", &chunks);
         assert_eq!(p.name, "prog");

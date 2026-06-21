@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cap'n Proto compiler
+        run: sudo apt-get update && sudo apt-get install -y capnproto
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Test workspace
+        run: cargo test --workspace
+
+      - name: Consume-side core builds for WASM (DD-028)
+        run: cargo build --target wasm32-unknown-unknown -p scylla-port

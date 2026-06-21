@@ -21,6 +21,15 @@ Tracked "later / someday" items that aren't on the current sprint path
   is exactly what makes "add a dynamic-analysis producer someday" a new adapter, not a rewrite.
   (Bonus: the name collision is on-brand — the RE scene loves "Scylla".)
 
+## Re-anchoring recovery
+
+- [ ] **Add a structural fingerprint to `scylla-model::Function`** (mnemonic histogram / hash, or
+  bytes) and use it in `scylla-merge`'s signature. The model-only signature (bb-count / size /
+  out-degree) is conservative and safe (`WRONG=0` holds) but **caps recovery**: the DD-038 gate
+  shows the aarch64 edit class at 40% vs the prototype's ~100% with mnemonics. The prototype
+  proved the signal exists; the production model just doesn't carry it yet. Landing the
+  fingerprint raises the DD-038 ratcheted floors. **Never at the cost of `WRONG=0`.**
+
 ## Security
 
 - [ ] **Threat-model the seams before Sprint 9 / before exposing the MCP head to untrusted input.**

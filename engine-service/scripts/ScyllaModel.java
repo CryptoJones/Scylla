@@ -54,6 +54,14 @@ public final class ScyllaModel {
             // calls the SAME imported symbols by NAME — the cross-architecture re-anchoring signal.
             TreeSet<String> imports = new TreeSet<>();
             TreeSet<String> stringRefs = new TreeSet<>();
+            // Callee NAMES that are PACKAGE-QUALIFIED (contain a '.', e.g. Go's fmt.Fprintf /
+            // main.fib / runtime.convT64). These are the Go cross-architecture lever (DD-043): Go
+            // keeps fully-qualified function names in .gopclntab even when STRIPPED, and the set is
+            // identical across ISAs. The dotted filter is the point — it captures Go's names (which
+            // survive stripping) and naturally EXCLUDES C's bare local names (gcd, fib), which do NOT
+            // survive stripping, so the unstripped-C corpus can't "cheat" via names a real target
+            // lacks. C library calls already ride `imports`; bare C names contribute nothing here.
+            TreeSet<String> calleeNames = new TreeSet<>();
             InstructionIterator iit = listing.getInstructions(f.getBody(), true);
             while (iit.hasNext()) {
                 Instruction ins = iit.next();
@@ -67,6 +75,15 @@ public final class ScyllaModel {
                                 imports.add(tgt.getName());
                             } else {
                                 callees.add(tgt.getEntryPoint().toString());
+                            }
+                            // Go package-qualified name: contains '.', but NOT a compiler artifact —
+                            // exclude leading '_' (C/i386 PIC thunks like __x86.get_pc_thunk.bx, Go's
+                            // arch-tagged _rt0_* entry stubs) and C++ '::' scopes (operator.delete).
+                            // What's left is Go's importpath.Func form, which survives pclntab stripping.
+                            String nm = tgt.getName();
+                            if (nm.indexOf('.') >= 0 && !nm.startsWith("_")
+                                    && !nm.startsWith("FUN_") && !nm.contains("::")) {
+                                calleeNames.add(nm);
                             }
                         }
                     } else if (ref.getReferenceType().isData()) {
@@ -98,6 +115,7 @@ public final class ScyllaModel {
             fj.append("\"callees\": ").append(jarr(new ArrayList<>(callees))).append(", ");
             fj.append("\"imports\": ").append(jarr(new ArrayList<>(imports))).append(", ");
             fj.append("\"string_refs\": ").append(jarr(new ArrayList<>(stringRefs))).append(", ");
+            fj.append("\"callee_names\": ").append(jarr(new ArrayList<>(calleeNames))).append(", ");
             fj.append("\"mnemonics\": ").append(jarr(mnems));
             fj.append("}");
             funcJson.add(fj.toString());

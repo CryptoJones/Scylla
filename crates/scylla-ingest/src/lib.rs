@@ -29,6 +29,10 @@ struct SnapFunc {
     string_refs: Vec<String>,
     #[serde(default)]
     imports: Vec<String>,
+    /// Package-qualified callee names (DD-043) — the Go cross-arch anchor signal. Absent in older
+    /// snapshots → empty.
+    #[serde(default)]
+    callee_names: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -75,6 +79,7 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             mnemonics: histogram,
             string_refs: f.string_refs.clone(),
             imports: f.imports.clone(),
+            callee_names: f.callee_names.clone(),
         });
     }
 

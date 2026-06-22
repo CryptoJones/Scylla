@@ -64,6 +64,12 @@ pub struct Function {
     pub string_refs: Vec<String>,
     /// Imported/library call targets by name (`printf`, `atoi`, …) — see [`Function::string_refs`].
     pub imports: Vec<String>,
+    /// **Package-qualified** names of called functions (`fmt.Fprintf`, `main.fib`, `runtime.convT64`)
+    /// — the Go cross-architecture lever (DD-043). Go keeps fully-qualified names in `.gopclntab`
+    /// even when the binary is stripped, and the set is identical across ISAs, so it anchors Go where
+    /// strings/imports can't. Deliberately only the *dotted* names: C's bare local names (which do
+    /// NOT survive stripping) are excluded, so they never inflate recovery beyond stripped reality.
+    pub callee_names: Vec<String>,
 }
 
 /// The mnemonic histogram of a function: the instruction multiset, sorted by mnemonic (so it is
@@ -204,6 +210,7 @@ mod tests {
                 mnemonics: vec![],
                 string_refs: vec![],
                 imports: vec![],
+                callee_names: vec![],
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };

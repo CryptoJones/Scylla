@@ -101,11 +101,18 @@ const FUZZY_THRESHOLD: f64 = 0.55;
 /// of the exact path's unique-match rule. Together they hold `WRONG = 0`.
 const FUZZY_MARGIN: f64 = 0.05;
 
-/// The **arch-independent feature set** of a function (DD-041): its referenced string literals plus
-/// its imported call names. Identical across ISAs for the same source — the cross-architecture
-/// re-anchoring signal, where the mnemonic histogram (hence cosine and the fingerprint) is not.
+/// The **arch-independent feature set** of a function (DD-041, DD-043): its referenced string
+/// literals, its imported call names, and its **package-qualified callee names** (`fmt.Fprintf`,
+/// `main.fib` — the Go lever; survive pclntab stripping, ISA-stable, empty for stripped C). Identical
+/// across ISAs for the same source — the cross-architecture re-anchoring signal, where the mnemonic
+/// histogram (hence cosine and the fingerprint) is not.
 fn anchor_set(f: &Function) -> HashSet<&str> {
-    f.string_refs.iter().chain(f.imports.iter()).map(String::as_str).collect()
+    f.string_refs
+        .iter()
+        .chain(f.imports.iter())
+        .chain(f.callee_names.iter())
+        .map(String::as_str)
+        .collect()
 }
 
 /// Jaccard similarity of two sets, in `0..=1`. Either side empty → `0` (no signal, not a match —
@@ -611,6 +618,55 @@ mod tests {
         let gcd_present =
             aarch64.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "euclid"));
         assert!(!gcd_present, "ambiguous leaf gcd must orphan, never mis-attach (WRONG=0)");
+    }
+
+    /// DD-043: a Go function carries no C strings and no dynamic imports, but its set of
+    /// package-qualified CALLEE NAMES is identical across ISAs (pclntab) — so it anchors there too.
+    /// Here the two "arches" share callee-names but have DISJOINT mnemonics (cosine = 0) and
+    /// different addresses; only the callee-name anchor can carry the fact, and it does — zero-wrong.
+    #[test]
+    fn callee_names_anchor_recovers_go_function_cross_arch() {
+        use scylla_model::{Function, IdMinter};
+        let go = |minter: &mut IdMinter, name: &str, mnem: &str, callee_names: Vec<&str>| Function {
+            id: minter.mint(),
+            addr: 0,
+            name: name.into(),
+            size: 100,
+            bb_count: 3,
+            callees: vec![],
+            fingerprint: 0,
+            mnemonics: vec![(mnem.into(), 5)],
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: callee_names.into_iter().map(String::from).collect(),
+        };
+        let prog = |mnem: &str| {
+            let mut m = IdMinter::new();
+            Program {
+                name: "gomath".into(),
+                language: "x86:LE:64:default:golang".into(),
+                // `main.main` has a rich qualified callee-name set; a noise leaf has none.
+                functions: vec![
+                    go(&mut m, "main.main", mnem,
+                       vec!["fmt.Fprintf", "strconv.Atoi", "runtime.convT64", "main.fib"]),
+                    go(&mut m, "runtime.noise", mnem, vec![]),
+                ],
+                facts: Vec::new(),
+            }
+        };
+        let mut amd64 = prog("MOV"); // x86 mnemonics
+        let main_id = amd64.functions.iter().find(|f| f.name == "main.main").unwrap().id;
+        amd64.facts.push(UserFact::new(main_id, FactKind::Rename("entry".into())));
+        let mut arm64 = prog("ldr"); // aarch64 mnemonics — cosine(amd64,arm64) == 0
+
+        let report = merge_into(&amd64, &mut arm64);
+        assert_eq!(report.merged, 1, "main.main re-anchors via its callee-name set, cosine aside");
+        let landed = arm64
+            .facts
+            .iter()
+            .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "entry"))
+            .map(|f| arm64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
+        assert_eq!(landed.as_deref(), Some("main.main"), "callee-name anchor lands on main.main");
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

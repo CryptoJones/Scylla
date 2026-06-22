@@ -597,11 +597,15 @@ statically links the runtime, so call targets are named). (3) Folding callee-nam
 set recovers Go cross-arch **0 → 2/4** (`main.main` anchors, `main.fib` propagates), `WRONG=0`. The
 one caveat is external: Ghidra's Go support lags the release — Go **1.26** crashes the
 `GolangSymbolAnalyzer` (struct layout too new for GayHydra 26.3), Go **1.22** works perfectly; the
-producer is viable for Ghidra-supported Go versions. Build path (greenlit): emit `callee_names`
-(excluding `FUN_*`) from `ScyllaModel`, fold into the matcher's `anchor_set`, and keep the C gate
-honest (our unstripped C fixtures would otherwise "cheat" via internal callee names a stripped target
-wouldn't have — restrict the anchor's callee-name contribution to inter-package/library names, or add
-stripped C fixtures). The cheaper of the two cross-arch levers; BSim remains the heavier alternative.
+producer is viable for Ghidra-supported Go versions. **Built:** `ScyllaModel` emits
+`Function.callee_names` (package-qualified names, over the wire + Cap'n Proto), folded into the
+matcher's `anchor_set`. The honesty guard is a **dotted-name filter** (`'.'` present, not leading-`_`,
+no `::`, not `FUN_*`): it captures Go's `importpath.Func` names — which survive stripping — and
+excludes C's bare local names (which don't) and compiler artifacts (the i386 `__x86.get_pc_thunk.bx`,
+C++ `operator.delete`), so the unstripped-C gate cannot cheat. Verified: C callee_names empty across
+all 11 gate classes (floors unchanged, WRONG=0); the Rust matcher anchors on callee-names with
+cosine=0 (unit test). The cheaper of the two cross-arch levers; BSim remains the heavier, still
+un-de-risked alternative for the symmetric C leaves.
 
 ---
 

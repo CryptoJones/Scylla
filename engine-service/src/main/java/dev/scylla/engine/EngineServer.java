@@ -479,6 +479,12 @@ public final class EngineServer {
                         b.addImports(s.getAsString());
                     }
                 }
+                // Package-qualified callee names (DD-043) — the Go cross-architecture anchor signal.
+                if (f.has("callee_names")) {
+                    for (JsonElement s : f.getAsJsonArray("callee_names")) {
+                        b.addCalleeNames(s.getAsString());
+                    }
+                }
                 resp.onNext(MaterializeEvent.newBuilder().setFunction(b.build()).build());
             }
             resp.onCompleted();

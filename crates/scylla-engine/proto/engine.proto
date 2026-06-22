@@ -58,6 +58,8 @@ message FunctionChunk {
                                    // cross-architecture re-anchoring signal (mnemonics differ by ISA,
                                    // these don't). Drives the ANCHOR pass.
   repeated string imports = 8;     // imported/library calls BY NAME (printf, …) — arch-independent.
+  repeated string callee_names = 9; // PACKAGE-QUALIFIED callee names (fmt.Fprintf, main.fib) — the
+                                   // Go cross-arch lever (DD-043): survive pclntab stripping, ISA-stable.
 }
 
 message DecompileRequest { uint64 entry = 1; }

@@ -35,6 +35,7 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         // core just carries them, same as the snapshot path, so live + offline artifacts re-anchor.
         string_refs: chunk.string_refs.clone(),
         imports: chunk.imports.clone(),
+        callee_names: chunk.callee_names.clone(),
     }
 }
 
@@ -165,6 +166,7 @@ mod tests {
             mnemonics: vec!["PUSH".into(), "MOV".into(), "DIV".into(), "RET".into()],
             string_refs: vec![],
             imports: vec![],
+            callee_names: vec![],
         };
         let f = chunk_to_function(&chunk, StableId(1));
         assert_eq!(f.id, StableId(1));
@@ -189,8 +191,8 @@ mod tests {
     #[test]
     fn assemble_mints_ids_and_resolves_callees() {
         let chunks = vec![
-            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![], string_refs: vec![], imports: vec![] },
-            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999], mnemonics: vec![], string_refs: vec!["result=%d\n".into()], imports: vec!["printf".into()] },
+            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![], string_refs: vec![], imports: vec![], callee_names: vec![] },
+            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999], mnemonics: vec![], string_refs: vec!["result=%d\n".into()], imports: vec!["printf".into()], callee_names: vec![] },
         ];
         let p = assemble("prog", "x86:LE:64:default", &chunks);
         assert_eq!(p.name, "prog");

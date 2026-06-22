@@ -92,18 +92,20 @@ Tracked "later / someday" items that aren't on the current sprint path
     **BSim** (`VersionTrackingBSim`, LSH over decompiler p-code feature vectors — ISA-abstracting; the
     heavier, still-un-de-risked alternative for the symmetric C leaves + cross-arch). VT *is* right for
     a future near-identical patch-diffing use case, not this gap.
-  - [ ] **Go-aware producer — DE-RISKED, GO; build pending (DD-043).** The DD-041 cross-arch lever is
-    C-centric, so Go recovers 0 cross-arch. The de-risk spike ([spike/go-producer/](spike/go-producer/))
-    found the fix and proved it: **callee NAMES** are the arch-independent signal — Ghidra recovers Go
-    function names from `.gopclntab` even when the binary is STRIPPED (`-s -w -trimpath`: 1 `FUN_`
-    placeholder of 1575), and a function's callee-name set is identical amd64↔arm64 (Jaccard 1.0).
-    Folding callee-names into the anchor set takes Go cross-arch **0 → 2/4** (`main.main` anchors,
-    `main.fib` propagates), `WRONG=0`. **Caveat:** Ghidra's Go support lags the release — Go 1.26
-    crashes `GolangSymbolAnalyzer` (struct layout too new for GayHydra 26.3), Go 1.22 works; viable
-    for supported Go versions. **Build:** emit `callee_names` (excluding `FUN_*`) from `ScyllaModel`,
-    carry it over the wire + Cap'n Proto, fold into the matcher `anchor_set`, and keep the C gate
-    honest (unstripped C fixtures would cheat via internal callee names — restrict the contribution to
-    inter-package/library names, or add stripped C fixtures). The cheaper of the two cross-arch levers.
+  - [x] **Go-aware producer — BUILT (DD-043).** The DD-041 cross-arch anchor was C-centric (Go
+    recovers 0 cross-arch). Fixed via **callee NAMES**: `ScyllaModel` now emits each function's
+    package-qualified callee names (`Function.callee_names`), carried over the gRPC wire + Cap'n Proto
+    and folded into the matcher's `anchor_set`. Ghidra recovers Go names from `.gopclntab` even when
+    STRIPPED, and the callee-name set is identical across ISAs (Jaccard 1.0). The **dotted-name
+    filter** (`'.'` present, not leading-`_`, no `::`, not `FUN_*`) is the honesty guard: it captures
+    Go's `importpath.Func` names — which survive stripping — and EXCLUDES C's bare local names (which
+    don't), so the unstripped-C gate can't cheat. Verified: C callee_names are empty across all 11
+    gate classes (floors UNCHANGED, WRONG=0); the Rust matcher anchors on callee-names alone with
+    cosine=0 (unit-tested); the producer emits 8 qualified names for Go `main.main`; the de-risk
+    measured cross-arch recovery 0 → 2/4. **Caveat:** Ghidra's Go support lags the release — Go 1.26
+    crashes `GolangSymbolAnalyzer`, Go 1.22 works; viable for supported Go versions. Go gating stays
+    out-of-Tier-0 (snapshots ~1.5MB); the spike (`spike/go-producer/run-spike.sh`) is the Go
+    regression check. **BSim** remains the heavier, un-de-risked lever for the symmetric *C* leaves.
 
 ## Engine-as-service (DD-040)
 

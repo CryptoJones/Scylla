@@ -63,6 +63,10 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             for (j, s) in f.imports.iter().enumerate() {
                 imp.set(j as u32, s.as_str());
             }
+            let mut cn = fb.reborrow().init_callee_names(f.callee_names.len() as u32);
+            for (j, s) in f.callee_names.iter().enumerate() {
+                cn.set(j as u32, s.as_str());
+            }
         }
 
         let mut facts = p.reborrow().init_facts(prog.facts.len() as u32);
@@ -116,6 +120,13 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
             imports: {
                 let mut v = Vec::new();
                 for s in f.get_imports()?.iter() {
+                    v.push(s?.to_str()?.to_owned());
+                }
+                v
+            },
+            callee_names: {
+                let mut v = Vec::new();
+                for s in f.get_callee_names()?.iter() {
                     v.push(s?.to_str()?.to_owned());
                 }
                 v
@@ -231,8 +242,14 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
                 report.truncated_strings += 1;
             }
         }
-        // String refs / import names (DD-041) are engine-derived → untrusted; bound them the same.
-        for s in func.string_refs.iter_mut().chain(func.imports.iter_mut()) {
+        // String refs / import names / callee names (DD-041, DD-043) are engine-derived → untrusted;
+        // bound them the same.
+        for s in func
+            .string_refs
+            .iter_mut()
+            .chain(func.imports.iter_mut())
+            .chain(func.callee_names.iter_mut())
+        {
             if truncate_to(s, MAX_STRING_LEN) {
                 report.truncated_strings += 1;
             }
@@ -278,6 +295,7 @@ mod tests {
                     mnemonics: vec![("MOV".into(), 2), ("RET".into(), 1)],
                     string_refs: vec![],
                     imports: vec![],
+                    callee_names: vec![],
                 },
                 Function {
                     id: main,
@@ -290,6 +308,7 @@ mod tests {
                     mnemonics: vec![("CALL".into(), 1), ("PUSH".into(), 3)],
                     string_refs: vec!["result=%d\n".into()],
                     imports: vec!["printf".into()],
+                    callee_names: vec!["main.helper".into()],
                 },
             ],
             facts: vec![

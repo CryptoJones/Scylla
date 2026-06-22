@@ -25,6 +25,8 @@ struct Function {
                                 # recompile for a different ISA, where mnemonics/addresses don't.
   imports     @9 :List(Text);   # imported/library calls BY NAME (printf, atoi, …) — arch-independent
                                 # too. stringRefs+imports drive the cross-architecture ANCHOR pass.
+  calleeNames @10 :List(Text);  # PACKAGE-QUALIFIED callee names (fmt.Fprintf, main.fib) — the Go
+                                # cross-arch lever (DD-043): survive .gopclntab stripping, ISA-stable.
 }
 
 struct MnemonicCount {

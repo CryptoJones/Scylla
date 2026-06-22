@@ -118,8 +118,16 @@ Tracked "later / someday" items that aren't on the current sprint path
     MUST gate on **sim≥0.7 + reciprocal-best + significance**, never raw argmax (which emits a
     spurious `gcd→factorial`) — the existing pass-3 discipline, with reciprocal-best load-bearing
     (`factorial→sum_to`=0.711 clears a bare 0.7 floor). `./spike/bsim/run-spike.sh` is the regression
-    artifact. **Real next build:** a cross-arch BSim re-anchoring pass — the symmetric-leaf gap no
-    other signal touches.
+    artifact.
+  - [x] **BSim cross-arch re-anchoring pass — BUILT (DD-044, 3 slices).** Matcher: `scylla-merge`
+    Pass 4 (BSIM) — weighted cosine over `Function.bsim_vector`, gated sim≥0.7 + reciprocal-best +
+    min-feature significance proxy, no-op on empty vectors. Wire: `bsim_vector` rides `model.capnp` +
+    `engine.proto` + `scylla-ingest` + `scylla-schema` round-trip. Producer: a standalone `ScyllaBsim`
+    extractor used by the warm worker (kept OUT of the OSGi-shared `ScyllaModel`, which only
+    serializes it; cold path degrades to empty); `EngineServer` compiles it + parses it into the gRPC
+    chunk. Proven end-to-end on real mathlib: `factorial`+`sum_to` re-anchor x86-64↔aarch64, `gcd`
+    (modulo) stays flagged, **cross-arch 40%→80%, WRONG=0** (gate floor ratcheted). strutil/i386 + the
+    cold path carry no vectors yet (clean no-op) — widening that is future work.
 
 ## Engine-as-service (DD-040)
 

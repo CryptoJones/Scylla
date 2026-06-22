@@ -106,16 +106,21 @@ struct Class {
 #[test]
 fn reanchoring_release_gate() {
     let classes = [
-        // Floors are RATCHETED from current reality (DD-038/DD-041), not guessed. The merge runs FOUR
+        // Floors are RATCHETED from current reality (DD-038/041/044), not guessed. The merge runs FIVE
         // passes: exact-signature (mnemonic-fingerprint disambiguated), an ARCH-INDEPENDENT anchor
-        // pass (Jaccard over string-literal + import-name sets — DD-041), a fuzzy cosine pass, and a
-        // call-graph PROPAGATION pass that spreads confirmed matches to neighbors by graph position.
+        // pass (Jaccard over string-literal + import-name sets — DD-041), a fuzzy cosine pass, a
+        // call-graph PROPAGATION pass that spreads confirmed matches to neighbors by graph position,
+        // and a BSim pass (DD-044, weighted cosine over the decompiler p-code feature vectors the
+        // producer now emits — the symmetric-leaf cross-arch lever).
         // Exact + fuzzy lift BOTH edit classes to 100%. The anchor pass cracks CROSS-ARCHITECTURE:
         // x86->aarch64 mnemonic cosine is ~0, but `main`'s string/import set is identical across the
         // ISA, so it re-anchors — and propagation then recovers `fib` (the unique self-recursive
-        // callee of `main`) BOTH cross-arch and cross-opt. The floors below LOCK those recoveries in.
+        // callee of `main`) BOTH cross-arch and cross-opt. Finally BSim recovers the symmetric
+        // arithmetic LEAVES (`factorial`, `sum_to`) cross-arch, which NO other signal can place —
+        // lifting mathlib x86->aarch64 from 40% to 80%; `gcd`'s modulo decompiles to a
+        // cross-arch-distinct vector and stays flagged. The floors below LOCK those recoveries in.
         // WRONG=0 holds by construction: exact is unique-match; anchor and propagation are unique
-        // winner + margin; fuzzy additionally requires a reciprocal (symmetric) best match.
+        // winner + margin; fuzzy AND BSim additionally require a reciprocal (symmetric) best match.
         Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
         Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(1.0) },
         // Recompile + cross-arch were "hard / track-only" until DD-041; the anchor+propagation passes
@@ -124,7 +129,7 @@ fn reanchoring_release_gate() {
         Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: Some(0.40) },
         Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: Some(0.25) },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
-        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.40) },
+        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.80) },
         Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(0.25) },
         // 32-bit (i386) — the matcher generalizes to a new ISA width unchanged: the edit class still
         // hits 100% (exact), and the anchor+propagation passes recover main+fib cross-arch (64->32)

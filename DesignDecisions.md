@@ -634,6 +634,26 @@ including BSim — honest, fail-closed coverage, recorded not papered over. See
 [spike/bsim/SPIKE-REPORT.md](spike/bsim/SPIKE-REPORT.md); `./spike/bsim/run-spike.sh` reproduces it in
 ~8s and is the Go-forward regression artifact for a future cross-arch BSim pass.
 
+**Built (DD-044, 3 slices).** (1) **Matcher** — `scylla-merge` Pass 4 (BSIM, after propagation):
+weighted cosine over `Function.bsim_vector`, accepted only on a unique best clearing sim≥0.7,
+beating the runner-up by a margin, AND reciprocal-best (the same WRONG=0 discipline as fuzzy; a
+too-small vector defers as a significance proxy). No-op when the vector is empty, so the four prior
+passes and the gate classes are untouched. (2) **Wire** — the vector rides the whole path:
+`model.capnp` (`BsimFeature` + `Function.bsimVector`, round-tripped by `scylla-schema`),
+`engine.proto` (`FunctionChunk.bsim_vector`, carried by `scylla-engine`), and `scylla-ingest`
+(snapshot JSON). `weight` is the f32 bits of the coefficient, kept integral so the model stays
+Eq/Hash and round-trips exactly. (3) **Producer** — a standalone `ScyllaBsim` extractor (the
+decompiler-signature path: `WeightedLSHCosineVectorFactory` + the language's weights +
+`generateSignatures`→`buildVector`→`getEntries`) deliberately kept OUT of the OSGi-shared
+`ScyllaModel` (confined to `ghidra.program.model.*`): the BSim *computation* lives with the warm
+worker like import+analyze does, while `ScyllaModel` only *serializes* the vector it is handed, so
+the cold path degrades to empty. `EngineServer` compiles `ScyllaBsim` in the warm `javac` and parses
+the vector into the gRPC chunk. **Proven end-to-end on real mathlib:** `factorial` and `sum_to`
+re-anchor x86-64↔aarch64 — the symmetric leaves no other signal can place — while `gcd` (modulo:
+cross-arch-distinct p-code) stays flagged; **cross-arch recovery 40% → 80%, WRONG=0** (the gate floor
+is ratcheted to 0.80 to lock it in). The cold path and the strutil/i386 corpora carry no vectors yet,
+so BSim is a clean no-op there; widening that is future work.
+
 ---
 
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

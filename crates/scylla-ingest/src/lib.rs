@@ -176,8 +176,9 @@ mod tests {
             f.bsim_vector,
             vec![(0xDEAD_BEEFu32, 1.0f32.to_bits()), (0x1234u32, 0.5f32.to_bits())]
         );
-        // Older snapshots without the field degrade cleanly to empty (the BSim pass won't fire).
-        let bare = snapshot_to_program(MATHLIB).unwrap();
+        // A snapshot without the field (the C++ SHAPES fixture isn't BSim-augmented) degrades
+        // cleanly to empty — the cross-arch BSim pass simply won't fire for it.
+        let bare = snapshot_to_program(SHAPES).unwrap();
         assert!(bare.functions.iter().all(|f| f.bsim_vector.is_empty()));
     }
 }

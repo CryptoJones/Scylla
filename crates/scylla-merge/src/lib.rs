@@ -731,6 +731,40 @@ mod tests {
         assert!(!gcd_present, "ambiguous leaf gcd must orphan, never mis-attach (WRONG=0)");
     }
 
+    /// DD-044 end-to-end (real data): with the producer now emitting BSim vectors into the
+    /// committed snapshots, the symmetric arithmetic leaves `factorial` and `sum_to` — which the
+    /// anchor (no strings/imports), fuzzy (mnemonic cosine ~0 cross-ISA) and propagation (symmetric
+    /// graph position) passes ALL leave flagged — re-anchor across the ISA via Pass 4 (BSim weighted
+    /// cosine). `gcd` (modulo: cross-arch-distinct p-code) stays flagged, fail-closed. Real mathlib
+    /// x86-64 -> aarch64, zero-wrong. This is the slice-1 fixture test, now on actual engine output.
+    #[test]
+    fn cross_architecture_bsim_recovers_leaves_end_to_end() {
+        let mut x86 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
+        x86.facts.push(UserFact::new(id_of(&x86, "factorial"), FactKind::Rename("fact".into())));
+        x86.facts.push(UserFact::new(id_of(&x86, "sum_to"), FactKind::Rename("sum".into())));
+        x86.facts.push(UserFact::new(id_of(&x86, "gcd"), FactKind::Rename("euclid".into())));
+
+        let mut aarch64 = scylla_ingest::snapshot_to_program(V1_AARCH64).unwrap();
+        merge_into(&x86, &mut aarch64);
+
+        let name_on = |marker: &str| {
+            aarch64
+                .facts
+                .iter()
+                .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == marker))
+                .map(|f| {
+                    aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone()
+                })
+        };
+        // factorial + sum_to re-anchor cross-arch via BSim — onto their correctly-named twins, where
+        // nothing else could place them (strings/imports/callee-names empty, cosine ~0, leaves).
+        assert_eq!(name_on("fact").as_deref(), Some("factorial"), "BSim recovers factorial cross-arch");
+        assert_eq!(name_on("sum").as_deref(), Some("sum_to"), "BSim recovers sum_to cross-arch");
+        // gcd (modulo) is cross-arch-distinct under BSim too -> stays flagged, never mis-attached.
+        assert!(name_on("euclid").is_none(), "gcd stays flagged cross-arch (WRONG=0)");
+    }
+
     /// DD-043: a Go function carries no C strings and no dynamic imports, but its set of
     /// package-qualified CALLEE NAMES is identical across ISAs (pclntab) — so it anchors there too.
     /// Here the two "arches" share callee-names but have DISJOINT mnemonics (cosine = 0) and

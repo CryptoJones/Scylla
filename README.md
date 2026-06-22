@@ -77,9 +77,9 @@ Scylla stands on work it has no intention of replacing:
   **[GayHydra](https://github.com/CryptoJones/GayHydra)** hardened fork. The engine is
   sacred: Scylla demotes it to a droppable producer behind the engine-port, never rewrites it.
 - **[Cap'n Proto](https://capnproto.org)** — the serialization behind the durable
-  model-artifact and the client-side RPC surface (DD-002). The artifact is the one bet
-  Scylla can't take back, so it rests on a format built for schema evolution and bounded,
-  memory-safe reads.
+  model-artifact (DD-002). The artifact is the one bet Scylla can't take back, so it rests
+  on a format built for schema evolution and bounded, memory-safe reads — and chosen, too,
+  for the promise-pipelining RPC the client port will project if a remote head ever needs it.
 - **[Protocol Buffers](https://protobuf.dev)** over **[tonic](https://github.com/hyperium/tonic)**
   / **[Prost](https://github.com/tokio-rs/prost)**, on **[Tokio](https://tokio.rs)** — the
   gRPC engine-port seam to the sandboxed JVM engine-as-service (DD-009/040).

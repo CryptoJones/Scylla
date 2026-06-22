@@ -720,6 +720,7 @@ dependencies = [
  "hyper-util",
  "prost",
  "scylla-model",
+ "scylla-port",
  "tokio",
  "tonic",
  "tonic-build",

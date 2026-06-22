@@ -153,6 +153,19 @@ pub async fn materialize(
     Ok(assemble(&prog_name, &language, &chunks))
 }
 
+/// The engine-port `decompile` verb (DD-017): ask the engine for the decompiled C of the function
+/// at `entry`. Producer-side and on-demand — the client port surfaces it but the call lives up here
+/// on the async side, so the sync model-consuming port stays pure (DD-009). The returned C is
+/// untrusted engine output (DD-035); a head treats it as data, never instruction.
+pub async fn decompile(
+    endpoint: String,
+    entry: u64,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut client = connect_engine(endpoint).await?;
+    let reply = client.decompile(pb::DecompileRequest { entry }).await?.into_inner();
+    Ok(reply.c)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +221,29 @@ mod tests {
         assert_eq!(main.string_refs, vec!["result=%d\n".to_string()]);
         assert_eq!(main.imports, vec!["printf".to_string()]);
         assert_ne!(gcd.id, main.id);
+    }
+
+    /// DD-017 Sprint-6 DoD: a NON-MCP client drives a full session over the engine→port handoff —
+    /// materialize → open the pure client port → navigate → annotate → persist → reload. Here
+    /// materialize is fixture chunks via `assemble`; live it's `materialize(endpoint, …).await`,
+    /// the same one-liner (`Session::open(...)`). The engine head-layer is exactly this wiring; the
+    /// port stays a pure model consumer (DD-009) and never depends on the engine.
+    #[test]
+    fn non_mcp_client_drives_a_full_session_over_the_engine_port() {
+        use scylla_port::{Session, Zoom};
+        let chunks = vec![
+            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![], string_refs: vec![], imports: vec![], callee_names: vec![], bsim_vector: vec![] },
+            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000], mnemonics: vec![], string_refs: vec!["r=%d\n".into()], imports: vec!["printf".into()], callee_names: vec![], bsim_vector: vec![] },
+        ];
+        // materialize (engine-side) -> open the client port: the head-layer one-liner.
+        let mut session = Session::open(assemble("prog", "x86:LE:64:default", &chunks));
+        let id = |n: &str| session.program().functions.iter().find(|f| f.name == n).unwrap().id;
+        let (gcd, main) = (id("gcd"), id("main"));
+        // navigate: main calls gcd.
+        assert!(session.view(main, Zoom::Domain).unwrap().callees.unwrap().contains(&"gcd".to_string()));
+        // annotate, then persist + reload (the fact survives on the stable id).
+        session.rename(gcd, "euclid_gcd").unwrap();
+        let reloaded = Session::from_artifact(&session.to_artifact()).unwrap();
+        assert_eq!(reloaded.view(gcd, Zoom::Domain).unwrap().name, "euclid_gcd");
     }
 }

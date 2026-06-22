@@ -18,3 +18,8 @@ hyper-util = "0.1"
 
 [build-dependencies]
 tonic-build = "0.12"
+
+[dev-dependencies]
+# Test-only: prove the engine→port head-layer wiring (assemble → Session) drives a full
+# non-MCP session (DD-017 Sprint-6 DoD). The port never depends on the engine — only this test does.
+scylla-port = { path = "../scylla-port" }

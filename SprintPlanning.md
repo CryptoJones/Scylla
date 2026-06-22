@@ -121,7 +121,7 @@ Everything before the prototype is there *only* because the prototype can't run 
 **Tasks.**
 - **Client port** (DD-017): navigable graph + curated commands (`import` · `analyze` · `decompile` · `rename` · `retype` · `comment` · `diff`).
 - **Semantic-zoom** altitude (DD-020): domain default, p-code down (escape hatch), intent composed by the consumer.
-- Sync + **job-handle** for long `analyze` (DD-019); **typed error taxonomy** mirroring Ghidra (DD-021); Cap'n Proto RPC surface (DD-002).
+- Sync + **job-handle** for long `analyze` (DD-019); **typed error taxonomy** mirroring Ghidra (DD-021); Cap'n Proto RPC surface (DD-002) — **served in-process** (heads drive `scylla_port::Session` directly; the MCP head marshals JSON-RPC), with the Cap'n Proto **promise-pipelining RPC wire deferred** to a future remote/networked head (see BACKLOG; the model-artifact persistence half of DD-002 is done).
 
 **DoD.** A non-MCP test client drives a full session (import → analyze → navigate → annotate → persist) over the port; zoom levels return the right detail.
 

@@ -9,6 +9,17 @@ Tracked "later / someday" items that aren't on the current sprint path
   It's readable and hexagonal now, but the layout could be tightened — port placement on the
   rim, edge routing, balance of the driving/driven sides. A polish pass, not a redo.
 
+## Ports
+
+- [ ] **Cap'n Proto promise-pipelining RPC surface for the client port (DD-002).** Today the
+  client port is served **in-process** — the heads drive `scylla_port::Session` directly (the MCP
+  head marshals JSON-RPC ↔ port; the non-MCP client calls `Session` straight), and the only Cap'n
+  Proto in the tree is the model-artifact *persistence* schema (`model.capnp` — data `struct`s, no
+  `interface`; no `capnp-rpc` dependency). The promise-pipelining **RPC wire** that DD-002's schema
+  choice anticipated is deferred until a **remote / networked head** actually needs it (a head not
+  co-located with the core). Build then: add an `interface` to the schema + a `capnp-rpc` server
+  projecting the port, behind the existing in-process surface.
+
 ## Possible future adapters (the whole point of the hexagon)
 
 - [x] **Evaluate the x64dbg / Scylla dynamic-analysis ecosystem as a future *producer* adapter.**

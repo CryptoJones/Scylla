@@ -115,10 +115,11 @@ fn reanchoring_release_gate() {
         // Exact + fuzzy lift BOTH edit classes to 100%. The anchor pass cracks CROSS-ARCHITECTURE:
         // x86->aarch64 mnemonic cosine is ~0, but `main`'s string/import set is identical across the
         // ISA, so it re-anchors — and propagation then recovers `fib` (the unique self-recursive
-        // callee of `main`) BOTH cross-arch and cross-opt. Finally BSim recovers the symmetric
-        // arithmetic LEAVES (`factorial`, `sum_to`) cross-arch, which NO other signal can place —
-        // lifting mathlib x86->aarch64 from 40% to 80%; `gcd`'s modulo decompiles to a
-        // cross-arch-distinct vector and stays flagged. The floors below LOCK those recoveries in.
+        // callee of `main`) BOTH cross-arch and cross-opt. Finally BSim recovers the LEAVES no other
+        // signal can place — cross-arch, via weighted cosine over the decompiler p-code vectors:
+        // mathlib's arithmetic `factorial`+`sum_to` (40%->80%; `gcd`'s modulo decompiles to a
+        // cross-arch-distinct vector and stays flagged) AND strutil's string leaves
+        // `my_strlen`/`my_reverse`/`count_vowels` (25%->100%). The floors below LOCK those in.
         // WRONG=0 holds by construction: exact is unique-match; anchor and propagation are unique
         // winner + margin; fuzzy AND BSim additionally require a reciprocal (symmetric) best match.
         Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
@@ -130,7 +131,7 @@ fn reanchoring_release_gate() {
         Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: Some(0.25) },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
         Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.80) },
-        Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(0.25) },
+        Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(1.0) },
         // 32-bit (i386) — the matcher generalizes to a new ISA width unchanged: the edit class still
         // hits 100% (exact), and the anchor+propagation passes recover main+fib cross-arch (64->32)
         // and cross-opt, all WRONG=0. Floors ratcheted from measured reality.

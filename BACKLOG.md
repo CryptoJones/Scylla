@@ -128,6 +128,11 @@ Tracked "later / someday" items that aren't on the current sprint path
     chunk. Proven end-to-end on real mathlib: `factorial`+`sum_to` re-anchor x86-64↔aarch64, `gcd`
     (modulo) stays flagged, **cross-arch 40%→80%, WRONG=0** (gate floor ratcheted). strutil/i386 + the
     cold path carry no vectors yet (clean no-op) — widening that is future work.
+  - [x] **BSim cross-arch widened to the strutil 64-bit corpus (DD-044 follow-on).** Regenerated
+    `strutil.{x86-64,aarch64}.O0` snapshots with `bsim_vector`; BSim recovers all of strutil's string
+    leaves (`my_strlen`/`my_reverse`/`count_vowels`) cross-arch — **25%→100%, WRONG=0**, floor
+    ratcheted to 1.0. Remaining: the **i386** corpus (cross-*width* 64↔32 weights un-de-risked) + the
+    cold `dump_model` path (OSGi can't see BSim) — both clean no-ops today.
 
 ## Engine-as-service (DD-040)
 

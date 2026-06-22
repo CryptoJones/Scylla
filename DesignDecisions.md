@@ -651,8 +651,12 @@ the cold path degrades to empty. `EngineServer` compiles `ScyllaBsim` in the war
 the vector into the gRPC chunk. **Proven end-to-end on real mathlib:** `factorial` and `sum_to`
 re-anchor x86-64↔aarch64 — the symmetric leaves no other signal can place — while `gcd` (modulo:
 cross-arch-distinct p-code) stays flagged; **cross-arch recovery 40% → 80%, WRONG=0** (the gate floor
-is ratcheted to 0.80 to lock it in). The cold path and the strutil/i386 corpora carry no vectors yet,
-so BSim is a clean no-op there; widening that is future work.
+is ratcheted to 0.80 to lock it in). **strutil's x86-64↔aarch64 corpus now carries vectors too** —
+BSim recovers ALL of strutil's string leaves (`my_strlen`/`my_reverse`/`count_vowels`) cross-arch,
+lifting it **25% → 100%** (`WRONG=0`, floor ratcheted to 1.0); the string loops decompile to
+consistent cross-arch p-code, no `gcd`-style holdout. The cold path and the **i386** corpus still
+carry no vectors — cross-*width* (64↔32) BSim weights are a separate, un-de-risked case — so BSim is
+a clean no-op there; widening those is future work.
 
 ---
 

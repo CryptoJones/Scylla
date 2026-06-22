@@ -70,9 +70,19 @@ Tracked "later / someday" items that aren't on the current sprint path
     and cross-opt** — mathlib O0→O2 and x86→aarch64 each go **20%→40%**; symmetric leaves
     (gcd/factorial/sum_to) stay flagged. `WRONG=0` held, incl. the subtle rule that a lone surviving
     candidate must beat the *generic-neighbour baseline* ("only option left" ≠ evidence — the true
-    match may be inlined away). Gate floors ratcheted on the recompile + cross-arch classes. **Next
-    lever:** the heavier Ghidra Version Tracking integration (for functions with neither
-    strings/imports nor a distinguishing graph position).
+    match may be inlined away). Gate floors ratcheted on the recompile + cross-arch classes.
+  - [x] **Go / 32-bit corpus validation (DD-041).** Pushed the four-pass matcher onto two new axes
+    to find where it breaks ([docs/corpus-findings.md](../docs/corpus-findings.md)). **32-bit (i386)**:
+    same C source, so it's gated in Tier-0 — the matcher generalizes with ZERO changes (edit-32
+    100%, recompile-32 + cross-arch 64→32 recover main+fib at 40%, all WRONG=0; floors ratcheted).
+    **Go** (Tier-1, generated on demand — ~1.5MB/1900-func snapshots are too big to commit): two
+    findings — (1) **scale robustness**, WRONG=0 across ~3000 functions (recovers main+fib in the
+    runtime-function haystack, no false positives); (2) **the anchor is C-centric** — Go cross-arch
+    recovers 0 because Go strings aren't NUL-terminated C strings and `fmt.Printf` isn't a dynamic
+    import, so the string/import anchor never fires. The matcher fails *closed* (flag, never guess).
+    This is the concrete motivation for a Go-aware producer and/or Version Tracking. **Next lever:**
+    Ghidra Version Tracking (for functions with neither strings/imports nor a distinguishing graph
+    position — the symmetric leaves, and Go cross-arch).
 
 ## Engine-as-service (DD-040)
 

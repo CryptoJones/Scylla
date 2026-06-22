@@ -27,6 +27,14 @@ const S_X64_O2: &str = include_str!("../../../prototype/snapshots/strutil.x86-64
 const M_A64_O0: &str = include_str!("../../../prototype/snapshots/mathlib.aarch64.O0.json");
 const MV2_A64_O0: &str = include_str!("../../../prototype/snapshots/mathlib_v2.aarch64.O0.json");
 const S_A64_O0: &str = include_str!("../../../prototype/snapshots/strutil.aarch64.O0.json");
+// i386 (32-bit x86) — same C source as x86-64, so the matcher is tested across the 64/32-bit ISA
+// boundary on the SAME ground-truth names (the DD-041 "32-bit" corpus). Go is Tier-1 (too large to
+// commit, ~1.5MB/snapshot); its findings are documented, not gated — see docs/corpus-findings.md.
+const M_I386_O0: &str = include_str!("../../../prototype/snapshots/mathlib.i386.O0.json");
+const M_I386_O2: &str = include_str!("../../../prototype/snapshots/mathlib.i386.O2.json");
+const MV2_I386_O0: &str = include_str!("../../../prototype/snapshots/mathlib_v2.i386.O0.json");
+const S_I386_O0: &str = include_str!("../../../prototype/snapshots/strutil.i386.O0.json");
+const S_I386_O2: &str = include_str!("../../../prototype/snapshots/strutil.i386.O2.json");
 
 #[derive(Default)]
 struct Score {
@@ -118,6 +126,13 @@ fn reanchoring_release_gate() {
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
         Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.40) },
         Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(0.25) },
+        // 32-bit (i386) — the matcher generalizes to a new ISA width unchanged: the edit class still
+        // hits 100% (exact), and the anchor+propagation passes recover main+fib cross-arch (64->32)
+        // and cross-opt, all WRONG=0. Floors ratcheted from measured reality.
+        Class { name: "mathlib i386 O0->v2     (edit-32)     ", v1: M_I386_O0, v2: MV2_I386_O0, floor: Some(1.0) },
+        Class { name: "mathlib i386 O0->O2     (recompile-32)", v1: M_I386_O0, v2: M_I386_O2, floor: Some(0.40) },
+        Class { name: "mathlib x86-64 -> i386  (cross-arch32)", v1: M_X64_O0, v2: M_I386_O0, floor: Some(0.40) },
+        Class { name: "strutil i386 O0->O2     (recompile-32)", v1: S_I386_O0, v2: S_I386_O2, floor: Some(0.25) },
     ];
 
     println!("\n=== DD-038 re-anchoring scoreboard ===");

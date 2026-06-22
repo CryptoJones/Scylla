@@ -1,0 +1,6 @@
+# The Go corpus is Tier-1: generated on demand by make_corpus.sh, NOT committed. A Go binary's
+# snapshot is ~1.5MB / ~1900 functions — too large for the "tiny, every-CI" Tier-0 fixtures. The Go
+# SOURCE (corpus/src/gomath.go) and the build recipe ARE committed; the artifacts are reproducible.
+# Findings (scale WRONG=0; the cross-arch anchor gap) live in docs/corpus-findings.md.
+corpus/bin/gomath.*.elf
+snapshots/gomath.*.json

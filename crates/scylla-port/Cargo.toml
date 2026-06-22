@@ -9,6 +9,7 @@ authors.workspace = true
 [dependencies]
 scylla-model = { path = "../scylla-model" }
 scylla-schema = { path = "../scylla-schema" }
+scylla-merge = { path = "../scylla-merge" }
 
 [dev-dependencies]
 scylla-ingest = { path = "../scylla-ingest" }

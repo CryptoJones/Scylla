@@ -60,6 +60,20 @@ pub struct FunctionView {
     pub size: Option<u64>,
 }
 
+/// A semantic diff between two sessions (DD-017 `diff`): functions matched across them by stable
+/// structural identity (address-independent), and those on only one side — reported by display
+/// name. The address-keyed [`Session::diff_function_addrs`] is the coarse first taste; this is the
+/// identity-based verb, built on the merge engine's structural matcher.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct SessionDiff {
+    /// `(this_name, other_name)` for each structurally-matched function pair.
+    pub matched: Vec<(String, String)>,
+    /// Display names of functions present only in this session.
+    pub only_here: Vec<String>,
+    /// Display names of functions present only in the other session.
+    pub only_there: Vec<String>,
+}
+
 /// A live analysis session: the client port over one loaded model.
 pub struct Session {
     program: Program,
@@ -188,6 +202,24 @@ impl Session {
             theirs.difference(&mine).copied().collect(),
         )
     }
+
+    /// Semantic diff against another session (DD-017 `diff`): pair functions by structural identity
+    /// (address-independent — survives recompiles / re-analysis), reporting matched pairs and the
+    /// functions unique to each side, by display name. Built on the merge engine's structural
+    /// matcher, so a user rename shows through. The proper `diff` verb; supersedes the address-keyed
+    /// [`Session::diff_function_addrs`] first taste.
+    pub fn diff(&self, other: &Session) -> SessionDiff {
+        let d = scylla_merge::diff_programs(&self.program, &other.program);
+        SessionDiff {
+            matched: d
+                .matched
+                .into_iter()
+                .map(|(a, b)| (self.name_of(a), other.name_of(b)))
+                .collect(),
+            only_here: d.only_a.into_iter().map(|id| self.name_of(id)).collect(),
+            only_there: d.only_b.into_iter().map(|id| other.name_of(id)).collect(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -269,5 +301,21 @@ mod tests {
         let reloaded = Session::from_artifact(&s.to_artifact()).unwrap();
         let rf = reloaded.program().facts.iter().find(|f| f.target == gcd).unwrap();
         assert_eq!(rf.author, Some(Principal("local".into())));
+    }
+
+    #[test]
+    fn semantic_diff_pairs_functions_by_identity_not_address() {
+        let a = session();
+        let b = session(); // same binary, FRESH stable ids -> only structural identity can pair them
+        let diff = a.diff(&b);
+        // No-wrong: every matched pair is the same function by name.
+        for (x, y) in &diff.matched {
+            assert_eq!(x, y, "a matched pair must be the same function");
+        }
+        // The user functions re-pair across the fresh ids (address-independent).
+        let names: Vec<&String> = diff.matched.iter().map(|(x, _)| x).collect();
+        for n in ["gcd", "fib", "main"] {
+            assert!(names.contains(&&n.to_string()), "{n} should pair with itself");
+        }
     }
 }

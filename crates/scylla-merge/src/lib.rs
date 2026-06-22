@@ -530,6 +530,54 @@ pub fn merge_into(old: &Program, new: &mut Program) -> MergeReport {
     report
 }
 
+/// A structural diff of two programs (the engine behind DD-017's `diff` verb): which functions are
+/// matched across them and which live on only one side.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ProgramDiff {
+    /// `(a_id, b_id)` pairs matched by a UNIQUE shared structural signature.
+    pub matched: Vec<(StableId, StableId)>,
+    /// Stable ids present only in `a` (removed / only-here).
+    pub only_a: Vec<StableId>,
+    /// Stable ids present only in `b` (added / only-there).
+    pub only_b: Vec<StableId>,
+}
+
+/// Structurally diff `a` against `b` — **address-independent**: functions pair by the EXACT-pass
+/// signature (CFG size, byte size, out-degree, mnemonic fingerprint), so the diff survives the
+/// address shifts a recompile / re-analysis causes (a raw address diff would report everything
+/// changed). Only a signature UNIQUE on *both* sides pairs; an ambiguous one is reported on each
+/// side rather than guessed — the same no-wrong discipline as the merge. The two programs need not
+/// share stable ids (separate materializations), so this is the basis for "git for RE" diff.
+pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
+    let mut a_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
+    for f in &a.functions {
+        a_by_sig.entry(signature(f)).or_default().push(f.id);
+    }
+    let mut b_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
+    for f in &b.functions {
+        b_by_sig.entry(signature(f)).or_default().push(f.id);
+    }
+    let mut diff = ProgramDiff::default();
+    let mut claimed_b: HashSet<StableId> = HashSet::new();
+    for f in &a.functions {
+        let sig = signature(f);
+        let a_unique = a_by_sig.get(&sig).is_some_and(|ids| ids.len() == 1);
+        match b_by_sig.get(&sig) {
+            Some(ids) if a_unique && ids.len() == 1 => {
+                diff.matched.push((f.id, ids[0]));
+                claimed_b.insert(ids[0]);
+            }
+            _ => diff.only_a.push(f.id),
+        }
+    }
+    for f in &b.functions {
+        if !claimed_b.contains(&f.id) {
+            diff.only_b.push(f.id);
+        }
+    }
+    diff
+}
+
 /// A disagreement found while merging another analyst's work: both gave the same *kind* of
 /// fact to the same entity, with different values. Surfaced, never auto-resolved.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -900,6 +948,31 @@ mod tests {
         assert_eq!(name_on("sum").as_deref(), Some("sum_to"));
         // gcd's marker did NOT carry (fail-closed) — never mis-attached to a leaf look-alike.
         assert!(name_on("euclid").is_none(), "gcd must flag, never mis-attach (WRONG=0)");
+    }
+
+    /// DD-017 `diff`: `diff_programs` pairs functions by STRUCTURAL signature, not address — so a
+    /// re-analysis (fresh ids, same binary) re-pairs every user function, matched pairs are always
+    /// the same-named function (no-wrong), and a function new in v2 (`lcm`) shows up only on the v2
+    /// side rather than as a false match.
+    #[test]
+    fn diff_programs_is_address_independent_and_flags_new_functions() {
+        let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let again = scylla_ingest::snapshot_to_program(V1).unwrap(); // fresh ids, same binary
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let d = diff_programs(&v1, &again);
+        for (a_id, b_id) in &d.matched {
+            assert_eq!(name(&v1, *a_id), name(&again, *b_id), "a matched pair must be the same function");
+        }
+        let matched_names: Vec<String> = d.matched.iter().map(|(a, _)| name(&v1, *a)).collect();
+        for fnname in ["gcd", "fib", "factorial", "sum_to", "main"] {
+            assert!(matched_names.contains(&fnname.to_string()), "{fnname} should pair with itself");
+        }
+        // The edit (v2 inserts `lcm`): lcm is new, so it lands only on the v2 side.
+        let v2 = scylla_ingest::snapshot_to_program(V2).unwrap();
+        let d2 = diff_programs(&v1, &v2);
+        let only_b: Vec<String> = d2.only_b.iter().map(|id| name(&v2, *id)).collect();
+        assert!(only_b.contains(&"lcm".to_string()), "lcm is new in v2 -> only_b");
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

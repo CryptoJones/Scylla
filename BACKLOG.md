@@ -131,8 +131,12 @@ Tracked "later / someday" items that aren't on the current sprint path
   - [x] **BSim cross-arch widened to the strutil 64-bit corpus (DD-044 follow-on).** Regenerated
     `strutil.{x86-64,aarch64}.O0` snapshots with `bsim_vector`; BSim recovers all of strutil's string
     leaves (`my_strlen`/`my_reverse`/`count_vowels`) cross-arch — **25%→100%, WRONG=0**, floor
-    ratcheted to 1.0. Remaining: the **i386** corpus (cross-*width* 64↔32 weights un-de-risked) + the
-    cold `dump_model` path (OSGi can't see BSim) — both clean no-ops today.
+    ratcheted to 1.0.
+  - [x] **i386 cross-*width* BSim — de-risked, NO-GO (DD-044).** 32↔64 collapses the symmetric leaves
+    (factorial↔sum_to margin 0.000, vs 0.289 cross-arch); gated only gcd+fib match (2/5), and the
+    producer's per-arch weights would make live worse than the spike's best-case cross-width weights.
+    Marginal gain for real complexity (the matcher already does main+fib at 40%) → not worth it. Only
+    open BSim lever left: the cold `dump_model` path (OSGi can't see BSim) — a clean no-op today.
 
 ## Engine-as-service (DD-040)
 

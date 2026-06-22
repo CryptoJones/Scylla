@@ -654,9 +654,18 @@ cross-arch-distinct p-code) stays flagged; **cross-arch recovery 40% → 80%, WR
 is ratcheted to 0.80 to lock it in). **strutil's x86-64↔aarch64 corpus now carries vectors too** —
 BSim recovers ALL of strutil's string leaves (`my_strlen`/`my_reverse`/`count_vowels`) cross-arch,
 lifting it **25% → 100%** (`WRONG=0`, floor ratcheted to 1.0); the string loops decompile to
-consistent cross-arch p-code, no `gcd`-style holdout. The cold path and the **i386** corpus still
-carry no vectors — cross-*width* (64↔32) BSim weights are a separate, un-de-risked case — so BSim is
-a clean no-op there; widening those is future work.
+consistent cross-arch p-code, no `gcd`-style holdout.
+
+**i386 cross-*width* BSim: de-risked, NO-GO** (`spike/bsim/run-spike.sh <x86-64> <i386>`). Unlike the
+64↔64 cross-arch case, 32↔64 makes the symmetric leaves COLLAPSE: `factorial→factorial` and
+`factorial→sum_to` both score 0.642 (margin **0.000** — indistinguishable, vs 0.289 cross-arch), and
+`main` drops to 0.495. Gated, only `gcd`(1.0)+`fib`(0.709) match (2/5); `main`/`factorial`/`sum_to`
+flag — `WRONG=0` held only because the gate rejects the collapsed pair (naive argmax = 1 WRONG). And
+that is BEST case: the spike used the `lshweights_64_32` cross-width weights for both, but the producer
+emits per-arch weights (`_64` vs `_32`), so live would be worse — and making it work would require the
+producer to know the target arch. Marginal gain (the four-pass matcher already recovers main+fib at
+40% cross-width) for real complexity → not worth it. The cold `dump_model` path (OSGi can't see BSim,
+so it emits no vectors) remains the only open BSim lever — a clean no-op today.
 
 ---
 

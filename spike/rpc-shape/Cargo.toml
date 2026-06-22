@@ -1,0 +1,21 @@
+[package]
+name = "scylla-rpc-shape-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Detached from the parent workspace on purpose — a throwaway DD-002 spike, NOT a durable crate.
+[workspace]
+
+[dependencies]
+capnp = "0.26"
+capnp-rpc = "0.26"
+futures = "0.3"
+tokio = { version = "1", features = ["rt", "macros", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+scylla-model = { path = "../../crates/scylla-model" }
+scylla-port = { path = "../../crates/scylla-port" }
+scylla-ingest = { path = "../../crates/scylla-ingest" }
+
+[build-dependencies]
+capnpc = "0.26"

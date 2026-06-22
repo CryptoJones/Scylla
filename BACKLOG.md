@@ -18,7 +18,9 @@ Tracked "later / someday" items that aren't on the current sprint path
   `interface`; no `capnp-rpc` dependency). The promise-pipelining **RPC wire** that DD-002's schema
   choice anticipated is deferred until a **remote / networked head** actually needs it (a head not
   co-located with the core). Build then: add an `interface` to the schema + a `capnp-rpc` server
-  projecting the port, behind the existing in-process surface.
+  projecting the port, behind the existing in-process surface. **Shape validated** by
+  `spike/rpc-shape` (2026-06-22, GO) — the port projects 1:1 to a capnp RPC interface and
+  pipelines with no port change; that spike is a usable seed for the real `interface`.
 
 ## Possible future adapters (the whole point of the hexagon)
 

@@ -2,6 +2,13 @@
 
 **A hexagonal, adapter-headed reverse-engineering platform.**
 
+<p align="center">
+  <a href="https://youtu.be/4yzA2shI7HI">
+    <img src="https://img.youtube.com/vi/4yzA2shI7HI/maxresdefault.jpg" alt="Scylla — watch the demo" width="640">
+  </a>
+  <br><em>▶ Watch the demo</em>
+</p>
+
 Scylla wraps a proven reverse-engineering engine behind a **durable, transport-agnostic
 reverse-engineering domain model** — the *body* — and exposes it through thin,
 **disposable protocol adapters** — the *heads*.

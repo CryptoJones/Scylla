@@ -132,6 +132,111 @@ const ANCHOR_THRESHOLD: f64 = 0.5;
 /// same way exact/fuzzy do: a near-tie is flagged, never guessed.
 const ANCHOR_MARGIN: f64 = 0.25;
 
+/// Recursion-match weight in the propagation score: a *self-recursive* function matching another
+/// self-recursive one is a strong, ISA-independent signal (it survives any recompile) — heavy
+/// enough to break a tie among graph-neighbors that are otherwise symmetric (e.g. the 4 leaves all
+/// called once by `main`, of which only `fib` calls itself).
+const PROP_RECURSION_WEIGHT: f64 = 2.0;
+/// A propagated match needs at least this much matched-neighbor agreement — a function with NO
+/// confirmed neighbor in common with the candidate is not "propagated", it is guessed.
+const PROP_MIN_AGREEMENT: f64 = 1.0;
+/// ...AND must beat the runner-up by this margin. Integer agreements + the recursion weight make
+/// the real margins 0, 1, 2, …; a genuine distinction (a recursion match, or a higher matched
+/// in-degree) clears 1.0, while symmetric neighbors tie at margin 0 and are flagged. `WRONG = 0`.
+const PROP_MARGIN: f64 = 1.0;
+
+/// Invert `callees` into a caller adjacency: `id -> [functions that call id]`.
+fn caller_map(funcs: &[Function]) -> HashMap<StableId, Vec<StableId>> {
+    let mut m: HashMap<StableId, Vec<StableId>> = HashMap::new();
+    for f in funcs {
+        for c in &f.callees {
+            m.entry(*c).or_default().push(f.id);
+        }
+    }
+    m
+}
+
+/// PROPAGATION (DD-041 follow-up): match `b_id` (old) by its position in the call graph relative to
+/// the functions already matched. Restricts candidates to the graph-LOCAL new functions — callees of
+/// the images of `b`'s matched callers, and callers of the images of `b`'s matched callees — and
+/// scores each by how much of that confirmed neighborhood it reproduces (plus a self-recursion
+/// match). This is the one cross-architecture discriminator that is NOT structural: x86 and aarch64
+/// `gcd` are indistinguishable by size/bb (proven — all the leaves share bb_count and size is
+/// misleading across the ISA), but `fib` is the unique self-recursive callee of `main`, and a callee
+/// called by two matched functions outranks one called by one. Accept only a unique winner clearing
+/// `PROP_MIN_AGREEMENT` AND beating the runner-up by `PROP_MARGIN`; symmetric neighbors tie and stay
+/// flagged. Builds only on already-confirmed (WRONG=0) matches, so it never cascades a wrong guess.
+#[allow(clippy::too_many_arguments)]
+fn propagate_match(
+    b_id: StableId,
+    matched: &HashMap<StableId, StableId>,
+    claimed: &HashSet<StableId>,
+    old_by_id: &HashMap<StableId, &Function>,
+    new_by_id: &HashMap<StableId, &Function>,
+    old_callers: &HashMap<StableId, Vec<StableId>>,
+    new_callers: &HashMap<StableId, Vec<StableId>>,
+) -> Option<StableId> {
+    let b = old_by_id.get(&b_id)?;
+    // Images (in `new`) of b's already-matched neighbors.
+    let caller_imgs: Vec<StableId> = old_callers
+        .get(&b_id)
+        .into_iter()
+        .flatten()
+        .filter_map(|c| matched.get(c).copied())
+        .collect();
+    let callee_imgs: Vec<StableId> =
+        b.callees.iter().filter_map(|c| matched.get(c).copied()).collect();
+    if caller_imgs.is_empty() && callee_imgs.is_empty() {
+        return None; // not reachable from any confirmed anchor yet
+    }
+    // Graph-local candidate set: stay on the call edges out of/into the confirmed neighborhood.
+    let mut candidates: HashSet<StableId> = HashSet::new();
+    for ci in &caller_imgs {
+        if let Some(cf) = new_by_id.get(ci) {
+            candidates.extend(cf.callees.iter().copied());
+        }
+    }
+    for ei in &callee_imgs {
+        if let Some(cs) = new_callers.get(ei) {
+            candidates.extend(cs.iter().copied());
+        }
+    }
+    let b_recursive = b.callees.contains(&b_id);
+    let (mut best, mut best_s, mut second_s) = (None, -1.0_f64, -1.0_f64);
+    for cand in candidates {
+        if claimed.contains(&cand) {
+            continue;
+        }
+        let Some(cf) = new_by_id.get(&cand) else { continue };
+        let caller_agree = caller_imgs
+            .iter()
+            .filter(|ci| new_by_id.get(ci).is_some_and(|f| f.callees.contains(&cand)))
+            .count();
+        let callee_agree = callee_imgs.iter().filter(|ei| cf.callees.contains(ei)).count();
+        let recursion = if b_recursive && cf.callees.contains(&cand) { 1.0 } else { 0.0 };
+        let s = caller_agree as f64 + callee_agree as f64 + PROP_RECURSION_WEIGHT * recursion;
+        if s > best_s {
+            second_s = best_s;
+            best_s = s;
+            best = Some(cand);
+        } else if s > second_s {
+            second_s = s;
+        }
+    }
+    // The runner-up to beat is the higher of the actual second-best AND the generic-neighbor
+    // BASELINE (`PROP_MIN_AGREEMENT`): being one callee of one matched caller is worth the baseline
+    // and is shared by ALL of that parent's children — it is not evidence for any *specific* match.
+    // So a candidate that merely *is* a neighbor cannot win; the winner must out-score the baseline
+    // by the margin, which takes a real discriminator (a self-recursion match, a higher matched
+    // in-degree, or calling a matched function). Without this floor, a lone surviving candidate would
+    // auto-win even when the true match was inlined away in `new` (a one-directional false positive).
+    let runner_up = second_s.max(PROP_MIN_AGREEMENT);
+    match best {
+        Some(id) if best_s - runner_up >= PROP_MARGIN => Some(id),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct MergeReport {
     /// Facts confidently re-anchored onto the new model.
@@ -149,24 +254,43 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     }
     let old_by_id: HashMap<StableId, &Function> =
         old.functions.iter().map(|f| (f.id, f)).collect();
+    let new_by_id: HashMap<StableId, &Function> =
+        new.functions.iter().map(|f| (f.id, f)).collect();
+    let old_callers = caller_map(&old.functions);
+    let new_callers = caller_map(&new.functions);
 
-    // Pass 1 — EXACT: a fact carries on a UNIQUE exact-signature match (WRONG=0 by construction).
-    let mut merged = Vec::new();
-    let mut deferred: Vec<&UserFact> = Vec::new();
-    for fact in &old.facts {
-        let unique_target = old_by_id
-            .get(&fact.target)
-            .and_then(|oldf| new_by_sig.get(&signature(oldf)))
-            .filter(|ids| ids.len() == 1)
-            .map(|ids| ids[0]);
-        match unique_target {
-            Some(id) => merged.push(fact.retarget(id)),
-            None => deferred.push(fact),
+    // Build a function MATCHING (old id -> new id) over the functions that carry facts, in fact
+    // order so each pass sees the prior passes' claims; then re-target every fact through it. The
+    // four passes are strictly increasing in permissiveness, each holding WRONG=0 its own way.
+    let mut matched: HashMap<StableId, StableId> = HashMap::new();
+    let mut claimed: HashSet<StableId> = HashSet::new();
+    let mut targets: Vec<StableId> = Vec::new();
+    {
+        let mut seen = HashSet::new();
+        for f in &old.facts {
+            if seen.insert(f.target) {
+                targets.push(f.target);
+            }
         }
     }
 
-    let mut claimed: HashSet<StableId> = merged.iter().map(|f| f.target).collect();
-    let mut flagged = Vec::new();
+    // Pass 1 — EXACT: a UNIQUE exact-signature match (WRONG=0 by construction). New-side uniqueness
+    // only (as before): exactly one new function carries this signature.
+    let mut deferred: Vec<StableId> = Vec::new();
+    for t in &targets {
+        let unique = old_by_id
+            .get(t)
+            .and_then(|oldf| new_by_sig.get(&signature(oldf)))
+            .filter(|ids| ids.len() == 1)
+            .map(|ids| ids[0]);
+        match unique {
+            Some(id) => {
+                matched.insert(*t, id);
+                claimed.insert(id);
+            }
+            None => deferred.push(*t),
+        }
+    }
 
     // Pass 1.5 — ANCHOR (DD-041): the CROSS-ARCHITECTURE pass. For functions with a rich-enough
     // arch-independent feature set (string literals + import names), match by Jaccard over that set
@@ -174,15 +298,12 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     // ~0. Accepted only on a UNIQUE best clearing ANCHOR_THRESHOLD AND beating the runner-up by
     // ANCHOR_MARGIN. Runs before fuzzy because a unique string/import match is the more reliable
     // signal. WRONG=0 holds — it is a unique-feature match, never a guess.
-    let mut deferred2: Vec<&UserFact> = Vec::new();
-    for fact in deferred {
-        let Some(oldf) = old_by_id.get(&fact.target).copied() else {
-            deferred2.push(fact); // missing old function — the fuzzy pass flags it
-            continue;
-        };
+    let mut deferred2: Vec<StableId> = Vec::new();
+    for t in deferred {
+        let Some(oldf) = old_by_id.get(&t).copied() else { continue };
         let aset = anchor_set(oldf);
         if aset.len() < ANCHOR_MIN_FEATURES {
-            deferred2.push(fact); // too few arch-independent features to anchor on — try fuzzy
+            deferred2.push(t); // too few arch-independent features to anchor on — try fuzzy
             continue;
         }
         let (mut best, mut best_s, mut second_s) = (None, -1.0_f64, -1.0_f64);
@@ -201,22 +322,22 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
         }
         match best {
             Some(id) if best_s >= ANCHOR_THRESHOLD && best_s - second_s >= ANCHOR_MARGIN => {
+                matched.insert(t, id);
                 claimed.insert(id);
-                merged.push(fact.retarget(id));
             }
-            _ => deferred2.push(fact),
+            _ => deferred2.push(t),
         }
     }
 
-    // Pass 2 — FUZZY: for what exact and anchor couldn't place, take the best similarity match among
-    // the as-yet-unclaimed new functions — but ONLY if it clears the threshold AND beats the
-    // runner-up by the margin (a confident, unambiguous match). Recovers cross-build cases the
-    // exact fingerprint can't, while never guessing a near-tie. WRONG=0 is the DD-038 hard gate.
-    for fact in deferred2 {
-        let Some(oldf) = old_by_id.get(&fact.target).copied() else {
-            flagged.push(fact.clone());
-            continue;
-        };
+    // Pass 2 — FUZZY: take the best similarity match among the as-yet-unclaimed new functions — but
+    // ONLY if it clears the threshold AND beats the runner-up by the margin AND is RECIPROCAL (the
+    // binary-diffing symmetric match): the candidate's OWN best old-match must be this function too.
+    // Without reciprocity, a function inlined away in `new` latches onto a structurally-similar stub
+    // it happens to share common mnemonics with (small functions have near-identical histograms) — a
+    // one-directional false positive; the stub's real reciprocal is its own twin, so it is rejected.
+    let mut deferred3: Vec<StableId> = Vec::new();
+    for t in deferred2 {
+        let Some(oldf) = old_by_id.get(&t).copied() else { continue };
         let (mut best, mut best_s, mut second_s): (Option<&Function>, f64, f64) =
             (None, -1.0, -1.0);
         for nf in &new.functions {
@@ -232,22 +353,52 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
                 second_s = s;
             }
         }
-        // Accept only a confident, unambiguous AND reciprocal best. Reciprocal-best (the binary-
-        // diffing symmetric match): the candidate's OWN best old-match must be `oldf` too. Without
-        // it, a function inlined away in `new` latches onto a structurally-similar stub it happens
-        // to share common mnemonics with (small functions have near-identical histograms) — a
-        // one-directional false positive. The stub's real reciprocal is its own twin, so it's
-        // rejected. WRONG=0 holds: threshold + runner-up margin + reciprocity.
         match best {
             Some(nf)
                 if best_s >= FUZZY_THRESHOLD
                     && best_s - second_s >= FUZZY_MARGIN
                     && best_old_match(nf, &old.functions).map(|o| o.id) == Some(oldf.id) =>
             {
+                matched.insert(t, nf.id);
                 claimed.insert(nf.id);
-                merged.push(fact.retarget(nf.id));
             }
-            _ => flagged.push(fact.clone()),
+            _ => deferred3.push(t),
+        }
+    }
+
+    // Pass 3 — PROPAGATION (DD-041 follow-up): spread the confirmed matches along the CALL GRAPH.
+    // A function the prior passes couldn't place (a cross-arch arithmetic leaf, say) is matched by
+    // its position relative to functions already matched — `fib` is the unique self-recursive callee
+    // of the already-anchored `main`. Iterate to a fixpoint: each newly matched function becomes an
+    // anchor for its own neighbors. Builds only on WRONG=0 matches and accepts only a unique,
+    // margin-clearing graph-context winner, so it never cascades a wrong guess; symmetric leaves
+    // (indistinguishable by graph position) stay flagged.
+    loop {
+        let mut progress = false;
+        for t in &deferred3 {
+            if matched.contains_key(t) {
+                continue;
+            }
+            if let Some(id) = propagate_match(
+                *t, &matched, &claimed, &old_by_id, &new_by_id, &old_callers, &new_callers,
+            ) {
+                matched.insert(*t, id);
+                claimed.insert(id);
+                progress = true;
+            }
+        }
+        if !progress {
+            break;
+        }
+    }
+
+    // Re-target every fact through the matching; anything unmatched is flagged, never guessed.
+    let mut merged = Vec::new();
+    let mut flagged = Vec::new();
+    for fact in &old.facts {
+        match matched.get(&fact.target) {
+            Some(&id) => merged.push(fact.retarget(id)),
+            None => flagged.push(fact.clone()),
         }
     }
     (merged, flagged)
@@ -427,6 +578,39 @@ mod tests {
             .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "entrypoint"))
             .map(|f| aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
         assert_eq!(landed.as_deref(), Some("main"), "cross-arch fact must sit on aarch64 main");
+    }
+
+    /// DD-041 propagation: cross-arch, `fib` has NO strings/imports (can't anchor) and ~0 mnemonic
+    /// cosine (can't fuzzy-match), but it is the unique self-recursive callee of the anchored `main`
+    /// — so call-graph propagation re-anchors it where nothing else could. The non-recursive
+    /// arithmetic leaves (gcd/factorial/sum_to) stay orphaned, never mis-attached.
+    #[test]
+    fn cross_architecture_propagation_recovers_recursive_callee() {
+        let mut x86 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
+        let fib = id_of(&x86, "fib");
+        let gcd = id_of(&x86, "gcd");
+        x86.facts.push(UserFact::new(id_of(&x86, "main"), FactKind::Rename("entry".into())));
+        x86.facts.push(UserFact::new(fib, FactKind::Comment("recursive".into())));
+        x86.facts.push(UserFact::new(gcd, FactKind::Rename("euclid".into())));
+
+        let mut aarch64 = scylla_ingest::snapshot_to_program(V1_AARCH64).unwrap();
+        merge_into(&x86, &mut aarch64);
+
+        let name_on = |marker_pred: &dyn Fn(&FactKind) -> bool| {
+            aarch64
+                .facts
+                .iter()
+                .find(|f| marker_pred(&f.kind))
+                .map(|f| aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone())
+        };
+        // fib re-anchors via propagation (recursion), onto aarch64 fib — zero-wrong.
+        let fib_land = name_on(&|k| matches!(k, FactKind::Comment(c) if c == "recursive"));
+        assert_eq!(fib_land.as_deref(), Some("fib"), "fib propagates from main across the ISA");
+        // gcd (a symmetric non-recursive leaf) is NOT guessed — its marker stays off the new model.
+        let gcd_present =
+            aarch64.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "euclid"));
+        assert!(!gcd_present, "ambiguous leaf gcd must orphan, never mis-attach (WRONG=0)");
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

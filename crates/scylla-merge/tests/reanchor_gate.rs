@@ -98,22 +98,25 @@ struct Class {
 #[test]
 fn reanchoring_release_gate() {
     let classes = [
-        // Floors are RATCHETED from current reality (DD-038/DD-041), not guessed. The merge runs an
-        // exact-signature pass (mnemonic-fingerprint disambiguated), THEN an ARCH-INDEPENDENT anchor
-        // pass (Jaccard over string-literal + import-name sets — DD-041), THEN a fuzzy cosine pass.
+        // Floors are RATCHETED from current reality (DD-038/DD-041), not guessed. The merge runs FOUR
+        // passes: exact-signature (mnemonic-fingerprint disambiguated), an ARCH-INDEPENDENT anchor
+        // pass (Jaccard over string-literal + import-name sets — DD-041), a fuzzy cosine pass, and a
+        // call-graph PROPAGATION pass that spreads confirmed matches to neighbors by graph position.
         // Exact + fuzzy lift BOTH edit classes to 100%. The anchor pass cracks CROSS-ARCHITECTURE:
         // x86->aarch64 mnemonic cosine is ~0, but `main`'s string/import set is identical across the
-        // ISA, so it re-anchors (the floor below LOCKS that recovery in). Recompile stays track-only.
-        // WRONG=0 holds by construction: exact is unique-match; anchor and fuzzy are threshold +
-        // runner-up margin, and fuzzy additionally requires a reciprocal (symmetric) best match.
+        // ISA, so it re-anchors — and propagation then recovers `fib` (the unique self-recursive
+        // callee of `main`) BOTH cross-arch and cross-opt. The floors below LOCK those recoveries in.
+        // WRONG=0 holds by construction: exact is unique-match; anchor and propagation are unique
+        // winner + margin; fuzzy additionally requires a reciprocal (symmetric) best match.
         Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
         Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(1.0) },
-        Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: None },
-        Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: None },
+        // Recompile + cross-arch were "hard / track-only" until DD-041; the anchor+propagation passes
+        // now make a deterministic, ratcheted recovery of `main` (strings/imports) and `fib`
+        // (recursion) — a regression that loses either fails the build.
+        Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: Some(0.40) },
+        Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: Some(0.25) },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
-        // Cross-arch: the DD-041 anchor pass recovers the string/import-bearing function (`main`).
-        // Floors ratcheted to lock that in — a regression that loses cross-arch `main` fails the build.
-        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.20) },
+        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.40) },
         Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(0.25) },
     ];
 

@@ -53,10 +53,20 @@ Tracked "later / someday" items that aren't on the current sprint path
     positive (an inlined-away function latching onto a CRT stub via common small-function mnemonics),
     fixed with **reciprocal-best matching** (a fuzzy match must be mutual). `WRONG=0` held; edit
     classes still 100%. Grounded in the cross-ISA diffing literature (BinDiff/SIGMADIFF anchor on
-    strings+imports) via deep research, not guessed. **Next levers:** call-graph propagation from
-    these anchors (recover the arithmetic leaves with no strings/imports), then Ghidra Version
-    Tracking. The string/import extraction is **duplicated** between `dump_model.java` and
-    `ScyllaWarmWorker.java` (kept in sync by hand) — consolidation is a tracked wart.
+    strings+imports) via deep research, not guessed. The string/import extraction is **duplicated**
+    between `dump_model.java` and `ScyllaWarmWorker.java` (kept in sync by hand) — consolidation is a
+    tracked wart.
+  - [x] **Call-graph propagation from the anchors (DD-041).** A fourth `scylla-merge` pass spreads
+    confirmed matches along the **call graph**: a function the other passes can't place is matched by
+    its position relative to already-matched functions, using a deliberately NON-structural
+    discriminator (self-recursion + matched-neighbour agreement — size/bb *mis*-match cross-arch, so
+    they're excluded). Recovers `fib` (the unique self-recursive callee of `main`) **both cross-arch
+    and cross-opt** — mathlib O0→O2 and x86→aarch64 each go **20%→40%**; symmetric leaves
+    (gcd/factorial/sum_to) stay flagged. `WRONG=0` held, incl. the subtle rule that a lone surviving
+    candidate must beat the *generic-neighbour baseline* ("only option left" ≠ evidence — the true
+    match may be inlined away). Gate floors ratcheted on the recompile + cross-arch classes. **Next
+    lever:** the heavier Ghidra Version Tracking integration (for functions with neither
+    strings/imports nor a distinguishing graph position).
 
 ## Engine-as-service (DD-040)
 

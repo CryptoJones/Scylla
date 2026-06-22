@@ -548,11 +548,21 @@ The fix is the other half of the binary-diffing standard: **reciprocal-best matc
 match counts only if the candidate's *own* best match points back, which a one-directional
 coincidence cannot satisfy. Measured on Tier-0: cross-arch goes from 0 to recovering the
 string/import-bearing function (`main`) in both mathlib and strutil, `WRONG=0` held, edit classes
-still 100% (gate floors ratcheted to lock the cross-arch gain in). The leaves with no strings/imports
-(pure arithmetic) still orphan — **call-graph propagation from these anchors** (match `main`, then
-its callees by graph position) is the next lever, and the heavier Ghidra Version Tracking integration
-the one after that. We did the de-risking research first (Perplexity deep-research over the
-cross-ISA diffing literature) rather than guessing the feature set.
+still 100%. A fourth **PROPAGATION** pass then spreads those confirmed matches along the **call
+graph**: a function the other passes can't place is matched by its position relative to functions
+already matched. The discriminator is deliberately NOT structural — x86 and aarch64 `gcd` are
+indistinguishable by size/bb (all four leaves share `bb_count`, and size is misleading across the
+ISA, so structure would *mis*-match), it is graph-context: self-recursion and matched-neighbour
+agreement. That uniquely recovers `fib` (the only self-recursive callee of `main`) **both cross-arch
+and cross-opt** (mathlib O0→O2 and x86→aarch64 each 20%→40%), while the genuinely symmetric leaves
+(`gcd`/`factorial`/`sum_to`, all called once by `main`, no callees) stay flagged. `WRONG=0` is
+preserved by the same discipline plus a subtle but essential rule: a lone surviving candidate must
+out-score the **generic-neighbour baseline** by the margin — "only option left" is not evidence (the
+true match may be inlined away), the trap that one-directional matches fall into. Gate floors
+ratcheted to lock the cross-arch *and* recompile gains in. The remaining lever is the heavier Ghidra
+Version Tracking integration. We did the de-risking research first (Perplexity deep-research over the
+cross-ISA diffing literature — BinDiff/SIGMADIFF anchor on strings+imports, then propagate across the
+call graph) rather than guessing the feature set or the algorithm.
 
 ---
 

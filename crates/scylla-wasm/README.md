@@ -23,6 +23,10 @@ toolchain beyond the `wasm32-unknown-unknown` target. The module is self-contain
 | `scylla_functions(zoom) -> handle` | all functions at a zoom altitude (0=intent,1=domain,2=detail) |
 | `scylla_view(id, zoom) -> handle` | one function by stable id |
 | `scylla_callers(id) -> handle` | stable ids that call `id` (call-graph navigation) |
+| `scylla_rename(id, ptr, len) -> 0/-1` | rename a function (DD-005); -1 on a blank name / unknown id |
+| `scylla_retype(id, ptr, len) -> 0/-1` | retype a function |
+| `scylla_comment(id, ptr, len) -> 0/-1` | comment a function (may be empty) |
+| `scylla_export() -> handle` | the (annotated) `.scylla` artifact bytes, to download |
 | `scylla_free(ptr, len)` | release a buffer |
 
 A **string result** is returned as a `(ptr<<32 | len)` u64 (a BigInt in JS); the caller copies it
@@ -48,10 +52,14 @@ node web/verify.mjs             # loads the wasm + artifact, navigates, asserts 
 `verify.mjs` uses the *same* WebAssembly API + marshaling as `index.html`, so a PASS there means
 the browser demo works.
 
-## Scope (v1)
+## Scope
 
-Read-only **viewer** over a persisted artifact — list/zoom/navigate. Annotation + merge (which
-the in-core port supports) and engine verbs (`decompile`) are future work; the pure
-model-navigation surface is what compiles cleanly to WASM with no engine dependency. A *live*
-browser head over a serving core would use the Cap'n Proto RPC surface (DD-002, deferred —
-shape-validated by `spike/rpc-shape`).
+**Navigate + annotate + export**, all in the browser: list/zoom/navigate, rename/retype/comment
+(durable user facts, DD-005), and download the modified `.scylla` (DD-026) — re-load it and the
+renames survive. **git-for-RE, client-side.** Verified end-to-end by `verify.mjs` (a rename →
+export → reload round-trip).
+
+Still future work: **merge** (re-importing a re-analyzed binary against the annotated artifact —
+the in-core port supports it, the head doesn't surface it yet) and engine verbs (`decompile`,
+which needs the JVM engine, not available client-side). A *live* browser head over a serving core
+would use the Cap'n Proto RPC surface (DD-002, deferred — shape-validated by `spike/rpc-shape`).

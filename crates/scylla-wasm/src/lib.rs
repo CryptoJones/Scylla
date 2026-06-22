@@ -13,7 +13,7 @@
 use std::cell::RefCell;
 
 use scylla_model::StableId;
-use scylla_port::{FunctionView, Session, Zoom};
+use scylla_port::{FunctionView, PortError, Session, Zoom};
 use serde_json::json;
 
 thread_local! {
@@ -41,14 +41,18 @@ fn view_json(v: &FunctionView) -> serde_json::Value {
     })
 }
 
-/// Hand a UTF-8 string to JS: leak it and pack `(ptr << 32) | len` into a u64. JS reads the bytes
-/// from linear memory and then calls [`scylla_free`]. The buffer is an exact-size `Box<[u8]>`
-/// (capacity == len) so the `(ptr, len)` free reconstructs the right allocation layout.
-fn ret_string(s: String) -> u64 {
-    let boxed: Box<[u8]> = s.into_bytes().into_boxed_slice();
+/// Hand a byte buffer to JS, packed `(ptr << 32) | len` in a u64. JS reads it out of linear
+/// memory then calls [`scylla_free`]. An exact-size `Box<[u8]>` (capacity == len) so the
+/// `(ptr, len)` free reconstructs the right allocation layout.
+fn ret_bytes(bytes: Vec<u8>) -> u64 {
+    let boxed: Box<[u8]> = bytes.into_boxed_slice();
     let len = boxed.len() as u64;
     let ptr = Box::into_raw(boxed) as *mut u8 as u64;
     (ptr << 32) | len
+}
+
+fn ret_string(s: String) -> u64 {
+    ret_bytes(s.into_bytes())
 }
 
 fn with_session(empty: &str, f: impl FnOnce(&Session) -> String) -> u64 {
@@ -127,6 +131,72 @@ pub extern "C" fn scylla_callers(id: u64) -> u64 {
     with_session("[]", |s| {
         let ids: Vec<u64> = s.callers(StableId(id)).into_iter().map(|x| x.0).collect();
         serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string())
+    })
+}
+
+/// Apply a string-valued annotation verb to `id` from `(ptr, len)` (UTF-8). Returns 0 on success,
+/// -1 on bad UTF-8 / no session / a rejected value (DD-021, e.g. a blank name).
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+unsafe fn annotate(
+    id: u64,
+    ptr: *const u8,
+    len: usize,
+    f: impl FnOnce(&mut Session, StableId, &str) -> Result<(), PortError>,
+) -> i32 {
+    let text = match std::str::from_utf8(std::slice::from_raw_parts(ptr, len)) {
+        Ok(t) => t,
+        Err(_) => return -1,
+    };
+    SESSION.with_borrow_mut(|opt| match opt {
+        Some(s) => {
+            if f(s, StableId(id), text).is_ok() {
+                0
+            } else {
+                -1
+            }
+        }
+        None => -1,
+    })
+}
+
+/// Rename a function (durable user fact, DD-005). `(ptr, len)` = the new name. 0 ok, -1 on a blank
+/// name / unknown id.
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_rename(id: u64, ptr: *const u8, len: usize) -> i32 {
+    annotate(id, ptr, len, |s, id, t| s.rename(id, t))
+}
+
+/// Retype a function. `(ptr, len)` = the new type. 0 ok, -1 on a blank type / unknown id.
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_retype(id: u64, ptr: *const u8, len: usize) -> i32 {
+    annotate(id, ptr, len, |s, id, t| s.retype(id, t))
+}
+
+/// Comment a function (may be empty — clearing it is a legitimate edit). 0 ok, -1 on unknown id.
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_comment(id: u64, ptr: *const u8, len: usize) -> i32 {
+    annotate(id, ptr, len, |s, id, t| s.comment(id, t))
+}
+
+/// Serialize the (possibly annotated) session back to a `.scylla` model-artifact (DD-026), as a
+/// byte handle JS reads + downloads, then frees. Annotations persist on the stable IDs — re-load
+/// the exported artifact and the renames survive (git-for-RE, in the browser).
+#[no_mangle]
+pub extern "C" fn scylla_export() -> u64 {
+    SESSION.with_borrow(|opt| match opt {
+        Some(s) => ret_bytes(s.to_artifact()),
+        None => ret_bytes(Vec::new()),
     })
 }
 

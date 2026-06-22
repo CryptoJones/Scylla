@@ -55,6 +55,7 @@
     <button data-z="0">intent</button>
     <button data-z="1" class="on">domain</button>
     <button data-z="2">detail</button>
+    &nbsp;&nbsp;<button id="dl" title="export the annotated artifact">⤓ download .scylla</button>
   </div>
 </header>
 <main>
@@ -63,17 +64,45 @@
 </main>
 
 <script>
-const dec = new TextDecoder();
-let X, mem, zoom = 1, fns = [], sel = null;
+const dec = new TextDecoder(), enc = new TextEncoder();
+let X, mem, info = null, zoom = 1, fns = [], sel = null;
 
-// A returned string is packed (ptr<<32 | len) in a u64 (BigInt in JS). Copy it out, then free.
-function readStr(packed) {
+// A returned (ptr<<32 | len) handle (BigInt) -> copy the bytes out of linear memory, then free.
+function readBytes(packed) {
   const ptr = Number(packed >> 32n), len = Number(packed & 0xffffffffn);
   const bytes = new Uint8Array(mem.buffer, ptr, len).slice();
   X.scylla_free(ptr, len);
-  return dec.decode(bytes);
+  return bytes;
 }
+const readStr = (packed) => dec.decode(readBytes(packed));
 const J = (packed) => JSON.parse(readStr(packed));
+
+// Pass a UTF-8 string into linear memory -> [ptr, len]; caller frees.
+function passStr(s) {
+  const b = enc.encode(s), p = X.scylla_alloc(b.length);
+  new Uint8Array(mem.buffer, p, b.length).set(b);
+  return [p, b.length];
+}
+// Rename the selected function (DD-005 user fact); re-renders on success.
+function rename(id) {
+  const cur = fns.find(f => f.id === id);
+  const name = prompt('Rename function:', cur ? cur.name : '');
+  if (name == null) return;
+  const [p, len] = passStr(name);
+  const rc = X.scylla_rename(BigInt(id), p, len);
+  X.scylla_free(p, len);
+  if (rc !== 0) { alert('rejected — a function name cannot be blank'); return; }
+  refresh();
+}
+// Export the (annotated) artifact + download it. Renames persist on the stable ids (DD-026).
+function exportArtifact() {
+  const bytes = readBytes(X.scylla_export());
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+  a.download = (info && info.name ? info.name : 'model') + '.scylla';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -99,7 +128,9 @@ function select(id) {
   const callerIds = J(X.scylla_callers(BigInt(id)));
   const idByName = Object.fromEntries(fns.map(f => [f.name, f.id]));
   d.innerHTML = '';
-  d.appendChild(el(`<h2>${esc(v.name)}</h2>`));
+  const h2 = el(`<h2>${esc(v.name)} <span class="chip rename" title="rename">✎</span></h2>`);
+  h2.querySelector('.rename').onclick = () => rename(id);
+  d.appendChild(h2);
   d.appendChild(el(`<div class="kv"><b>summary</b> ${esc(v.summary)}</div>`));
   if (v.addr != null) d.appendChild(el(`<div class="kv"><b>address</b> 0x${(v.addr>>>0).toString(16)}</div>`));
   if (v.bbCount != null) d.appendChild(el(`<div class="kv"><b>basic blocks</b> ${v.bbCount}</div>`));
@@ -131,11 +162,12 @@ function refresh() {
   if (sel != null) select(sel);
 }
 
-document.querySelectorAll('.zoom button').forEach(b => b.onclick = () => {
+document.querySelectorAll('.zoom button[data-z]').forEach(b => b.onclick = () => {
   zoom = +b.dataset.z;
-  document.querySelectorAll('.zoom button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.zoom button[data-z]').forEach(x => x.classList.toggle('on', x === b));
   refresh();
 });
+document.getElementById('dl').onclick = exportArtifact;
 
 async function boot() {
   try {
@@ -148,7 +180,7 @@ async function boot() {
     const ok = X.scylla_load(ptr, art.length);
     X.scylla_free(ptr, art.length);
     if (ok !== 0) throw new Error('artifact failed to load');
-    const info = J(X.scylla_info());
+    info = J(X.scylla_info());
     document.getElementById('info').textContent =
       `${info.name}  ·  ${info.language}  ·  ${info.functions} functions  ·  navigated in WASM`;
     refresh();

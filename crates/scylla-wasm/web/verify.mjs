@@ -39,6 +39,34 @@ console.log("functions  :", fns.map((f) => f.name).sort().join(", "));
 console.log("view(gcd)  :", JSON.stringify((({ name, addr, bbCount, callees }) => ({ name, addr, bbCount, callees }))(J(X.scylla_view(BigInt(gcd.id), 1)))));
 console.log("callers(gcd):", callers);
 
-const ok = info.functions === fns.length && callers.includes("main");
-console.log(ok ? "PASS — WASM head navigates the artifact correctly" : "FAIL");
+// Annotation round-trip: rename gcd in the browser, export the .scylla, reload it, and confirm
+// the rename survived (durable user fact on the stable id — DD-005 + DD-026 persistence, in WASM).
+const enc = new TextEncoder();
+const passStr = (s) => {
+  const b = enc.encode(s), p = X.scylla_alloc(b.length);
+  new Uint8Array(mem.buffer, p, b.length).set(b);
+  return [p, b.length];
+};
+const [np, nl] = passStr("euclid_gcd");
+const rc = X.scylla_rename(BigInt(gcd.id), np, nl);
+X.scylla_free(np, nl);
+
+const ex = X.scylla_export();
+const exPtr = Number(ex >> 32n), exLen = Number(ex & 0xffffffffn);
+const exported = new Uint8Array(mem.buffer, exPtr, exLen).slice(); // the downloadable artifact
+X.scylla_free(exPtr, exLen);
+
+const rp = X.scylla_alloc(exported.length);
+new Uint8Array(mem.buffer, rp, exported.length).set(exported);
+X.scylla_load(rp, exported.length);
+X.scylla_free(rp, exported.length);
+const renamed = J(X.scylla_view(BigInt(gcd.id), 1)).name;
+console.log("after rename → export → reload, gcd is now:", renamed, `(${exported.length}-byte artifact)`);
+
+const ok =
+  info.functions === fns.length &&
+  callers.includes("main") &&
+  rc === 0 &&
+  renamed === "euclid_gcd";
+console.log(ok ? "PASS — navigate + annotate + export round-trips in WASM" : "FAIL");
 process.exit(ok ? 0 : 1);

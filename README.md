@@ -61,6 +61,27 @@ Early — **design phase.** Sibling project to
 [GayHydra](https://github.com/CryptoJones/GayHydra) (a hardened fork of NSA Ghidra,
 which provides the proven engine Scylla wraps).
 
+## Acknowledgements
+
+Scylla stands on work it has no intention of replacing:
+
+- **[Ghidra](https://github.com/NationalSecurityAgency/ghidra)** (NSA) — the proven
+  reverse-engineering engine Scylla wraps, by way of the
+  **[GayHydra](https://github.com/CryptoJones/GayHydra)** hardened fork. The engine is
+  sacred: Scylla demotes it to a droppable producer behind the engine-port, never rewrites it.
+- **[Cap'n Proto](https://capnproto.org)** — the serialization behind the durable
+  model-artifact and the client-side RPC surface (DD-002). The artifact is the one bet
+  Scylla can't take back, so it rests on a format built for schema evolution and bounded,
+  memory-safe reads.
+- **[Protocol Buffers](https://protobuf.dev)** over **[tonic](https://github.com/hyperium/tonic)**
+  / **[Prost](https://github.com/tokio-rs/prost)**, on **[Tokio](https://tokio.rs)** — the
+  gRPC engine-port seam to the sandboxed JVM engine-as-service (DD-009/040).
+- The **[Rust](https://www.rust-lang.org)** project and its crate ecosystem — the language
+  of the durable core.
+
+Two serialization IDLs in one tree — Cap'n Proto on the model/client waist, Protocol
+Buffers on the engine seam — is a deliberate, documented choice (see DD-002), not an accident.
+
 ## License
 
 [Apache License 2.0](LICENSE) © Aaron K. Clark — matching Ghidra (Apache 2.0), the engine Scylla builds on.

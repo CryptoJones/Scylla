@@ -10,6 +10,8 @@ pub mod pb {
     tonic::include_proto!("scylla.engine.v1");
 }
 
+pub mod job;
+
 use std::collections::HashMap;
 
 use scylla_model::{Function, IdMinter, Program, StableId};
@@ -37,7 +39,11 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         imports: chunk.imports.clone(),
         callee_names: chunk.callee_names.clone(),
         // BSim LSH feature vector (DD-044): (hash, f32-weight-bits) pairs the engine streams.
-        bsim_vector: chunk.bsim_vector.iter().map(|bf| (bf.hash, bf.weight)).collect(),
+        bsim_vector: chunk
+            .bsim_vector
+            .iter()
+            .map(|bf| (bf.hash, bf.weight))
+            .collect(),
     }
 }
 
@@ -55,7 +61,11 @@ pub fn assemble(name: &str, language: &str, chunks: &[pb::FunctionChunk]) -> Pro
         .iter()
         .map(|c| {
             let mut f = chunk_to_function(c, id_of[&c.entry]);
-            f.callees = c.callees.iter().filter_map(|a| id_of.get(a).copied()).collect();
+            f.callees = c
+                .callees
+                .iter()
+                .filter_map(|a| id_of.get(a).copied())
+                .collect();
             f
         })
         .collect();
@@ -95,7 +105,8 @@ fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), S
 /// hostile binary has no network to phone home over); anything else is a normal TCP/HTTP endpoint.
 pub async fn connect_engine(
     endpoint: String,
-) -> Result<pb::engine_client::EngineClient<tonic::transport::Channel>, Box<dyn std::error::Error>> {
+) -> Result<pb::engine_client::EngineClient<tonic::transport::Channel>, Box<dyn std::error::Error>>
+{
     if let Some(path) = endpoint.strip_prefix("unix:") {
         let path = path.to_string();
         // The URI is a placeholder — the connector ignores it and dials the socket path.
@@ -126,7 +137,10 @@ pub async fn materialize(
     use pb::materialize_event::Event;
     let mut client = connect_engine(endpoint).await?;
     let mut stream = client
-        .materialize(pb::MaterializeRequest { binary, arch_hint: String::new() })
+        .materialize(pb::MaterializeRequest {
+            binary,
+            arch_hint: String::new(),
+        })
         .await?
         .into_inner();
     let mut chunks = Vec::new();
@@ -157,12 +171,12 @@ pub async fn materialize(
 /// at `entry`. Producer-side and on-demand — the client port surfaces it but the call lives up here
 /// on the async side, so the sync model-consuming port stays pure (DD-009). The returned C is
 /// untrusted engine output (DD-035); a head treats it as data, never instruction.
-pub async fn decompile(
-    endpoint: String,
-    entry: u64,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn decompile(endpoint: String, entry: u64) -> Result<String, Box<dyn std::error::Error>> {
     let mut client = connect_engine(endpoint).await?;
-    let reply = client.decompile(pb::DecompileRequest { entry }).await?.into_inner();
+    let reply = client
+        .decompile(pb::DecompileRequest { entry })
+        .await?
+        .into_inner();
     Ok(reply.c)
 }
 
@@ -190,9 +204,18 @@ mod tests {
         assert_eq!(f.name, "gcd");
         assert_eq!(f.bb_count, 4);
         // The wire mnemonics fold into the SAME fingerprint + histogram the snapshot path computes.
-        assert_eq!(f.fingerprint, scylla_model::mnemonic_fingerprint(&chunk.mnemonics));
-        assert_eq!(f.mnemonics, scylla_model::mnemonic_histogram(&chunk.mnemonics));
-        assert_ne!(f.fingerprint, 0, "a chunk with mnemonics gets a real fingerprint");
+        assert_eq!(
+            f.fingerprint,
+            scylla_model::mnemonic_fingerprint(&chunk.mnemonics)
+        );
+        assert_eq!(
+            f.mnemonics,
+            scylla_model::mnemonic_histogram(&chunk.mnemonics)
+        );
+        assert_ne!(
+            f.fingerprint, 0,
+            "a chunk with mnemonics gets a real fingerprint"
+        );
     }
 
     #[test]
@@ -200,22 +223,56 @@ mod tests {
         // GAP-3: a compromised engine can't OOM the core. At the cap is fine; over it is refused.
         assert!(check_stream_caps(10, 1_000).is_ok());
         assert!(check_stream_caps(MAX_FUNCTIONS, MAX_TOTAL_MNEMONICS).is_ok());
-        assert!(check_stream_caps(MAX_FUNCTIONS + 1, 0).is_err(), "too many functions refused");
-        assert!(check_stream_caps(1, MAX_TOTAL_MNEMONICS + 1).is_err(), "too many instructions refused");
+        assert!(
+            check_stream_caps(MAX_FUNCTIONS + 1, 0).is_err(),
+            "too many functions refused"
+        );
+        assert!(
+            check_stream_caps(1, MAX_TOTAL_MNEMONICS + 1).is_err(),
+            "too many instructions refused"
+        );
     }
 
     #[test]
     fn assemble_mints_ids_and_resolves_callees() {
         let chunks = vec![
-            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![], string_refs: vec![], imports: vec![], callee_names: vec![], bsim_vector: vec![] },
-            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000, 0x9999], mnemonics: vec![], string_refs: vec!["result=%d\n".into()], imports: vec!["printf".into()], callee_names: vec![], bsim_vector: vec![] },
+            pb::FunctionChunk {
+                entry: 0x1000,
+                name: "gcd".into(),
+                size: 64,
+                bb_count: 4,
+                callees: vec![],
+                mnemonics: vec![],
+                string_refs: vec![],
+                imports: vec![],
+                callee_names: vec![],
+                bsim_vector: vec![],
+            },
+            pb::FunctionChunk {
+                entry: 0x2000,
+                name: "main".into(),
+                size: 180,
+                bb_count: 4,
+                callees: vec![0x1000, 0x9999],
+                mnemonics: vec![],
+                string_refs: vec!["result=%d\n".into()],
+                imports: vec!["printf".into()],
+                callee_names: vec![],
+                bsim_vector: vec![],
+            },
         ];
         let p = assemble("prog", "x86:LE:64:default", &chunks);
         assert_eq!(p.name, "prog");
-        assert_eq!(p.language, "x86:LE:64:default", "language from the ProgramInfo header survives");
+        assert_eq!(
+            p.language, "x86:LE:64:default",
+            "language from the ProgramInfo header survives"
+        );
         let gcd = p.functions.iter().find(|f| f.name == "gcd").unwrap();
         let main = p.functions.iter().find(|f| f.name == "main").unwrap();
-        assert!(main.callees.contains(&gcd.id), "main -> gcd resolved to a stable id");
+        assert!(
+            main.callees.contains(&gcd.id),
+            "main -> gcd resolved to a stable id"
+        );
         assert_eq!(main.callees.len(), 1, "dangling callee 0x9999 is dropped");
         // Arch-independent features (DD-041) ride the wire into the model unchanged.
         assert_eq!(main.string_refs, vec!["result=%d\n".to_string()]);
@@ -232,15 +289,50 @@ mod tests {
     fn non_mcp_client_drives_a_full_session_over_the_engine_port() {
         use scylla_port::{Session, Zoom};
         let chunks = vec![
-            pb::FunctionChunk { entry: 0x1000, name: "gcd".into(), size: 64, bb_count: 4, callees: vec![], mnemonics: vec![], string_refs: vec![], imports: vec![], callee_names: vec![], bsim_vector: vec![] },
-            pb::FunctionChunk { entry: 0x2000, name: "main".into(), size: 180, bb_count: 4, callees: vec![0x1000], mnemonics: vec![], string_refs: vec!["r=%d\n".into()], imports: vec!["printf".into()], callee_names: vec![], bsim_vector: vec![] },
+            pb::FunctionChunk {
+                entry: 0x1000,
+                name: "gcd".into(),
+                size: 64,
+                bb_count: 4,
+                callees: vec![],
+                mnemonics: vec![],
+                string_refs: vec![],
+                imports: vec![],
+                callee_names: vec![],
+                bsim_vector: vec![],
+            },
+            pb::FunctionChunk {
+                entry: 0x2000,
+                name: "main".into(),
+                size: 180,
+                bb_count: 4,
+                callees: vec![0x1000],
+                mnemonics: vec![],
+                string_refs: vec!["r=%d\n".into()],
+                imports: vec!["printf".into()],
+                callee_names: vec![],
+                bsim_vector: vec![],
+            },
         ];
         // materialize (engine-side) -> open the client port: the head-layer one-liner.
         let mut session = Session::open(assemble("prog", "x86:LE:64:default", &chunks));
-        let id = |n: &str| session.program().functions.iter().find(|f| f.name == n).unwrap().id;
+        let id = |n: &str| {
+            session
+                .program()
+                .functions
+                .iter()
+                .find(|f| f.name == n)
+                .unwrap()
+                .id
+        };
         let (gcd, main) = (id("gcd"), id("main"));
         // navigate: main calls gcd.
-        assert!(session.view(main, Zoom::Domain).unwrap().callees.unwrap().contains(&"gcd".to_string()));
+        assert!(session
+            .view(main, Zoom::Domain)
+            .unwrap()
+            .callees
+            .unwrap()
+            .contains(&"gcd".to_string()));
         // annotate, then persist + reload (the fact survives on the stable id).
         session.rename(gcd, "euclid_gcd").unwrap();
         let reloaded = Session::from_artifact(&session.to_artifact()).unwrap();

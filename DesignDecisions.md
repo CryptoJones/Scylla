@@ -564,6 +564,26 @@ Version Tracking integration. We did the de-risking research first (Perplexity d
 cross-ISA diffing literature — BinDiff/SIGMADIFF anchor on strings+imports, then propagate across the
 call graph) rather than guessing the feature set or the algorithm.
 
+**DD-042 — Ghidra Version Tracking: evaluated, NO-GO for cross-arch (de-risk spike, not a build).**
+The functions DD-041 still can't re-anchor — symmetric arithmetic leaves and cross-architecture in
+general — are the obvious candidates for Ghidra's Version Tracking subsystem. We **de-risked with a
+spike before betting a multi-PR integration** (the warm-engine pattern), and the verdict is NO-GO.
+VT runs headlessly fine (`spike/vt/ScyllaVtSpike.java`; two solved gotchas — the destination
+read-only guard needs `-DSystemUtilities.isTesting=true`, and the reference correlator needs its
+seeds `setAccepted()` first), but its correlators are **exact instruction / byte / mnemonic**
+matchers: they are built for *version-to-version patch diffing*, where most functions are
+byte-identical so the exact correlators seed the bulk and the reference correlator propagates to the
+few changed. That is the **opposite** of Scylla's hard cases. Measured on mathlib (`WRONG=0`
+throughout): recompile O0→O2 — VT recovers **0** user functions (nothing byte-identical to seed), vs
+the four-pass matcher's 40%; cross-arch — VT recovers **0** (no shared bytes/instructions/mnemonics →
+no seeds at all), vs 40%. On the edit case VT merely re-finds the byte-identical functions the exact
+pass already gets. So VT would *underperform the matcher we already ship* on the cases that matter,
+and duplicate it on the cases that don't. The real cross-arch lever is **BSim** (LSH over decompiler
+p-code feature vectors — ISA-abstracting; in the dist as `VersionTrackingBSim`, a heavier separate
+de-risk) or, for Go specifically, a **Go-aware producer** (extract Go's string blob + devirtualize
+runtime calls so the existing anchor fires). VT *is* the right tool if Scylla ever targets near-
+identical patch diffing (the classic CVE-patch use case) — filed there, not against the cross-arch gap.
+
 ---
 
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

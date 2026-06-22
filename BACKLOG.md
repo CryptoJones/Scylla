@@ -80,9 +80,19 @@ Tracked "later / someday" items that aren't on the current sprint path
     runtime-function haystack, no false positives); (2) **the anchor is C-centric** — Go cross-arch
     recovers 0 because Go strings aren't NUL-terminated C strings and `fmt.Printf` isn't a dynamic
     import, so the string/import anchor never fires. The matcher fails *closed* (flag, never guess).
-    This is the concrete motivation for a Go-aware producer and/or Version Tracking. **Next lever:**
-    Ghidra Version Tracking (for functions with neither strings/imports nor a distinguishing graph
-    position — the symmetric leaves, and Go cross-arch).
+    This is the concrete motivation for a Go-aware producer and/or a cross-arch similarity engine.
+  - [x] **Ghidra Version Tracking — evaluated, NO-GO (DD-042).** De-risk spike
+    ([spike/vt/](spike/vt/)) before a multi-PR build. VT runs headlessly (with two gotchas, both
+    documented), but its correlators are exact instruction/byte/mnemonic matchers built for
+    *version-to-version patch diffing* (seed the byte-identical bulk, propagate to the few changed) —
+    the OPPOSITE of Scylla's hard cases. Measured (mathlib, WRONG=0): recompile O0→O2 VT recovers **0**
+    user functions vs the four-pass matcher's 40%; cross-arch VT recovers **0** (no shared
+    bytes/instructions → no seeds) vs 40%. VT would underperform the matcher we already ship on the
+    cases that matter. **Real next levers** (both separate, heavier de-risks): **BSim**
+    (`VersionTrackingBSim`, LSH over decompiler p-code feature vectors — ISA-abstracting) for the
+    symmetric leaves + cross-arch; a **Go-aware producer** (Go string blob + runtime devirtualization)
+    so the existing anchor fires on Go. VT *is* right for a future near-identical patch-diffing use
+    case, not this gap.
 
 ## Engine-as-service (DD-040)
 

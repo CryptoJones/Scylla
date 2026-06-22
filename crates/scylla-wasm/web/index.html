@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scylla — WASM head</title>
+<style>
+  /* Cyberdeck theme — near-black bg, neon-cyan headings, terminal-green accents. */
+  :root {
+    --bg: #07090f; --panel: #0d111b; --line: #1c2333;
+    --fg: #c6d0e0; --dim: #5a6678; --cyan: #27d4ff; --green: #55ff99; --red: #ff4f4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 20px/1.45 Menlo, "DejaVu Sans Mono", Consolas, monospace;
+  }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); }
+  h1 { margin: 0; font-size: 26px; color: var(--cyan); text-shadow: 0 0 8px rgba(39,212,255,.55); letter-spacing: .5px; }
+  .sub { color: var(--dim); font-size: 16px; margin-top: 4px; }
+  #info { color: var(--green); font-size: 16px; margin-top: 8px; }
+  .zoom { margin-top: 10px; font-size: 16px; color: var(--dim); }
+  .zoom button {
+    font: inherit; font-size: 15px; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); padding: 4px 12px; margin-right: 6px; cursor: pointer; border-radius: 4px;
+  }
+  .zoom button.on { color: var(--bg); background: var(--cyan); border-color: var(--cyan); }
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 0; height: calc(100vh - 150px); }
+  #list { overflow: auto; border-right: 1px solid var(--line); }
+  #detail { overflow: auto; padding: 20px 24px; }
+  .fn { padding: 9px 24px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .fn:hover { background: var(--panel); }
+  .fn.sel { background: var(--panel); border-left: 3px solid var(--cyan); }
+  .fn .n { color: var(--cyan); }
+  .fn .s { color: var(--dim); font-size: 15px; }
+  #detail h2 { color: var(--cyan); margin: 0 0 4px; font-size: 22px; text-shadow: 0 0 6px rgba(39,212,255,.4); }
+  .kv { margin: 14px 0; }
+  .kv b { color: var(--dim); font-weight: normal; display: inline-block; min-width: 130px; }
+  .chip {
+    display: inline-block; padding: 2px 10px; margin: 3px 6px 3px 0; border: 1px solid var(--line);
+    border-radius: 4px; font-size: 15px; cursor: pointer; color: var(--green);
+  }
+  .chip:hover { border-color: var(--green); }
+  .empty { color: var(--dim); }
+  .err { color: var(--red); padding: 24px; }
+  a { color: var(--cyan); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scylla — WASM head</h1>
+  <div class="sub">the client port compiled to WebAssembly — navigating a <code>.scylla</code> model-artifact entirely in your browser, no server, no engine (DD-028)</div>
+  <div id="info">loading…</div>
+  <div class="zoom">zoom:
+    <button data-z="0">intent</button>
+    <button data-z="1" class="on">domain</button>
+    <button data-z="2">detail</button>
+  </div>
+</header>
+<main>
+  <div id="list"></div>
+  <div id="detail"><div class="empty">← pick a function</div></div>
+</main>
+
+<script>
+const dec = new TextDecoder();
+let X, mem, zoom = 1, fns = [], sel = null;
+
+// A returned string is packed (ptr<<32 | len) in a u64 (BigInt in JS). Copy it out, then free.
+function readStr(packed) {
+  const ptr = Number(packed >> 32n), len = Number(packed & 0xffffffffn);
+  const bytes = new Uint8Array(mem.buffer, ptr, len).slice();
+  X.scylla_free(ptr, len);
+  return dec.decode(bytes);
+}
+const J = (packed) => JSON.parse(readStr(packed));
+
+function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function renderList() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  for (const f of fns) {
+    const row = el(`<div class="fn" data-id="${f.id}"><div class="n">${esc(f.name)}</div><div class="s">${esc(f.summary)}</div></div>`);
+    if (sel === f.id) row.classList.add('sel');
+    row.onclick = () => select(f.id);
+    list.appendChild(row);
+  }
+}
+
+function select(id) {
+  sel = id;
+  renderList();
+  const v = J(X.scylla_view(BigInt(id), zoom));
+  const d = document.getElementById('detail');
+  if (v.error) { d.innerHTML = `<div class="err">${esc(v.error)}</div>`; return; }
+  const callees = (v.callees || []);
+  const callerIds = J(X.scylla_callers(BigInt(id)));
+  const idByName = Object.fromEntries(fns.map(f => [f.name, f.id]));
+  d.innerHTML = '';
+  d.appendChild(el(`<h2>${esc(v.name)}</h2>`));
+  d.appendChild(el(`<div class="kv"><b>summary</b> ${esc(v.summary)}</div>`));
+  if (v.addr != null) d.appendChild(el(`<div class="kv"><b>address</b> 0x${(v.addr>>>0).toString(16)}</div>`));
+  if (v.bbCount != null) d.appendChild(el(`<div class="kv"><b>basic blocks</b> ${v.bbCount}</div>`));
+  if (v.size != null) d.appendChild(el(`<div class="kv"><b>size</b> ${v.size} bytes</div>`));
+  // callees (navigate down)
+  const ce = el(`<div class="kv"><b>calls →</b> <span></span></div>`);
+  const ceSpan = ce.querySelector('span');
+  if (callees.length) for (const name of callees) {
+    const chip = el(`<span class="chip">${esc(name)}</span>`);
+    if (idByName[name] != null) chip.onclick = () => select(idByName[name]);
+    ceSpan.appendChild(chip);
+  } else ceSpan.appendChild(el('<span class="empty">none</span>'));
+  d.appendChild(ce);
+  // callers (navigate up) — resolved from stable ids over the port
+  const cr = el(`<div class="kv"><b>← called by</b> <span></span></div>`);
+  const crSpan = cr.querySelector('span');
+  if (callerIds.length) for (const cid of callerIds) {
+    const cv = J(X.scylla_view(BigInt(cid), 0));
+    const chip = el(`<span class="chip">${esc(cv.name)}</span>`);
+    chip.onclick = () => select(cid);
+    crSpan.appendChild(chip);
+  } else crSpan.appendChild(el('<span class="empty">none (top-level)</span>'));
+  d.appendChild(cr);
+}
+
+function refresh() {
+  fns = J(X.scylla_functions(zoom));
+  renderList();
+  if (sel != null) select(sel);
+}
+
+document.querySelectorAll('.zoom button').forEach(b => b.onclick = () => {
+  zoom = +b.dataset.z;
+  document.querySelectorAll('.zoom button').forEach(x => x.classList.toggle('on', x === b));
+  refresh();
+});
+
+async function boot() {
+  try {
+    const wasm = await WebAssembly.instantiateStreaming(fetch('scylla_wasm.wasm'), {})
+      .catch(async () => WebAssembly.instantiate(await (await fetch('scylla_wasm.wasm')).arrayBuffer(), {}));
+    X = wasm.instance.exports; mem = X.memory;
+    const art = new Uint8Array(await (await fetch('mathlib.scylla')).arrayBuffer());
+    const ptr = X.scylla_alloc(art.length);
+    new Uint8Array(mem.buffer, ptr, art.length).set(art);
+    const ok = X.scylla_load(ptr, art.length);
+    X.scylla_free(ptr, art.length);
+    if (ok !== 0) throw new Error('artifact failed to load');
+    const info = J(X.scylla_info());
+    document.getElementById('info').textContent =
+      `${info.name}  ·  ${info.language}  ·  ${info.functions} functions  ·  navigated in WASM`;
+    refresh();
+  } catch (e) {
+    document.body.innerHTML = `<div class="err">WASM head failed: ${esc(e.message || e)}<br><br>Serve over HTTP (e.g. <code>python3 -m http.server</code>) — file:// can't fetch wasm.</div>`;
+  }
+}
+boot();
+</script>
+</body>
+</html>

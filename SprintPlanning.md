@@ -153,7 +153,7 @@ Everything before the prototype is there *only* because the prototype can't run 
 **Prereqs.** Sprint 6/7.
 
 **Tasks.**
-- **Native single-binary** build of the serving core; **WASM** build for a browser consumer (DD-028); engine fetched-separately packaging.
+- **Native single-binary** build of the serving core; **WASM** build for a browser consumer (DD-028) — **DONE: `crates/scylla-wasm`** (the port compiled to wasm32; a browser navigates a `.scylla` artifact client-side, headless-verified); engine fetched-separately packaging.
 - Model-artifact **export/import** for collaboration sync — single-user v1 (DD-027).
 - Decompile-result **caching** + structured logging (DD-031).
 

@@ -360,7 +360,7 @@ single-user first? *Status:* **DIRECTION SET (2026-06-21)** — the bespoke serv
 **DD-028 — Packaging & distribution.**
 *Question:* How is Scylla shipped, given it bundles a heavy engine? (container image,
 single binary + bundled JRE, a server you run?)
-*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Ship the serving/navigation core as a single native binary + a WASM build for browser heads (using DD-016); the heavy JVM engine is a separately-bundled / on-demand-fetched producer, not part of the always-on serving artifact.** The safe container+JRE path would bank none of the Rust payoff we paid for; this spends it.
+*Status:* **DECIDED (2026-06-21) — *bold exception.*** **Ship the serving/navigation core as a single native binary + a WASM build for browser heads (using DD-016); the heavy JVM engine is a separately-bundled / on-demand-fetched producer, not part of the always-on serving artifact.** The safe container+JRE path would bank none of the Rust payoff we paid for; this spends it. **WASM head REALIZED (2026-06-22), `crates/scylla-wasm`:** the client port compiles to `wasm32-unknown-unknown` and a browser navigates a `.scylla` model-artifact entirely client-side (the first out-of-process head — `web/index.html`, headless-verified by `web/verify.mjs`). A raw wasm32 C-ABI (no wasm-bindgen) keeps it toolchain-light. v1 is a read-only viewer; a *live* browser head over a serving core would add the Cap'n Proto RPC surface (DD-002, deferred — shape-validated by `spike/rpc-shape`). The native single-binary serving build remains the other half of this DD.
 
 **DD-029 — Security model.**
 *Question:* It parses adversarial binaries and exposes a network surface. Inherit the

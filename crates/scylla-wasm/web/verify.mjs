@@ -1,0 +1,44 @@
+// Headless verification of the WASM head: load scylla_wasm.wasm + the sample artifact, navigate,
+// and assert it reproduces the model. Mirrors EXACTLY what index.html does in the browser (same
+// WebAssembly API + i64/BigInt string-handle marshaling), so a PASS here means the browser works.
+//
+//   node web/verify.mjs      (run from crates/scylla-wasm/, or any cwd)
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const dir = dirname(fileURLToPath(import.meta.url));
+const wasm = await WebAssembly.instantiate(readFileSync(join(dir, "scylla_wasm.wasm")), {});
+const X = wasm.instance.exports;
+const mem = X.memory;
+const dec = new TextDecoder();
+
+// A returned string is packed (ptr<<32 | len) in a u64 → copy it out of linear memory, then free.
+const readStr = (p) => {
+  const ptr = Number(p >> 32n), len = Number(p & 0xffffffffn);
+  const bytes = new Uint8Array(mem.buffer, ptr, len).slice();
+  X.scylla_free(ptr, len);
+  return dec.decode(bytes);
+};
+const J = (p) => JSON.parse(readStr(p));
+
+// Load the artifact through the alloc → load → free dance.
+const art = readFileSync(join(dir, "mathlib.scylla"));
+const ptr = X.scylla_alloc(art.length);
+new Uint8Array(mem.buffer, ptr, art.length).set(art);
+if (X.scylla_load(ptr, art.length) !== 0) throw new Error("artifact failed to load");
+X.scylla_free(ptr, art.length);
+
+const info = J(X.scylla_info());
+const fns = J(X.scylla_functions(1));
+const gcd = fns.find((f) => f.name === "gcd");
+const callers = J(X.scylla_callers(BigInt(gcd.id))).map((cid) => J(X.scylla_view(BigInt(cid), 0)).name);
+
+console.log("info       :", info);
+console.log("functions  :", fns.map((f) => f.name).sort().join(", "));
+console.log("view(gcd)  :", JSON.stringify((({ name, addr, bbCount, callees }) => ({ name, addr, bbCount, callees }))(J(X.scylla_view(BigInt(gcd.id), 1)))));
+console.log("callers(gcd):", callers);
+
+const ok = info.functions === fns.length && callers.includes("main");
+console.log(ok ? "PASS — WASM head navigates the artifact correctly" : "FAIL");
+process.exit(ok ? 0 : 1);

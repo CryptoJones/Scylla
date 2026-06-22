@@ -1,0 +1,21 @@
+[package]
+name = "scylla-wasm"
+description = "WASM head (DD-028): the client port compiled to WebAssembly so a browser navigates a model-artifact client-side."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# No wasm-bindgen: a raw wasm32 C-ABI the browser drives directly over linear memory — zero
+# external toolchain beyond the wasm32 target. Keeps the head dependency-light + reproducible.
+scylla-model = { path = "../scylla-model" }
+scylla-port = { path = "../scylla-port" }
+serde_json = "1"
+
+[dev-dependencies]
+# Only to generate the demo's sample artifact (examples/gen_sample.rs) — not a runtime dep.
+scylla-ingest = { path = "../scylla-ingest" }

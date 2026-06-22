@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import scylla.engine.v1.BsimFeature;
 import scylla.engine.v1.DecompileReply;
 import scylla.engine.v1.DecompileRequest;
 import scylla.engine.v1.EngineGrpc;
@@ -250,10 +251,13 @@ public final class EngineServer {
             String distCp = distClasspath(dist);
             Path classesDir = Files.createTempDirectory("scylla-warm-classes");
 
-            // Compile the worker AND the shared ScyllaModel extraction (DD-041 — same source the cold
-            // dump_model.java script uses) ONCE. javac ships in the JDK image. ~1s, shared by the pool.
+            // Compile the worker, the shared ScyllaModel extraction (DD-041 — same source the cold
+            // dump_model.java script uses), AND the BSim extractor (DD-044, a sibling of the worker:
+            // it uses the decompiler/BSim API the OSGi cold path can't, so it lives here and is
+            // compiled against the dist). ONCE; javac ships in the JDK image. ~1s, shared by the pool.
+            String bsimSrc = Path.of(workerSrc).resolveSibling("ScyllaBsim.java").toString();
             Process jc = new ProcessBuilder("javac", "-proc:none", "-cp", distCp,
-                    "-d", classesDir.toString(), workerSrc, modelSrc)
+                    "-d", classesDir.toString(), workerSrc, modelSrc, bsimSrc)
                     .redirectErrorStream(true).start();
             byte[] jcLog = jc.getInputStream().readAllBytes();
             if (!jc.waitFor(120, TimeUnit.SECONDS) || jc.exitValue() != 0) {
@@ -483,6 +487,18 @@ public final class EngineServer {
                 if (f.has("callee_names")) {
                     for (JsonElement s : f.getAsJsonArray("callee_names")) {
                         b.addCalleeNames(s.getAsString());
+                    }
+                }
+                // BSim LSH feature vector (DD-044): [[hash, f32_bits], …] — the cross-arch lever for
+                // the symmetric leaves. The CORE compares these by weighted cosine (== Ghidra's
+                // LSHVector.compare). Values are UNSIGNED 32-bit in the JSON; packed into the proto's
+                // int-bit uint32 (the Rust side reads them back as u32).
+                if (f.has("bsim_vector")) {
+                    for (JsonElement pe : f.getAsJsonArray("bsim_vector")) {
+                        b.addBsimVector(BsimFeature.newBuilder()
+                                .setHash((int) pe.getAsJsonArray().get(0).getAsLong())
+                                .setWeight((int) pe.getAsJsonArray().get(1).getAsLong())
+                                .build());
                     }
                 }
                 resp.onNext(MaterializeEvent.newBuilder().setFunction(b.build()).build());

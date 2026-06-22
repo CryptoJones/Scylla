@@ -77,7 +77,11 @@ public final class ScyllaWarmWorker {
             } finally {
                 program.endTransaction(tx, true);
             }
-            String json = ScyllaModel.toJson(program, TaskMonitor.DUMMY);
+            // DD-044: compute each function's BSim feature vector (decompiler/BSim API — fine here in
+            // the standalone worker, which the OSGi-shared ScyllaModel cannot use) and hand it to the
+            // shared serializer. ScyllaBsim is compiled alongside this worker + ScyllaModel.
+            java.util.Map<String, int[][]> bsim = ScyllaBsim.vectors(program);
+            String json = ScyllaModel.toJson(program, TaskMonitor.DUMMY, bsim);
             try (FileWriter w = new FileWriter(outPath)) {
                 w.write(json);
             }

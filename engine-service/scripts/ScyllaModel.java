@@ -35,6 +35,17 @@ public final class ScyllaModel {
     /** Build the normalized snapshot JSON for {@code program}. {@code monitor} drives the basic-block
      *  model iteration ({@code TaskMonitor.DUMMY} is fine off the GUI). */
     public static String toJson(Program program, TaskMonitor monitor) throws Exception {
+        return toJson(program, monitor, java.util.Collections.emptyMap());
+    }
+
+    /** As {@link #toJson(Program, TaskMonitor)}, plus the BSim feature vectors (DD-044) keyed by
+     *  entry-point string — computed by the caller (the warm worker, via {@code ScyllaBsim}, which
+     *  may use the decompiler/BSim API this OSGi-shared class deliberately cannot). Each is
+     *  serialized verbatim as {@code "bsim_vector": [[hash, f32_bits], ...]} (UNSIGNED 32-bit so the
+     *  Rust side parses it as u32); an absent/empty entry emits {@code []}. This class still touches
+     *  only the public model API — it receives the vectors as plain ints, never computes them. */
+    public static String toJson(Program program, TaskMonitor monitor,
+            java.util.Map<String, int[][]> bsimByEntry) throws Exception {
         FunctionManager fm = program.getFunctionManager();
         Listing listing = program.getListing();
         BasicBlockModel bbm = new BasicBlockModel(program);
@@ -116,6 +127,8 @@ public final class ScyllaModel {
             fj.append("\"imports\": ").append(jarr(new ArrayList<>(imports))).append(", ");
             fj.append("\"string_refs\": ").append(jarr(new ArrayList<>(stringRefs))).append(", ");
             fj.append("\"callee_names\": ").append(jarr(new ArrayList<>(calleeNames))).append(", ");
+            fj.append("\"bsim_vector\": ")
+                    .append(jbsim(bsimByEntry.get(f.getEntryPoint().toString()))).append(", ");
             fj.append("\"mnemonics\": ").append(jarr(mnems));
             fj.append("}");
             funcJson.add(fj.toString());
@@ -156,5 +169,18 @@ public final class ScyllaModel {
             q.add(jstr(x));
         }
         return "[" + String.join(", ", q) + "]";
+    }
+
+    /** Serialize a BSim vector (DD-044) as [[hash, f32_bits], ...]. null/empty → []. Emitted as
+     *  UNSIGNED 32-bit values (the Rust ingest parses (u32, u32)); a bare signed int would break it. */
+    static String jbsim(int[][] v) {
+        if (v == null || v.length == 0) {
+            return "[]";
+        }
+        List<String> pairs = new ArrayList<>();
+        for (int[] hw : v) {
+            pairs.add("[" + (hw[0] & 0xFFFFFFFFL) + ", " + (hw[1] & 0xFFFFFFFFL) + "]");
+        }
+        return "[" + String.join(", ", pairs) + "]";
     }
 }

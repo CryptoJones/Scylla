@@ -607,6 +607,33 @@ all 11 gate classes (floors unchanged, WRONG=0); the Rust matcher anchors on cal
 cosine=0 (unit test). The cheaper of the two cross-arch levers; BSim remains the heavier, still
 un-de-risked alternative for the symmetric C leaves.
 
+**DD-044 — BSim decompiler-signature similarity: de-risked, GO (the cross-arch lever for the
+symmetric leaves).** The functions DD-041/042/043 still can't re-anchor cross-architecture are the
+symmetric arithmetic *leaves* (`gcd`/`factorial`/`sum_to`): no strings, no imports, no callee-names,
+mnemonic cosine 0, and — being leaves — nothing for propagation to lever from. BSim is the tool aimed
+straight at this (LSH over the decompiler's p-code feature vectors, an ISA-abstracting IR), and the
+DD-042 spike named it as the next lever. We **de-risked before betting a multi-PR integration** (the
+warm-engine pattern): `spike/bsim/ScyllaBsimSpike.java` analyzes two binaries in-process and walks the
+decompiler signature path Ghidra's own `CompareBSimSignaturesScript` uses
+(`WeightedLSHCosineVectorFactory` + the cross-arch `lshweights_64` from
+`GenSignatures.getWeightsFile(srcLang, dstLang)` + `DecompInterface.generateSignatures` →
+`buildVector`), **no database needed** for the de-risk. Measured (`mathlib` x86-64→aarch64, O0): `main`,
+`fib`, `factorial`, and `sum_to` each match their cross-arch twin at **cosine 1.000** (significance
+22–43, reciprocal-best) — where mnemonic cosine is 0 — and the one-opcode-apart pair stays distinct
+(`factorial→factorial 1.000` vs `factorial→sum_to 0.711`, margin 0.289). This lifts the cross-arch
+class from the matcher's 40% (main+fib) to **80%** (+ factorial + sum_to). The lone miss is `gcd`: the
+modulo idiom decompiles to materially different p-code per ISA (x86 `DIV`-remainder vs aarch64
+`SDIV`+`MSUB`), so its cross-arch self-similarity is **0.120** — *below* its 0.310 to the accumulator
+leaves — and under the gate it **flags fail-closed** (sub-threshold, non-reciprocal), `WRONG=0`
+preserved. **The integration constraint is non-negotiable:** gate on similarity (≥0.7) **and**
+reciprocal-best **and** a significance floor — never raw argmax (which emits a spurious
+`gcd→factorial` pick). That is exactly Scylla's existing pass-3 reciprocal-best + beat-the-baseline
+discipline; reciprocal-best is load-bearing because `factorial→sum_to 0.711` clears a bare 0.7 floor
+on its own. `gcd`-class division/modulo leaves remain out of reach of *every* current signal,
+including BSim — honest, fail-closed coverage, recorded not papered over. See
+[spike/bsim/SPIKE-REPORT.md](spike/bsim/SPIKE-REPORT.md); `./spike/bsim/run-spike.sh` reproduces it in
+~8s and is the Go-forward regression artifact for a future cross-arch BSim pass.
+
 ---
 
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

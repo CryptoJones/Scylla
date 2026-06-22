@@ -106,6 +106,20 @@ Tracked "later / someday" items that aren't on the current sprint path
     crashes `GolangSymbolAnalyzer`, Go 1.22 works; viable for supported Go versions. Go gating stays
     out-of-Tier-0 (snapshots ~1.5MB); the spike (`spike/go-producer/run-spike.sh`) is the Go
     regression check. **BSim** remains the heavier, un-de-risked lever for the symmetric *C* leaves.
+  - [x] **BSim decompiler-signature similarity — de-risked, GO (DD-044).** The last un-de-risked
+    cross-arch lever, aimed at the symmetric arithmetic leaves the matcher flags. De-risk spike
+    ([spike/bsim/](spike/bsim/)), **DB-free** (the `DecompInterface.generateSignatures` →
+    `WeightedLSHCosineVectorFactory` path, no BSim database): BSim's p-code feature vectors match
+    cross-arch (x86-64↔aarch64) where mnemonic cosine is 0 — `factorial` and `sum_to` each hit their
+    twin at cosine **1.000** (signif ~22, reciprocal) and stay distinct despite being one p-code
+    opcode apart (margin 0.289); cross-arch `mathlib` 40%→**80%** (main+fib+factorial+sum_to). `gcd`
+    (modulo: x86 `DIV` vs aarch64 `SDIV`+`MSUB`) decompiles to different p-code per ISA (self-sim
+    0.120) and **flags fail-closed** — every current signal misses it, honest coverage. Integration
+    MUST gate on **sim≥0.7 + reciprocal-best + significance**, never raw argmax (which emits a
+    spurious `gcd→factorial`) — the existing pass-3 discipline, with reciprocal-best load-bearing
+    (`factorial→sum_to`=0.711 clears a bare 0.7 floor). `./spike/bsim/run-spike.sh` is the regression
+    artifact. **Real next build:** a cross-arch BSim re-anchoring pass — the symmetric-leaf gap no
+    other signal touches.
 
 ## Engine-as-service (DD-040)
 

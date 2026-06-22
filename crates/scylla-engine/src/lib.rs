@@ -36,6 +36,8 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         string_refs: chunk.string_refs.clone(),
         imports: chunk.imports.clone(),
         callee_names: chunk.callee_names.clone(),
+        // BSim vector (DD-044) rides a dedicated wire field added with the producer (slice 2).
+        bsim_vector: Vec::new(),
     }
 }
 

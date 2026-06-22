@@ -131,6 +131,9 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
                 }
                 v
             },
+            // Not yet carried by the artifact — the capnp field + (de)serialization land with the
+            // producer that populates it (DD-044 slice 2); empty round-trips losslessly until then.
+            bsim_vector: Vec::new(),
         });
     }
 
@@ -296,6 +299,7 @@ mod tests {
                     string_refs: vec![],
                     imports: vec![],
                     callee_names: vec![],
+                    bsim_vector: vec![],
                 },
                 Function {
                     id: main,
@@ -309,6 +313,7 @@ mod tests {
                     string_refs: vec!["result=%d\n".into()],
                     imports: vec!["printf".into()],
                     callee_names: vec!["main.helper".into()],
+                    bsim_vector: vec![],
                 },
             ],
             facts: vec![

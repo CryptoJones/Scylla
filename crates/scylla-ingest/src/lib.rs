@@ -80,6 +80,7 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             string_refs: f.string_refs.clone(),
             imports: f.imports.clone(),
             callee_names: f.callee_names.clone(),
+            bsim_vector: Vec::new(),
         });
     }
 

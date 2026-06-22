@@ -244,6 +244,69 @@ fn propagate_match(
     }
 }
 
+/// Weighted cosine of two **BSim** feature vectors (DD-044), in `0..=1`. Each vector is sparse
+/// `(feature_hash, weight_bits)` with the weight stored as f32 bits; the producer bakes BSim's
+/// feature weights into the coefficients, so this cosine reproduces Ghidra's `LSHVector.compare`
+/// exactly. Either side empty → `0` (no BSim signal — the many vectorless functions must NOT all
+/// look identical, same discipline as [`jaccard`]/[`cosine`]).
+fn bsim_similarity(a: &[(u32, u32)], b: &[(u32, u32)]) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let am: HashMap<u32, f64> =
+        a.iter().map(|(h, w)| (*h, f64::from(f32::from_bits(*w)))).collect();
+    let (mut dot, mut nb) = (0.0, 0.0);
+    for (h, w) in b {
+        let w = f64::from(f32::from_bits(*w));
+        nb += w * w;
+        if let Some(aw) = am.get(h) {
+            dot += aw * w;
+        }
+    }
+    let na: f64 = a
+        .iter()
+        .map(|(_, w)| {
+            let w = f64::from(f32::from_bits(*w));
+            w * w
+        })
+        .sum();
+    if na == 0.0 || nb == 0.0 {
+        0.0
+    } else {
+        dot / (na.sqrt() * nb.sqrt())
+    }
+}
+
+/// The old function whose [`bsim_similarity`] to `g` is highest — the reverse direction for the
+/// reciprocal-best (symmetric-match) check, mirroring [`best_old_match`]. Vectorless olds are
+/// skipped (no signal). `None` if none carry a BSim vector.
+fn best_old_match_bsim<'a>(g: &Function, olds: &'a [Function]) -> Option<&'a Function> {
+    let mut best: Option<&Function> = None;
+    let mut best_s = f64::NEG_INFINITY;
+    for o in olds {
+        if o.bsim_vector.is_empty() {
+            continue;
+        }
+        let s = bsim_similarity(&o.bsim_vector, &g.bsim_vector);
+        if s > best_s {
+            best_s = s;
+            best = Some(o);
+        }
+    }
+    best
+}
+
+/// A BSim vector below this many features is not discriminating enough to anchor an identity — the
+/// significance proxy for BSim's "too small to score" filter (mirrors [`ANCHOR_MIN_FEATURES`]).
+const BSIM_MIN_FEATURES: usize = 4;
+/// A BSim match must clear this weighted-cosine similarity — Ghidra's standard match floor
+/// (`CompareExecutablesScript` uses 0.7).
+const BSIM_THRESHOLD: f64 = 0.7;
+/// ...AND beat the runner-up by this margin — "never guess a near-tie", the fuzzy-space discipline.
+/// Reciprocal-best is the load-bearing guard for the symmetric leaves (the one-opcode-apart twin
+/// can itself clear the threshold), but the margin is a cheap second line.
+const BSIM_MARGIN: f64 = 0.05;
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct MergeReport {
     /// Facts confidently re-anchored onto the new model.
@@ -396,6 +459,54 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
         }
         if !progress {
             break;
+        }
+    }
+
+    // Pass 4 — BSIM (DD-044): the CROSS-ARCHITECTURE lever for the symmetric arithmetic *leaves*
+    // that ANCHOR (no strings/imports/callee-names), FUZZY (mnemonic cosine ~0 across ISAs) and
+    // PROPAGATION (symmetric graph position) all leave flagged. BSim's decompiler p-code feature
+    // vectors abstract the ISA — `factorial` on x86-64 and aarch64 share a (weighted) vector — so a
+    // weighted cosine over `bsim_vector` recovers them where every other signal is blind. Accepted
+    // only on a UNIQUE best clearing BSIM_THRESHOLD, beating the runner-up by BSIM_MARGIN, AND
+    // reciprocal-best (the candidate's own best old-match by BSim is this function) — the same
+    // WRONG=0 discipline as the fuzzy pass. The de-risk (DD-044) showed reciprocal-best is
+    // load-bearing: the one-opcode-apart twin (`factorial`↔`sum_to`) scores ~0.71, which can clear a
+    // bare 0.7 floor, but each true twin is 1.0 so the mutual-best resolves the pair. A too-small
+    // vector (< BSIM_MIN_FEATURES) defers (significance proxy). No-op when `bsim_vector` is empty
+    // (no producer signal yet), so it never perturbs the string/graph passes or the gate classes.
+    for t in &deferred3 {
+        if matched.contains_key(t) {
+            continue;
+        }
+        let Some(oldf) = old_by_id.get(t).copied() else { continue };
+        if oldf.bsim_vector.len() < BSIM_MIN_FEATURES {
+            continue;
+        }
+        let (mut best, mut best_s, mut second_s): (Option<&Function>, f64, f64) =
+            (None, -1.0, -1.0);
+        for nf in &new.functions {
+            if claimed.contains(&nf.id) || nf.bsim_vector.is_empty() {
+                continue;
+            }
+            let s = bsim_similarity(&oldf.bsim_vector, &nf.bsim_vector);
+            if s > best_s {
+                second_s = best_s;
+                best_s = s;
+                best = Some(nf);
+            } else if s > second_s {
+                second_s = s;
+            }
+        }
+        match best {
+            Some(nf)
+                if best_s >= BSIM_THRESHOLD
+                    && best_s - second_s >= BSIM_MARGIN
+                    && best_old_match_bsim(nf, &old.functions).map(|o| o.id) == Some(oldf.id) =>
+            {
+                matched.insert(*t, nf.id);
+                claimed.insert(nf.id);
+            }
+            _ => {}
         }
     }
 
@@ -639,6 +750,7 @@ mod tests {
             string_refs: vec![],
             imports: vec![],
             callee_names: callee_names.into_iter().map(String::from).collect(),
+            bsim_vector: vec![],
         };
         let prog = |mnem: &str| {
             let mut m = IdMinter::new();
@@ -667,6 +779,93 @@ mod tests {
             .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "entry"))
             .map(|f| arm64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
         assert_eq!(landed.as_deref(), Some("main.main"), "callee-name anchor lands on main.main");
+    }
+
+    /// DD-044: BSim is the cross-arch lever for the symmetric arithmetic LEAVES nothing else can
+    /// place — no strings/imports/callee-names (anchor blind), disjoint mnemonics across ISAs (fuzzy
+    /// cosine 0), and no graph position (propagation can't reach them). `factorial` and `sum_to`
+    /// differ by one p-code op, so their BSim vectors are near-identical (cosine 0.75) yet each
+    /// matches its OWN cross-arch twin at 1.0 — reciprocal-best disambiguates the pair. `gcd`'s
+    /// modulo decompiles to a different vector per ISA (cosine 0.25, below threshold), so it stays
+    /// flagged (fail-closed). Zero-wrong: recovered facts sit on the correctly-named twins.
+    #[test]
+    fn bsim_recovers_symmetric_leaves_cross_arch_and_is_zero_wrong() {
+        use scylla_model::{Function, IdMinter};
+        // Sparse BSim vector from (feature_hash, weight) pairs (weight stored as f32 bits).
+        let bv = |pairs: &[(u32, f32)]| -> Vec<(u32, u32)> {
+            pairs.iter().map(|(h, w)| (*h, w.to_bits())).collect()
+        };
+        // An isolated leaf: no strings/imports/callee-names, no callees, ISA-specific mnemonics, a
+        // cross-arch-distinct signature — so exact/anchor/fuzzy/propagation all defer to BSim.
+        let leaf = |m: &mut IdMinter, name: &str, bb: u32, size: u64, mnem: &str,
+                    bsim: Vec<(u32, u32)>| Function {
+            id: m.mint(),
+            addr: 0,
+            name: name.into(),
+            size,
+            bb_count: bb,
+            callees: vec![],
+            fingerprint: 0,
+            mnemonics: vec![(mnem.into(), 5)],
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: bsim,
+        };
+        // factorial vs sum_to share 3 of 4 features (cosine 0.75); gcd's vector is cross-arch-distinct.
+        let fact_v = bv(&[(1, 1.0), (2, 1.0), (3, 1.0), (4, 1.0)]);
+        let sum_v = bv(&[(1, 1.0), (2, 1.0), (3, 1.0), (5, 1.0)]);
+        let gcd_x = bv(&[(6, 1.0), (7, 1.0), (8, 1.0), (9, 1.0)]);
+        let gcd_a = bv(&[(6, 1.0), (10, 1.0), (11, 1.0), (12, 1.0)]); // 1/4 = 0.25 vs gcd_x
+
+        let mut mx = IdMinter::new();
+        let mut x86 = Program {
+            name: "leaves".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![
+                leaf(&mut mx, "factorial", 3, 40, "MOV", fact_v.clone()),
+                leaf(&mut mx, "sum_to", 3, 42, "MOV", sum_v.clone()),
+                leaf(&mut mx, "gcd", 4, 50, "MOV", gcd_x),
+            ],
+            facts: vec![],
+        };
+        let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
+        x86.facts.push(UserFact::new(id_of(&x86, "factorial"), FactKind::Rename("fact".into())));
+        x86.facts.push(UserFact::new(id_of(&x86, "sum_to"), FactKind::Rename("sum".into())));
+        x86.facts.push(UserFact::new(id_of(&x86, "gcd"), FactKind::Rename("euclid".into())));
+
+        // aarch64: same source, different ISA — distinct sizes/bb + mnemonics (so exact/fuzzy defer),
+        // identical BSim vectors for the twins (the ISA-abstracting signal), distinct for gcd.
+        let mut ma = IdMinter::new();
+        let mut aarch64 = Program {
+            name: "leaves".into(),
+            language: "AARCH64:LE:64:v8A".into(),
+            functions: vec![
+                leaf(&mut ma, "factorial", 4, 64, "ldr", fact_v),
+                leaf(&mut ma, "sum_to", 4, 66, "ldr", sum_v),
+                leaf(&mut ma, "gcd", 5, 70, "ldr", gcd_a),
+            ],
+            facts: vec![],
+        };
+
+        let report = merge_into(&x86, &mut aarch64);
+        // factorial + sum_to recover via BSim; gcd flags (fail-closed).
+        assert_eq!(report.merged, 2, "BSim recovers the two accumulator leaves cross-arch");
+        assert_eq!(report.flagged, 1, "gcd (cross-arch-distinct vector) stays flagged");
+        let name_on = |marker: &str| {
+            aarch64
+                .facts
+                .iter()
+                .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == marker))
+                .map(|f| {
+                    aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone()
+                })
+        };
+        // zero-wrong: each recovered fact sits on its correctly-named twin.
+        assert_eq!(name_on("fact").as_deref(), Some("factorial"));
+        assert_eq!(name_on("sum").as_deref(), Some("sum_to"));
+        // gcd's marker did NOT carry (fail-closed) — never mis-attached to a leaf look-alike.
+        assert!(name_on("euclid").is_none(), "gcd must flag, never mis-attach (WRONG=0)");
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

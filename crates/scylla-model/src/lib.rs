@@ -70,6 +70,15 @@ pub struct Function {
     /// strings/imports can't. Deliberately only the *dotted* names: C's bare local names (which do
     /// NOT survive stripping) are excluded, so they never inflate recovery beyond stripped reality.
     pub callee_names: Vec<String>,
+    /// **BSim** decompiler-signature feature vector (DD-044): the function's LSH p-code feature
+    /// vector as sparse `(feature_hash, weight_bits)` pairs, where `weight_bits` is the IEEE-754
+    /// bit pattern of the f32 coefficient (`f32::to_bits`) so the model stays `Eq`/`Hash`-derivable
+    /// and round-trips bit-exactly. Empty when the producer emitted no BSim signal (older snapshots,
+    /// the gRPC path before the DD-044 producer). It is the ISA-abstracting cross-architecture lever
+    /// for the symmetric arithmetic leaves that strings/imports/callee-names/mnemonics/graph-position
+    /// all miss — a *weighted cosine* over these vectors reproduces Ghidra's `LSHVector.compare`
+    /// exactly, because the producer bakes the feature weights into the coefficients.
+    pub bsim_vector: Vec<(u32, u32)>,
 }
 
 /// The mnemonic histogram of a function: the instruction multiset, sorted by mnemonic (so it is
@@ -211,6 +220,7 @@ mod tests {
                 string_refs: vec![],
                 imports: vec![],
                 callee_names: vec![],
+                bsim_vector: vec![],
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };

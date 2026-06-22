@@ -1,3 +1,5 @@
+<p align="center"><em>Proudly Made in Nebraska. Go Big Red! 🌽 <a href="https://xkcd.com/2347/">https://xkcd.com/2347/</a></em></p>
+
 # Scylla
 
 **A hexagonal, adapter-headed reverse-engineering platform.**

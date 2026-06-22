@@ -55,6 +55,15 @@ pub struct Function {
     /// scores cosine similarity over these to recover cross-build matches the exact fingerprint
     /// can't; the `fingerprint` above is just its hash, cached for the fast exact path.
     pub mnemonics: Vec<(String, u32)>,
+    /// **Arch-independent** features (DD-041): the string literals this function references and the
+    /// imported/library symbols it calls *by name*. Unlike mnemonics and addresses, these survive
+    /// recompilation for a *different ISA* — x86-64 and aarch64 share neither instruction set nor
+    /// layout, but the same source references the same `"Error: %s"` and calls the same `printf`.
+    /// They drive the cross-architecture ANCHOR re-anchoring pass, where mnemonic cosine is ~0.
+    /// Sorted + deduped (set semantics) so they are deterministic and Jaccard-comparable.
+    pub string_refs: Vec<String>,
+    /// Imported/library call targets by name (`printf`, `atoi`, …) — see [`Function::string_refs`].
+    pub imports: Vec<String>,
 }
 
 /// The mnemonic histogram of a function: the instruction multiset, sorted by mnemonic (so it is
@@ -193,6 +202,8 @@ mod tests {
                 callees: vec![],
                 fingerprint: 0,
                 mnemonics: vec![],
+                string_refs: vec![],
+                imports: vec![],
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };

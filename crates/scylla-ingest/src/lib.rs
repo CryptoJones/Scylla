@@ -23,6 +23,12 @@ struct SnapFunc {
     /// them into a structural fingerprint (DD-038); absent → no fingerprint (0).
     #[serde(default)]
     mnemonics: Vec<String>,
+    /// Arch-independent features (DD-041): referenced string literals and imported call names.
+    /// Absent in older snapshots → empty (no cross-arch anchor signal, degrades cleanly).
+    #[serde(default)]
+    string_refs: Vec<String>,
+    #[serde(default)]
+    imports: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +73,8 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             callees,
             fingerprint: scylla_model::histogram_fingerprint(&histogram),
             mnemonics: histogram,
+            string_refs: f.string_refs.clone(),
+            imports: f.imports.clone(),
         });
     }
 

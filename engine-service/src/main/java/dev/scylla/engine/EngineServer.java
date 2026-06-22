@@ -394,6 +394,18 @@ public final class EngineServer {
                         b.addMnemonics(m.getAsString());
                     }
                 }
+                // Arch-independent features (DD-041): the string literals + import names the analyzer
+                // extracted, carried raw — the CROSS-ARCHITECTURE re-anchoring signal.
+                if (f.has("string_refs")) {
+                    for (JsonElement s : f.getAsJsonArray("string_refs")) {
+                        b.addStringRefs(s.getAsString());
+                    }
+                }
+                if (f.has("imports")) {
+                    for (JsonElement s : f.getAsJsonArray("imports")) {
+                        b.addImports(s.getAsString());
+                    }
+                }
                 resp.onNext(MaterializeEvent.newBuilder().setFunction(b.build()).build());
             }
             resp.onCompleted();

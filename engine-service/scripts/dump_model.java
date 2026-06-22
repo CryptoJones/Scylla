@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.block.BasicBlockModel;
 import ghidra.program.model.block.CodeBlockIterator;
+import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.listing.FunctionManager;
@@ -42,6 +43,12 @@ public class dump_model extends GhidraScript {
 
             List<String> mnems = new ArrayList<>();
             TreeSet<String> callees = new TreeSet<>();
+            // Arch-INDEPENDENT features (DD-041): the same function compiled for x86-64 vs aarch64
+            // shares neither mnemonics nor addresses, but it references the SAME string literals and
+            // calls the SAME imported symbols by NAME. These are the cross-architecture re-anchoring
+            // signal (cosine over mnemonics is ~0 across ISAs). Sorted sets → stable, set-comparable.
+            TreeSet<String> imports = new TreeSet<>();
+            TreeSet<String> stringRefs = new TreeSet<>();
             InstructionIterator iit = listing.getInstructions(f.getBody(), true);
             while (iit.hasNext()) {
                 Instruction ins = iit.next();
@@ -50,7 +57,21 @@ public class dump_model extends GhidraScript {
                     if (ref.getReferenceType().isCall()) {
                         Function tgt = fm.getFunctionAt(ref.getToAddress());
                         if (tgt != null) {
-                            callees.add(tgt.getEntryPoint().toString());
+                            if (tgt.isExternal() || tgt.isThunk()) {
+                                // an imported/library call (printf, atoi, …) — keyed by NAME, which
+                                // is identical across architectures, unlike its PLT/thunk address.
+                                imports.add(tgt.getName());
+                            } else {
+                                callees.add(tgt.getEntryPoint().toString());
+                            }
+                        }
+                    } else if (ref.getReferenceType().isData()) {
+                        Data d = listing.getDataAt(ref.getToAddress());
+                        if (d != null && d.hasStringValue()) {
+                            Object v = d.getValue();
+                            if (v != null) {
+                                stringRefs.add(v.toString());
+                            }
                         }
                     }
                 }
@@ -71,6 +92,8 @@ public class dump_model extends GhidraScript {
             fj.append("\"bb_count\": ").append(bb).append(", ");
             fj.append("\"mnemonic_count\": ").append(mnems.size()).append(", ");
             fj.append("\"callees\": ").append(jarr(new ArrayList<>(callees))).append(", ");
+            fj.append("\"imports\": ").append(jarr(new ArrayList<>(imports))).append(", ");
+            fj.append("\"string_refs\": ").append(jarr(new ArrayList<>(stringRefs))).append(", ");
             fj.append("\"mnemonics\": ").append(jarr(mnems));
             fj.append("}");
             funcJson.add(fj.toString());

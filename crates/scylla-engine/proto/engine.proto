@@ -54,6 +54,10 @@ message FunctionChunk {
                                  // Function.fingerprint (DD-038) — the SAME hash the snapshot path
                                  // uses, so gRPC- and snapshot-materialized artifacts re-anchor
                                  // against each other. Sent raw so the hash lives in one place.
+  repeated string string_refs = 7; // referenced string literals — ARCH-INDEPENDENT (DD-041): the
+                                   // cross-architecture re-anchoring signal (mnemonics differ by ISA,
+                                   // these don't). Drives the ANCHOR pass.
+  repeated string imports = 8;     // imported/library calls BY NAME (printf, …) — arch-independent.
 }
 
 message DecompileRequest { uint64 entry = 1; }

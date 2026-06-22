@@ -40,9 +40,23 @@ Tracked "later / someday" items that aren't on the current sprint path
     pass then a **fuzzy second pass** — cosine over the stored mnemonic histogram + structural
     closeness, accepted only above a threshold (`FUZZY_THRESHOLD`) AND with a runner-up margin
     (`FUZZY_MARGIN`). Lifts **both DD-038 edit classes to 100%** (the floors are ratcheted there)
-    and recovers some recompile (x86 O0→O2: 0%→20%); cross-arch stays ~0 (different ISA → near-zero
-    cosine — that needs Ghidra Version Tracking, the remaining lever). `WRONG=0` held throughout:
-    exact is unique-match, fuzzy is threshold + margin ("never guess a near-tie").
+    and recovers some recompile (x86 O0→O2: 0%→20%). `WRONG=0` held throughout: exact is
+    unique-match, fuzzy is threshold + margin ("never guess a near-tie").
+  - [x] **Cross-architecture re-anchoring via arch-independent anchors (DD-041).** Cosine over the
+    mnemonic mix is ~0 across ISAs (x86-64 vs aarch64 share no instructions), so the engine now
+    extracts the features that *do* survive a cross-ISA recompile — **referenced string literals +
+    imported call names** (`Function.string_refs` / `imports`, over both the snapshot path and the
+    gRPC wire) — and `scylla-merge` runs an **anchor pass** (Jaccard over that set, unique best +
+    high threshold + wide margin) between the exact and fuzzy passes. Cross-arch goes **0 → recovers
+    the string/import-bearing function (`main`)** in both mathlib and strutil (gate floors ratcheted
+    to lock it in). Claiming those high-confidence matches first surfaced a latent fuzzy false
+    positive (an inlined-away function latching onto a CRT stub via common small-function mnemonics),
+    fixed with **reciprocal-best matching** (a fuzzy match must be mutual). `WRONG=0` held; edit
+    classes still 100%. Grounded in the cross-ISA diffing literature (BinDiff/SIGMADIFF anchor on
+    strings+imports) via deep research, not guessed. **Next levers:** call-graph propagation from
+    these anchors (recover the arithmetic leaves with no strings/imports), then Ghidra Version
+    Tracking. The string/import extraction is **duplicated** between `dump_model.java` and
+    `ScyllaWarmWorker.java` (kept in sync by hand) — consolidation is a tracked wart.
 
 ## Engine-as-service (DD-040)
 

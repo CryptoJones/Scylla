@@ -21,6 +21,10 @@ struct Function {
                             # Disambiguates coarse-signature collisions in EXACT re-anchoring (DD-038).
   mnemonics   @7 :List(MnemonicCount);  # the instruction histogram itself — the FUZZY re-anchoring
                                         # matcher scores cosine over these (DD-038 follow-up).
+  stringRefs  @8 :List(Text);   # referenced string literals — ARCH-INDEPENDENT (DD-041): survive a
+                                # recompile for a different ISA, where mnemonics/addresses don't.
+  imports     @9 :List(Text);   # imported/library calls BY NAME (printf, atoi, …) — arch-independent
+                                # too. stringRefs+imports drive the cross-architecture ANCHOR pass.
 }
 
 struct MnemonicCount {

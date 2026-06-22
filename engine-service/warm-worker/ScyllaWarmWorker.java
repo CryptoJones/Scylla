@@ -23,6 +23,7 @@ import ghidra.app.util.importer.ProgramLoader;
 import ghidra.app.util.opinion.LoadResults;
 import ghidra.program.model.block.BasicBlockModel;
 import ghidra.program.model.block.CodeBlockIterator;
+import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.listing.FunctionManager;
@@ -103,6 +104,10 @@ public final class ScyllaWarmWorker {
             }
             List<String> mnems = new ArrayList<>();
             TreeSet<String> callees = new TreeSet<>();
+            // Arch-INDEPENDENT features (DD-041): same as dump_model.java — referenced string literals
+            // and imported call NAMES survive a cross-ISA recompile where mnemonics/addresses don't.
+            TreeSet<String> imports = new TreeSet<>();
+            TreeSet<String> stringRefs = new TreeSet<>();
             InstructionIterator iit = listing.getInstructions(f.getBody(), true);
             while (iit.hasNext()) {
                 Instruction ins = iit.next();
@@ -111,7 +116,19 @@ public final class ScyllaWarmWorker {
                     if (ref.getReferenceType().isCall()) {
                         Function tgt = fm.getFunctionAt(ref.getToAddress());
                         if (tgt != null) {
-                            callees.add(tgt.getEntryPoint().toString());
+                            if (tgt.isExternal() || tgt.isThunk()) {
+                                imports.add(tgt.getName());
+                            } else {
+                                callees.add(tgt.getEntryPoint().toString());
+                            }
+                        }
+                    } else if (ref.getReferenceType().isData()) {
+                        Data d = listing.getDataAt(ref.getToAddress());
+                        if (d != null && d.hasStringValue()) {
+                            Object v = d.getValue();
+                            if (v != null) {
+                                stringRefs.add(v.toString());
+                            }
                         }
                     }
                 }
@@ -130,6 +147,8 @@ public final class ScyllaWarmWorker {
             fj.append("\"bb_count\": ").append(bb).append(", ");
             fj.append("\"mnemonic_count\": ").append(mnems.size()).append(", ");
             fj.append("\"callees\": ").append(jarr(new ArrayList<>(callees))).append(", ");
+            fj.append("\"imports\": ").append(jarr(new ArrayList<>(imports))).append(", ");
+            fj.append("\"string_refs\": ").append(jarr(new ArrayList<>(stringRefs))).append(", ");
             fj.append("\"mnemonics\": ").append(jarr(mnems));
             fj.append("}");
             funcJson.add(fj.toString());

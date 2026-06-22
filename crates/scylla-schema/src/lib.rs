@@ -55,6 +55,14 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             for (j, c) in f.callees.iter().enumerate() {
                 cs.set(j as u32, c.0);
             }
+            let mut srs = fb.reborrow().init_string_refs(f.string_refs.len() as u32);
+            for (j, s) in f.string_refs.iter().enumerate() {
+                srs.set(j as u32, s.as_str());
+            }
+            let mut imp = fb.reborrow().init_imports(f.imports.len() as u32);
+            for (j, s) in f.imports.iter().enumerate() {
+                imp.set(j as u32, s.as_str());
+            }
         }
 
         let mut facts = p.reborrow().init_facts(prog.facts.len() as u32);
@@ -97,6 +105,20 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
                     h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
                 }
                 h
+            },
+            string_refs: {
+                let mut v = Vec::new();
+                for s in f.get_string_refs()?.iter() {
+                    v.push(s?.to_str()?.to_owned());
+                }
+                v
+            },
+            imports: {
+                let mut v = Vec::new();
+                for s in f.get_imports()?.iter() {
+                    v.push(s?.to_str()?.to_owned());
+                }
+                v
             },
         });
     }
@@ -209,6 +231,12 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
                 report.truncated_strings += 1;
             }
         }
+        // String refs / import names (DD-041) are engine-derived → untrusted; bound them the same.
+        for s in func.string_refs.iter_mut().chain(func.imports.iter_mut()) {
+            if truncate_to(s, MAX_STRING_LEN) {
+                report.truncated_strings += 1;
+            }
+        }
     }
 
     let before_facts = prog.facts.len();
@@ -248,6 +276,8 @@ mod tests {
                     callees: vec![],
                     fingerprint: 0x1111_2222_3333_4444,
                     mnemonics: vec![("MOV".into(), 2), ("RET".into(), 1)],
+                    string_refs: vec![],
+                    imports: vec![],
                 },
                 Function {
                     id: main,
@@ -258,6 +288,8 @@ mod tests {
                     callees: vec![gcd],
                     fingerprint: 0xAAAA_BBBB_CCCC_DDDD,
                     mnemonics: vec![("CALL".into(), 1), ("PUSH".into(), 3)],
+                    string_refs: vec!["result=%d\n".into()],
+                    imports: vec!["printf".into()],
                 },
             ],
             facts: vec![

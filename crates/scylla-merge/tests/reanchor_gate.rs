@@ -26,6 +26,7 @@ const S_X64_O0: &str = include_str!("../../../prototype/snapshots/strutil.x86-64
 const S_X64_O2: &str = include_str!("../../../prototype/snapshots/strutil.x86-64.O2.json");
 const M_A64_O0: &str = include_str!("../../../prototype/snapshots/mathlib.aarch64.O0.json");
 const MV2_A64_O0: &str = include_str!("../../../prototype/snapshots/mathlib_v2.aarch64.O0.json");
+const S_A64_O0: &str = include_str!("../../../prototype/snapshots/strutil.aarch64.O0.json");
 
 #[derive(Default)]
 struct Score {
@@ -97,18 +98,23 @@ struct Class {
 #[test]
 fn reanchoring_release_gate() {
     let classes = [
-        // Floors are RATCHETED from current reality (DD-038), not guessed. The merge now runs an
-        // exact-signature pass (mnemonic-fingerprint disambiguated) THEN a fuzzy cosine pass for
-        // what exact couldn't place — which lifts BOTH edit classes to 100%. The hard classes are
-        // still track-only: fuzzy recovers some recompile (cosine reaches across an opt boundary)
-        // but cross-arch stays ~0 (different ISA → near-zero cosine, fundamental). WRONG=0 holds
-        // by construction: exact is unique-match, fuzzy is threshold + runner-up margin.
+        // Floors are RATCHETED from current reality (DD-038/DD-041), not guessed. The merge runs an
+        // exact-signature pass (mnemonic-fingerprint disambiguated), THEN an ARCH-INDEPENDENT anchor
+        // pass (Jaccard over string-literal + import-name sets — DD-041), THEN a fuzzy cosine pass.
+        // Exact + fuzzy lift BOTH edit classes to 100%. The anchor pass cracks CROSS-ARCHITECTURE:
+        // x86->aarch64 mnemonic cosine is ~0, but `main`'s string/import set is identical across the
+        // ISA, so it re-anchors (the floor below LOCKS that recovery in). Recompile stays track-only.
+        // WRONG=0 holds by construction: exact is unique-match; anchor and fuzzy are threshold +
+        // runner-up margin, and fuzzy additionally requires a reciprocal (symmetric) best match.
         Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
         Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(1.0) },
         Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: None },
         Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: None },
         Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
-        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: None },
+        // Cross-arch: the DD-041 anchor pass recovers the string/import-bearing function (`main`).
+        // Floors ratcheted to lock that in — a regression that loses cross-arch `main` fails the build.
+        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.20) },
+        Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(0.25) },
     ];
 
     println!("\n=== DD-038 re-anchoring scoreboard ===");

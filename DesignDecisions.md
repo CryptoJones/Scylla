@@ -527,6 +527,33 @@ app sidesteps it, and a separate sandboxed process is what DD-014/DD-009 wanted 
 core was built. If the spike fights us, the fallback is a lean framed protocol over a unix
 socket — but we prove the standard path works before we abandon it.
 
+**DD-041 — Cross-architecture re-anchoring rides ARCH-INDEPENDENT features, not the mnemonic
+histogram (refines DD-038).** The fuzzy pass scores cosine over the instruction mix, which is the
+right signal for an edit or a recompile but is **structurally ~0 across ISAs** — x86-64 and aarch64
+share no mnemonics and no addresses, so a function recompiled for a different architecture is
+invisible to it. That is not a tuning problem; it is the wrong feature for the job. The features
+that *do* survive a cross-ISA recompile are the ones tied to the program's meaning, not its
+encoding: **the string literals a function references and the library/imports it calls by name**
+(`printf`, not the PLT address). This is the binary-diffing consensus — BinDiff anchors on imported
+functions, SIGMADIFF chooses "strings and library calls" *because* they are stable across
+optimizations, compilers, and architectures — and it is what the engine now extracts
+(`Function.string_refs` / `Function.imports`, carried over both the snapshot path and the gRPC
+wire). The matcher gains a third pass between exact and fuzzy: an **ANCHOR pass** that matches on
+**Jaccard over the arch-independent set**, accepted only on a unique best clearing a high threshold
+AND a wide runner-up margin. `WRONG = 0` is preserved the same way the other passes preserve it — a
+near-tie is flagged, never guessed — and the anchor pass, by claiming the high-confidence
+string/import matches first, exposed a latent fuzzy false positive (a function inlined away in the
+new build latching onto a structurally similar CRT stub it happened to share common mnemonics with).
+The fix is the other half of the binary-diffing standard: **reciprocal-best matching** — a fuzzy
+match counts only if the candidate's *own* best match points back, which a one-directional
+coincidence cannot satisfy. Measured on Tier-0: cross-arch goes from 0 to recovering the
+string/import-bearing function (`main`) in both mathlib and strutil, `WRONG=0` held, edit classes
+still 100% (gate floors ratcheted to lock the cross-arch gain in). The leaves with no strings/imports
+(pure arithmetic) still orphan — **call-graph propagation from these anchors** (match `main`, then
+its callees by graph position) is the next lever, and the heavier Ghidra Version Tracking integration
+the one after that. We did the de-risking research first (Perplexity deep-research over the
+cross-ISA diffing literature) rather than guessing the feature set.
+
 ---
 
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

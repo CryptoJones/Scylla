@@ -38,9 +38,10 @@ import scylla.engine.v1.ProgramInfo;
  * {@code analyzeHeadless} as a subprocess with the shared dump-model post-script, then stream the
  * result — GayHydra runs under its own launcher (a clean separate process), grpc-netty-shaded lives
  * in this JVM, they never share a classloader, and every call pays fresh JVM+Ghidra init (~6s host).
- * WARM (opt-in, {@code SCYLLA_ENGINE_WARM}): one resident GayHydra JVM ({@link WarmEngine}) inits the
- * application + SLEIGH + decompiler ONCE and imports+analyzes each binary in-process (~2s), with the
- * cold subprocess as the fallback if a warm call fails. Both paths emit the same snapshot JSON, so
+ * WARM (opt-in, {@code SCYLLA_ENGINE_WARM}): a POOL of resident GayHydra JVMs ({@link WarmEngine},
+ * {@code SCYLLA_ENGINE_WARM_POOL} workers, default 1) inits the application + SLEIGH + decompiler
+ * ONCE and imports+analyzes each binary in-process (~2s), up to pool-size CONCURRENTLY, with the cold
+ * subprocess as the fallback if a warm call fails. Both paths emit the same snapshot JSON, so
  * {@link EngineImpl#streamSnapshot} is shared. ALWAYS GayHydra, never stock Ghidra.
  */
 public final class EngineServer {
@@ -78,6 +79,18 @@ public final class EngineServer {
             return (v == null || v.isEmpty()) ? 300 : Math.max(1, Integer.parseInt(v.trim()));
         } catch (NumberFormatException e) {
             return 300;
+        }
+    }
+
+    /** Warm-engine pool size — the number of resident GayHydra workers for CONCURRENT materialize
+     *  ({@code SCYLLA_ENGINE_WARM_POOL}, default 1). Each worker is a full Ghidra JVM, so this is
+     *  RAM-bound; capped at 16 to keep a typo from forking a hundred JVMs. */
+    static int warmPoolSize() {
+        String v = System.getenv("SCYLLA_ENGINE_WARM_POOL");
+        try {
+            return (v == null || v.isEmpty()) ? 1 : Math.min(16, Math.max(1, Integer.parseInt(v.trim())));
+        } catch (NumberFormatException e) {
+            return 1;
         }
     }
 
@@ -120,39 +133,23 @@ public final class EngineServer {
     }
 
     /**
-     * The WARM ENGINE (DD-040): one resident GayHydra JVM that inits Ghidra's application + SLEIGH +
-     * decompiler ONCE, then imports + analyzes each binary in-process. Only the first call pays the
-     * ~6s cold init; the rest are ~2s. The worker ({@code ScyllaWarmWorker}) is a STANDALONE program,
-     * NOT a Ghidra script — the OSGi script compiler can't see {@code ProgramLoader} /
-     * {@code AutoAnalysisManager} — compiled at startup against the mounted dist and run with the
-     * dist on its classpath, exactly like the de-risk spike. Requests are SERIALIZED: Ghidra analysis
-     * is not thread-safe per program, so one warm engine serves one binary at a time, behind the same
-     * RPC. A wedged/failed call kills the worker (no hang); the caller falls back to the cold path.
+     * One resident GayHydra JVM ({@code ScyllaWarmWorker}): inits Ghidra's application + SLEIGH +
+     * decompiler ONCE, then imports + analyzes each binary in-process (~2s after the ~6s cold init).
+     * The worker is a STANDALONE program — NOT a Ghidra script (the OSGi script compiler can't see
+     * {@code ProgramLoader} / {@code AutoAnalysisManager}) — run with the dist on its classpath, like
+     * the de-risk spike. A single worker serves ONE binary at a time (Ghidra analysis is not
+     * thread-safe per program); the {@link WarmEngine} pool runs several workers for concurrency.
      */
-    static final class WarmEngine implements AutoCloseable {
+    static final class WarmWorker implements AutoCloseable {
         private final Process proc;
         private final BufferedWriter toWorker;
         private final BlockingQueue<String> markers = new LinkedBlockingQueue<>();
 
-        WarmEngine(String dist, String workerSrc, String modelSrc) throws Exception {
-            String distCp = distClasspath(dist);
-            Path classesDir = Files.createTempDirectory("scylla-warm-classes");
-
-            // Compile the worker AND the shared ScyllaModel extraction (DD-041 — same source the cold
-            // dump_model.java script uses) against the dist. javac ships in the JDK image. One-time, ~1s.
-            Process jc = new ProcessBuilder("javac", "-proc:none", "-cp", distCp,
-                    "-d", classesDir.toString(), workerSrc, modelSrc)
-                    .redirectErrorStream(true).start();
-            byte[] jcLog = jc.getInputStream().readAllBytes();
-            if (!jc.waitFor(120, TimeUnit.SECONDS) || jc.exitValue() != 0) {
-                jc.destroyForcibly();
-                throw new IOException("warm worker compile failed: "
-                        + tail(new String(jcLog, java.nio.charset.StandardCharsets.UTF_8), 1200));
-            }
-
-            // Spawn the resident worker: dist on the classpath, ghidra.install.dir set (like the spike).
+        /** Spawn + warm one worker. {@code classpath} = the compiled worker classes + the full dist;
+         *  blocks until the worker prints {@code SCYLLA-READY} (the one-time cold init). */
+        WarmWorker(int id, String classpath, String dist) throws Exception {
             ProcessBuilder pb = new ProcessBuilder("java",
-                    "-cp", classesDir + java.io.File.pathSeparator + distCp,
+                    "-cp", classpath,
                     "-Dghidra.install.dir=" + dist,
                     "ScyllaWarmWorker");
             pb.redirectError(ProcessBuilder.Redirect.DISCARD); // Ghidra log4j/init noise → /dev/null
@@ -171,12 +168,11 @@ public final class EngineServer {
                 } catch (Exception ignored) {
                     // pipe closed on worker exit — markers.poll timeouts surface it
                 }
-            }, "scylla-warm-reader");
+            }, "scylla-warm-reader-" + id);
             reader.setDaemon(true);
             reader.start();
 
-            // Block until the engine is warm (the one-time cold init). Generous — container cold
-            // init is ~25s; this is paid ONCE at startup, not per request.
+            // Block until warm (the one-time cold init). Generous — container cold init is ~25s.
             String ready = markers.poll(180, TimeUnit.SECONDS);
             if (!"SCYLLA-READY".equals(ready)) {
                 close();
@@ -188,10 +184,11 @@ public final class EngineServer {
             return proc.isAlive();
         }
 
-        /** Import + analyze {@code binary} in the warm JVM; returns the snapshot JSON path (caller
-         *  deletes it). Serialized. On timeout the worker is killed (it serves serially, so a wedged
-         *  call would poison the engine) — the caller then falls back to the cold subprocess. */
-        synchronized Path materialize(byte[] binary, int timeoutSec) throws Exception {
+        /** Import + analyze {@code binary}; returns the snapshot JSON path (caller deletes it). The
+         *  caller holds this worker exclusively (checked out of the pool), so no synchronization is
+         *  needed. On timeout the worker is KILLED (a wedged serial worker would poison itself) — the
+         *  pool then drops it and the caller falls back to the cold subprocess. */
+        Path materialize(byte[] binary, int timeoutSec) throws Exception {
             if (!proc.isAlive()) {
                 throw new IOException("warm worker is not alive");
             }
@@ -232,6 +229,81 @@ public final class EngineServer {
             if (proc.isAlive()) {
                 proc.destroyForcibly();
             }
+        }
+    }
+
+    /**
+     * The WARM ENGINE (DD-040): a POOL of {@link WarmWorker}s behind the same Materialize RPC. The
+     * worker + the shared {@code ScyllaModel} extraction are compiled ONCE at startup against the
+     * mounted dist; then {@code SCYLLA_ENGINE_WARM_POOL} workers (default 1) are spawned and warmed.
+     * {@code materialize} checks a free worker out of a blocking queue, uses it, and returns it — so
+     * up to {@code poolSize} binaries analyze CONCURRENTLY (separate workers, separate programs: safe,
+     * since the thread-safety hazard is only WITHIN one program's analysis). A worker that wedges and
+     * is killed is dropped from the pool, not returned; if the pool drains, the RPC falls back to the
+     * cold subprocess. Each worker is a full Ghidra JVM — size the pool to the sandbox's memory.
+     */
+    static final class WarmEngine implements AutoCloseable {
+        private final java.util.List<WarmWorker> workers = new java.util.ArrayList<>();
+        private final BlockingQueue<WarmWorker> available = new LinkedBlockingQueue<>();
+
+        WarmEngine(String dist, String workerSrc, String modelSrc, int poolSize) throws Exception {
+            String distCp = distClasspath(dist);
+            Path classesDir = Files.createTempDirectory("scylla-warm-classes");
+
+            // Compile the worker AND the shared ScyllaModel extraction (DD-041 — same source the cold
+            // dump_model.java script uses) ONCE. javac ships in the JDK image. ~1s, shared by the pool.
+            Process jc = new ProcessBuilder("javac", "-proc:none", "-cp", distCp,
+                    "-d", classesDir.toString(), workerSrc, modelSrc)
+                    .redirectErrorStream(true).start();
+            byte[] jcLog = jc.getInputStream().readAllBytes();
+            if (!jc.waitFor(120, TimeUnit.SECONDS) || jc.exitValue() != 0) {
+                jc.destroyForcibly();
+                throw new IOException("warm worker compile failed: "
+                        + tail(new String(jcLog, java.nio.charset.StandardCharsets.UTF_8), 1200));
+            }
+            String cp = classesDir + java.io.File.pathSeparator + distCp;
+
+            try {
+                for (int i = 0; i < Math.max(1, poolSize); i++) {
+                    WarmWorker w = new WarmWorker(i, cp, dist); // blocks for SCYLLA-READY
+                    workers.add(w);
+                    available.offer(w);
+                }
+            } catch (Exception e) {
+                close(); // a partial pool is no pool — tear down any that did come up
+                throw e;
+            }
+        }
+
+        /** Any worker still alive? When false, the pool has drained and the caller goes cold. */
+        boolean isAlive() {
+            return workers.stream().anyMatch(WarmWorker::isAlive);
+        }
+
+        /** Check out a free worker (waiting up to {@code timeoutSec} for one), analyze, return it to
+         *  the pool iff it survived. A killed/dead worker is dropped — the pool shrinks rather than
+         *  handing back a corpse. */
+        Path materialize(byte[] binary, int timeoutSec) throws Exception {
+            WarmWorker w = available.poll(timeoutSec, TimeUnit.SECONDS);
+            if (w == null) {
+                throw new IOException("no warm worker free within " + timeoutSec + "s");
+            }
+            try {
+                Path out = w.materialize(binary, timeoutSec);
+                available.offer(w); // healthy → back in the pool
+                return out;
+            } catch (Exception e) {
+                if (w.isAlive()) {
+                    available.offer(w); // a benign analyze error (bad binary) — the worker is fine
+                }
+                // else: it was killed (timeout) — drop it; isAlive() reflects the smaller pool
+                throw e;
+            }
+        }
+
+        @Override
+        public void close() {
+            workers.forEach(WarmWorker::close);
         }
 
         /** Every jar under the dist — the worker needs the full Ghidra classpath, like the spike. */
@@ -464,10 +536,12 @@ public final class EngineServer {
                         + "'; set SCYLLA_WARM_WORKER_SRC). Running COLD.");
             } else {
                 long t0 = System.nanoTime();
+                int poolSize = warmPoolSize();
                 try {
-                    warm = new WarmEngine(dist, workerSrc, modelSrc);
+                    warm = new WarmEngine(dist, workerSrc, modelSrc, poolSize);
                     System.out.println("warm engine ready in "
-                            + ((System.nanoTime() - t0) / 1_000_000L) + " ms (in-process GayHydra)");
+                            + ((System.nanoTime() - t0) / 1_000_000L) + " ms (" + poolSize
+                            + " in-process GayHydra worker" + (poolSize == 1 ? "" : "s") + ")");
                 } catch (Exception e) {
                     System.err.println("WARN: warm engine failed to start (" + e.getMessage()
                             + "); running COLD.");

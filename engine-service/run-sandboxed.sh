@@ -21,12 +21,15 @@ exec docker run --rm \
   --memory 4g --cpus 2 --pids-limit 512 \
   -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
   -e SCYLLA_ENGINE_WARM="${SCYLLA_ENGINE_WARM:-}" \
+  -e SCYLLA_ENGINE_WARM_POOL="${SCYLLA_ENGINE_WARM_POOL:-}" \
   -v "$GHIDRA_DIST":/opt/gayhydra:ro \
   -v "$SOCK_DIR":/run/scylla:rw \
   scylla-engine-service:dev
 
-# WARM ENGINE (DD-040), opt-in: run with `SCYLLA_ENGINE_WARM=1 ./run-sandboxed.sh` to keep one
-# resident GayHydra JVM warm in-process (~2s/call vs ~6s cold). It compiles + runs entirely inside
+# WARM ENGINE (DD-040), opt-in: run with `SCYLLA_ENGINE_WARM=1 ./run-sandboxed.sh` to keep resident
+# GayHydra JVM(s) warm in-process (~2s/call vs ~6s cold). `SCYLLA_ENGINE_WARM_POOL=N` runs N workers
+# for N-way CONCURRENT materialize (default 1) — each worker is a full Ghidra JVM, so size N to the
+# `--memory` budget below (the default 4g comfortably holds 1–2). It compiles + runs entirely inside
 # the locked-down container — the worker classes land on the writable, exec, RAM-backed /tmp tmpfs
 # and read the RO dist mount; no extra capability, no network, the lockdown below is unchanged.
 #

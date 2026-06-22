@@ -103,8 +103,16 @@ Tracked "later / someday" items that aren't on the current sprint path
   proved grpc-netty-shaded + in-process `Application.initializeApplication` coexist in ONE JVM
   (~700ms) — the DD-040 nightmare didn't happen. Default OFF: cold-only stays the proven,
   dependency-light path; warm is opt-in. The dump extraction is now shared with `dump_model.java`
-  via `ScyllaModel` (see the re-anchoring section — DD-041 consolidation). Follow-up: a **pool of
-  warm contexts** (not just one) for concurrent materialize.
+  via `ScyllaModel` (see the re-anchoring section — DD-041 consolidation).
+- [x] **Pool of warm contexts for concurrent materialize (DD-040).** The warm engine is now a POOL:
+  `SCYLLA_ENGINE_WARM_POOL=N` (default 1) spawns N resident workers, and `materialize` checks one out
+  of a blocking queue, uses it, and returns it — so up to N binaries analyze CONCURRENTLY. Separate
+  workers analyze separate programs, which is safe (Ghidra's thread-safety hazard is only *within* a
+  single program's analysis). The worker + shared `ScyllaModel` compile ONCE; a wedged/killed worker
+  is dropped from the pool (not returned), and if the pool drains the RPC falls back to cold. Each
+  worker is a full Ghidra JVM, so N is RAM-bound (capped at 16). Proven: pool=2 warms 2 workers and
+  serves 2 concurrent `materialize` calls. The sandbox runner passes `SCYLLA_ENGINE_WARM_POOL`
+  through with a memory-sizing note.
 - [x] **Wire the Rust core to the engine-port gRPC stream.** The new `scylla` CLI
   (`crates/scylla-cli`) is the composition root: `scylla materialize <endpoint> <binary>
   <out.scylla>` drives the engine-service over gRPC and consumes the `Materialize` stream straight

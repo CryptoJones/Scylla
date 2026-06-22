@@ -16,11 +16,19 @@ use std::collections::BTreeSet;
 
 use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
 
-/// Typed port errors (DD-021).
+/// Typed port errors (DD-021): a SMALL taxonomy that faithfully mirrors Ghidra's own
+/// exception classes, so a head can translate a failure without inventing semantics
+/// (pass-through, not a clever new taxonomy). Engine-side failures (decompile timeout,
+/// cancellation) map into this set as the port grows to surface those verbs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PortError {
+    /// The target id isn't in the model — navigation/annotation of a missing function.
     NoSuchFunction(StableId),
+    /// The model artifact failed to load/decode (the DD-036 validating loader).
     Decode(String),
+    /// An annotation value was rejected (e.g. an empty name). Mirrors Ghidra's
+    /// `InvalidInputException` / `DuplicateNameException`.
+    InvalidInput(String),
 }
 
 impl std::fmt::Display for PortError {
@@ -28,11 +36,21 @@ impl std::fmt::Display for PortError {
         match self {
             PortError::NoSuchFunction(id) => write!(f, "no such function: {id:?}"),
             PortError::Decode(e) => write!(f, "decode error: {e}"),
+            PortError::InvalidInput(e) => write!(f, "invalid input: {e}"),
         }
     }
 }
 
 impl std::error::Error for PortError {}
+
+/// Reject a blank annotation value — the producer of [`PortError::InvalidInput`] (DD-021,
+/// mirroring Ghidra's `InvalidInputException`).
+fn non_blank(value: &str, msg: &str) -> Result<(), PortError> {
+    if value.trim().is_empty() {
+        return Err(PortError::InvalidInput(msg.to_string()));
+    }
+    Ok(())
+}
 
 /// Semantic-zoom altitude (DD-020).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,12 +101,18 @@ pub struct Session {
 impl Session {
     /// Open a session as the local user (v1 default principal — DD-035).
     pub fn open(program: Program) -> Self {
-        Session { program, principal: Some(Principal("local".into())) }
+        Session {
+            program,
+            principal: Some(Principal("local".into())),
+        }
     }
 
     /// Open as a specific principal — the seam a future networked head uses (DD-035).
     pub fn open_as(program: Program, principal: Principal) -> Self {
-        Session { program, principal: Some(principal) }
+        Session {
+            program,
+            principal: Some(principal),
+        }
     }
 
     /// Load a session from a canonical model artifact (DD-026).
@@ -166,17 +190,24 @@ impl Session {
     /// List all functions at a zoom altitude.
     pub fn functions(&self, zoom: Zoom) -> Vec<FunctionView> {
         let ids: Vec<StableId> = self.program.functions.iter().map(|f| f.id).collect();
-        ids.into_iter().map(|id| self.view(id, zoom).unwrap()).collect()
+        ids.into_iter()
+            .map(|id| self.view(id, zoom).unwrap())
+            .collect()
     }
 
     pub fn rename(&mut self, id: StableId, name: impl Into<String>) -> Result<(), PortError> {
-        self.set_fact(id, FactKind::Rename(name.into()))
+        let name = name.into();
+        non_blank(&name, "a function name cannot be empty")?;
+        self.set_fact(id, FactKind::Rename(name))
     }
 
     pub fn retype(&mut self, id: StableId, ty: impl Into<String>) -> Result<(), PortError> {
-        self.set_fact(id, FactKind::Retype(ty.into()))
+        let ty = ty.into();
+        non_blank(&ty, "a type cannot be empty")?;
+        self.set_fact(id, FactKind::Retype(ty))
     }
 
+    /// A comment may be empty — clearing it is a legitimate edit, unlike a name or type.
     pub fn comment(&mut self, id: StableId, text: impl Into<String>) -> Result<(), PortError> {
         self.set_fact(id, FactKind::Comment(text.into()))
     }
@@ -188,7 +219,11 @@ impl Session {
         self.program
             .facts
             .retain(|f| !(f.target == id && std::mem::discriminant(&f.kind) == d));
-        self.program.facts.push(UserFact { target: id, kind, author: self.principal.clone() });
+        self.program.facts.push(UserFact {
+            target: id,
+            kind,
+            author: self.principal.clone(),
+        });
         Ok(())
     }
 
@@ -233,7 +268,12 @@ mod tests {
     }
 
     fn id_of(s: &Session, name: &str) -> StableId {
-        s.program().functions.iter().find(|f| f.name == name).unwrap().id
+        s.program()
+            .functions
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap()
+            .id
     }
 
     #[test]
@@ -285,7 +325,10 @@ mod tests {
     #[test]
     fn unknown_function_is_a_typed_error() {
         let s = session();
-        assert_eq!(s.view(StableId(99999), Zoom::Domain), Err(PortError::NoSuchFunction(StableId(99999))));
+        assert_eq!(
+            s.view(StableId(99999), Zoom::Domain),
+            Err(PortError::NoSuchFunction(StableId(99999)))
+        );
     }
 
     #[test]
@@ -299,7 +342,12 @@ mod tests {
         assert_eq!(f.author, Some(Principal("local".into())));
 
         let reloaded = Session::from_artifact(&s.to_artifact()).unwrap();
-        let rf = reloaded.program().facts.iter().find(|f| f.target == gcd).unwrap();
+        let rf = reloaded
+            .program()
+            .facts
+            .iter()
+            .find(|f| f.target == gcd)
+            .unwrap();
         assert_eq!(rf.author, Some(Principal("local".into())));
     }
 
@@ -315,7 +363,31 @@ mod tests {
         // The user functions re-pair across the fresh ids (address-independent).
         let names: Vec<&String> = diff.matched.iter().map(|(x, _)| x).collect();
         for n in ["gcd", "fib", "main"] {
-            assert!(names.contains(&&n.to_string()), "{n} should pair with itself");
+            assert!(
+                names.contains(&&n.to_string()),
+                "{n} should pair with itself"
+            );
         }
+    }
+
+    #[test]
+    fn blank_annotations_are_rejected_as_invalid_input() {
+        // DD-021: a name/type must be non-blank (Ghidra's InvalidInputException);
+        // a comment may be empty (clearing it is a legitimate edit).
+        let mut s = session();
+        let gcd = id_of(&s, "gcd");
+        assert_eq!(
+            s.rename(gcd, ""),
+            Err(PortError::InvalidInput(
+                "a function name cannot be empty".into()
+            ))
+        );
+        assert!(matches!(
+            s.rename(gcd, "   "),
+            Err(PortError::InvalidInput(_))
+        ));
+        assert!(matches!(s.retype(gcd, ""), Err(PortError::InvalidInput(_))));
+        assert!(s.rename(gcd, "euclid_gcd").is_ok());
+        assert!(s.comment(gcd, "").is_ok());
     }
 }

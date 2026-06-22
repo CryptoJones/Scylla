@@ -46,16 +46,25 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Engine-as-service (DD-040)
 
-- [ ] **Warm co-resident engine (perf) — DE-RISKED, GO; build pending.** Materialize cold-launches
-  `analyzeHeadless` per call (~6s host / ~25s container, almost all fixed JVM+Ghidra init). Keep a
-  GayHydra context warm in-process instead. The classloader-coexistence **spike is done**
-  ([spike/warm-engine/](spike/warm-engine/)): grpc-netty-shaded + in-process Ghidra
-  `Application.initializeApplication` coexist in ONE JVM under BOTH the default classloader and the
-  GhidraClassLoader (~700ms init) — the DD-040 nightmare doesn't happen. **Verdict GO.** Build:
-  serve `Materialize` from a warm context (in-process import+analyze), subprocess as the fallback
-  behind the same RPC (DD-040). Open implementation questions in SPIKE-REPORT.md: the in-process
-  analysis loop, and **concurrency** (Ghidra analysis isn't thread-safe per program → a serialized
-  queue / pool of warm contexts, not a free-for-all).
+- [x] **Warm co-resident engine (perf) — BUILT (DD-040).** Materialize used to cold-launch
+  `analyzeHeadless` per call (~6s host / ~25s container, almost all fixed JVM+Ghidra init). Now,
+  opt-in via `SCYLLA_ENGINE_WARM`, the service stands up ONE resident GayHydra JVM at startup that
+  inits the application + SLEIGH + decompiler once, then imports + analyzes each binary in-process
+  — only the first call pays cold init, the rest are ~2s. The worker (`engine-service/warm-worker/
+  ScyllaWarmWorker.java`) is a **standalone Java program, NOT a Ghidra script**: the OSGi script
+  compiler can't see `ProgramLoader` / `AutoAnalysisManager`, so the warm path must compile against
+  the dist directly (`EngineServer.WarmEngine` runs `javac` at startup, exactly like the de-risk
+  spike — no build-coupling to the ~890MB dist). Requests are **serialized** (Ghidra analysis isn't
+  thread-safe per program); a wedged/failed call kills the worker and the RPC **falls back to the
+  cold subprocess** (the subprocess is the fallback behind the same RPC, DD-040). Proven live:
+  warm artifact is **byte-identical** to the cold one (mathlib 13 functions, 1072 bytes), at
+  **~3x** the speed (6.2s cold → 1.7–2.0s warm, host), end to end through gRPC + the `scylla` CLI +
+  the Cap'n Proto artifact. The classloader-coexistence **spike** ([spike/warm-engine/](spike/warm-engine/))
+  proved grpc-netty-shaded + in-process `Application.initializeApplication` coexist in ONE JVM
+  (~700ms) — the DD-040 nightmare didn't happen. Default OFF: cold-only stays the proven,
+  dependency-light path; warm is opt-in. Follow-up: a **pool of warm contexts** (not just one) for
+  concurrent materialize, and consolidating the dump extraction shared with `dump_model.java`
+  (currently duplicated — the cold script can't link the standalone worker's class).
 - [x] **Wire the Rust core to the engine-port gRPC stream.** The new `scylla` CLI
   (`crates/scylla-cli`) is the composition root: `scylla materialize <endpoint> <binary>
   <out.scylla>` drives the engine-service over gRPC and consumes the `Materialize` stream straight

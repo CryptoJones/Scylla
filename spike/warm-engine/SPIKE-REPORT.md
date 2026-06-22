@@ -71,3 +71,33 @@ JVM. The classloader is not the blocker DD-040 feared.
   safety valve — and it's also the only safe option once the *dynamic*-analysis producer exists.
 - **First implementation step:** a serialized warm-analysis loop (one context, a request queue),
   measured warm-vs-cold, before any pooling.
+
+## Build outcome — BUILT (everything above proven out)
+
+The build followed the recommendation. Two things the spike left open were settled here:
+
+1. **The OSGi wall.** A Ghidra *script* (compiled via OSGi) **cannot** import `ProgramLoader` /
+   `AutoAnalysisManager`, so the in-process analysis loop can't live in `dump_model.java`. It lives
+   in a **standalone Java program** instead — `Worker.java` (this dir, the de-risk) and the
+   production `engine-service/warm-worker/ScyllaWarmWorker.java` — compiled at startup against the
+   mounted dist (like this spike), with **no OSGi limit and no build-coupling** to the ~890MB dist.
+2. **The in-process analysis loop.** `ProgramLoader.builder().source(file).project(null).load()` →
+   `getPrimaryDomainObject()` → `startTransaction` → `AutoAnalysisManager.initializeOptions()` /
+   `reAnalyzeAll(null)` / `startAnalysis(DUMMY)` → `markProgramAnalyzed` → `endTransaction` →
+   `lr.close()`. Same extraction as the cold script; same JSON contract.
+
+**Measured, end to end (gRPC → `scylla` CLI → Cap'n Proto artifact), host:**
+
+| call | binary | functions | time |
+|------|--------|-----------|------|
+| cold subprocess (`analyzeHeadless`) | mathlib | 13 | **6.2 s** |
+| warm #1 (first analyze, engine already up) | mathlib | 13 | 3.7 s |
+| warm #2 | strutil | 12 | **1.7 s** |
+| warm #3 | mathlib | 13 | **2.0 s** |
+
+Warm engine start-up (javac compile + `Application.initializeApplication`): **~1.7 s, paid once.**
+The warm artifact is **byte-identical** to the cold one (`cmp` clean, 1072 bytes) — same model, ~3x
+faster. **Concurrency** is handled by serializing requests (one warm context, a `synchronized`
+materialize); a pool is the noted follow-up. A wedged/failed warm call kills the worker and the RPC
+**falls back to the cold subprocess** — the DD-040 safety valve, live. Opt-in via
+`SCYLLA_ENGINE_WARM`; default OFF (cold-only stays the proven, dependency-light path).

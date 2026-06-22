@@ -20,10 +20,16 @@ exec docker run --rm \
   --security-opt no-new-privileges \
   --memory 4g --cpus 2 --pids-limit 512 \
   -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
+  -e SCYLLA_ENGINE_WARM="${SCYLLA_ENGINE_WARM:-}" \
   -v "$GHIDRA_DIST":/opt/gayhydra:ro \
   -v "$SOCK_DIR":/run/scylla:rw \
   scylla-engine-service:dev
 
+# WARM ENGINE (DD-040), opt-in: run with `SCYLLA_ENGINE_WARM=1 ./run-sandboxed.sh` to keep one
+# resident GayHydra JVM warm in-process (~2s/call vs ~6s cold). It compiles + runs entirely inside
+# the locked-down container — the worker classes land on the writable, exec, RAM-backed /tmp tmpfs
+# and read the RO dist mount; no extra capability, no network, the lockdown below is unchanged.
+#
 # THE FULL DD-034 LOCKDOWN (GAP-1 closed): `--network none` removes every interface but loopback,
 # so there is no published port and no route out; gRPC travels over a Unix socket on the
 # bind-mounted, host-private $SOCK_DIR. `/tmp` stays the one writable tmpfs (exec, RAM-backed,

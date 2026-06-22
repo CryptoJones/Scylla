@@ -88,11 +88,22 @@ Tracked "later / someday" items that aren't on the current sprint path
     the OPPOSITE of Scylla's hard cases. Measured (mathlib, WRONG=0): recompile O0→O2 VT recovers **0**
     user functions vs the four-pass matcher's 40%; cross-arch VT recovers **0** (no shared
     bytes/instructions → no seeds) vs 40%. VT would underperform the matcher we already ship on the
-    cases that matter. **Real next levers** (both separate, heavier de-risks): **BSim**
-    (`VersionTrackingBSim`, LSH over decompiler p-code feature vectors — ISA-abstracting) for the
-    symmetric leaves + cross-arch; a **Go-aware producer** (Go string blob + runtime devirtualization)
-    so the existing anchor fires on Go. VT *is* right for a future near-identical patch-diffing use
-    case, not this gap.
+    cases that matter. **Real next levers:** a **Go-aware producer** (de-risked, GO — see below) and
+    **BSim** (`VersionTrackingBSim`, LSH over decompiler p-code feature vectors — ISA-abstracting; the
+    heavier, still-un-de-risked alternative for the symmetric C leaves + cross-arch). VT *is* right for
+    a future near-identical patch-diffing use case, not this gap.
+  - [ ] **Go-aware producer — DE-RISKED, GO; build pending (DD-043).** The DD-041 cross-arch lever is
+    C-centric, so Go recovers 0 cross-arch. The de-risk spike ([spike/go-producer/](spike/go-producer/))
+    found the fix and proved it: **callee NAMES** are the arch-independent signal — Ghidra recovers Go
+    function names from `.gopclntab` even when the binary is STRIPPED (`-s -w -trimpath`: 1 `FUN_`
+    placeholder of 1575), and a function's callee-name set is identical amd64↔arm64 (Jaccard 1.0).
+    Folding callee-names into the anchor set takes Go cross-arch **0 → 2/4** (`main.main` anchors,
+    `main.fib` propagates), `WRONG=0`. **Caveat:** Ghidra's Go support lags the release — Go 1.26
+    crashes `GolangSymbolAnalyzer` (struct layout too new for GayHydra 26.3), Go 1.22 works; viable
+    for supported Go versions. **Build:** emit `callee_names` (excluding `FUN_*`) from `ScyllaModel`,
+    carry it over the wire + Cap'n Proto, fold into the matcher `anchor_set`, and keep the C gate
+    honest (unstripped C fixtures would cheat via internal callee names — restrict the contribution to
+    inter-package/library names, or add stripped C fixtures). The cheaper of the two cross-arch levers.
 
 ## Engine-as-service (DD-040)
 

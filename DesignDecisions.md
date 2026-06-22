@@ -584,6 +584,25 @@ de-risk) or, for Go specifically, a **Go-aware producer** (extract Go's string b
 runtime calls so the existing anchor fires). VT *is* the right tool if Scylla ever targets near-
 identical patch diffing (the classic CVE-patch use case) — filed there, not against the cross-arch gap.
 
+**DD-043 — Go-aware producer: de-risked, GO (callee NAMES are the arch-independent lever).** The
+corpus validation (DD-041 / `docs/corpus-findings.md`) found Go binaries recover **0** functions
+cross-architecture: Go strings aren't NUL-terminated C strings and `fmt.Printf` isn't a dynamic
+import, so the C-centric anchor never fires. The de-risk spike (`spike/go-producer/`) found the fix
+and proved it. (1) Ghidra recovers Go function names from `.gopclntab` **even when the binary is
+stripped** (`-s -w -trimpath`) — pclntab survives because the Go runtime needs it; measured, a
+stripped Go 1.22 binary came back with 1 `FUN_` placeholder out of 1575. (2) A function's set of
+**callee NAMES** is **arch-independent** (Jaccard 1.0 amd64↔arm64): `main.main` → `{fmt.Fprintf,
+strconv.Atoi, runtime.convT64, main.fib, …}`. This is the Go analog of C imports, and richer (Go
+statically links the runtime, so call targets are named). (3) Folding callee-names into the anchor
+set recovers Go cross-arch **0 → 2/4** (`main.main` anchors, `main.fib` propagates), `WRONG=0`. The
+one caveat is external: Ghidra's Go support lags the release — Go **1.26** crashes the
+`GolangSymbolAnalyzer` (struct layout too new for GayHydra 26.3), Go **1.22** works perfectly; the
+producer is viable for Ghidra-supported Go versions. Build path (greenlit): emit `callee_names`
+(excluding `FUN_*`) from `ScyllaModel`, fold into the matcher's `anchor_set`, and keep the C gate
+honest (our unstripped C fixtures would otherwise "cheat" via internal callee names a stripped target
+wouldn't have — restrict the anchor's callee-name contribution to inter-package/library names, or add
+stripped C fixtures). The cheaper of the two cross-arch levers; BSim remains the heavier alternative.
+
 ---
 
 *Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/*

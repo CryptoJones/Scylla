@@ -52,7 +52,12 @@ anchor — the lever that cracks C cross-arch — **does not fire on Go**:
 
 So `main.main` has no arch-independent feature set on Go → no anchor → nothing for propagation to
 spread from → 0 cross-arch. Same-arch Go still works (cosine + structure + recursion), but cross-arch
-Go is exactly the case that needs a **Go-aware producer** (extract Go's string blob + devirtualize
-runtime calls) or the heavier **Ghidra Version Tracking** lever. This is now the concrete motivation
-for those, not a hypothetical. WRONG = 0 held even while recovering nothing — the matcher fails
-*closed* (flag, never guess), which is the contract.
+Go is exactly the case that needs a **Go-aware producer**. WRONG = 0 held even while recovering
+nothing — the matcher fails *closed* (flag, never guess), which is the contract.
+
+> **Update — the Go-aware producer is de-risked, verdict GO** (`spike/go-producer/`, DD-043). The
+> lever is **callee NAMES**: Ghidra recovers Go function names from `.gopclntab` even when the binary
+> is stripped, and a function's callee-name set is arch-independent (Jaccard 1.0 amd64↔arm64). Adding
+> it to the anchor set takes Go cross-arch from **0 → 2/4** (`main.main` + `main.fib`), `WRONG = 0`.
+> Caveat: Ghidra's Go support lags the release — Go 1.26 crashes the analyzer, Go 1.22 works. Build
+> path in the spike report.

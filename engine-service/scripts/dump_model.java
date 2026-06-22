@@ -2,25 +2,17 @@
  * Runs in GayHydra/Ghidra headless with no PyGhidra needed:
  *   analyzeHeadless ... -postScript dump_model.java <out.json>
  * Emits a normalized JSON snapshot (functions, call edges, BB counts, mnemonic
- * fingerprints) — the v1/v2 inputs the re-anchoring spike matches against.
+ * fingerprints, arch-independent string/import sets) — the v1/v2 inputs the
+ * re-anchoring matcher works against.
+ *
+ * The extraction itself lives in ScyllaModel (same scriptPath dir), SHARED with the warm
+ * in-process worker (DD-041) so the cold and warm producers can never drift. This script only
+ * supplies `currentProgram` + the monitor and writes the file — it is a thin headless adapter.
  * @category Scylla
  */
 import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
 
 import ghidra.app.script.GhidraScript;
-import ghidra.program.model.block.BasicBlockModel;
-import ghidra.program.model.block.CodeBlockIterator;
-import ghidra.program.model.listing.Data;
-import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.FunctionIterator;
-import ghidra.program.model.listing.FunctionManager;
-import ghidra.program.model.listing.Instruction;
-import ghidra.program.model.listing.InstructionIterator;
-import ghidra.program.model.listing.Listing;
-import ghidra.program.model.symbol.Reference;
 
 public class dump_model extends GhidraScript {
 
@@ -29,114 +21,10 @@ public class dump_model extends GhidraScript {
         String[] args = getScriptArgs();
         String outPath = (args.length > 0) ? args[0] : "/tmp/snapshot.json";
 
-        FunctionManager fm = currentProgram.getFunctionManager();
-        Listing listing = currentProgram.getListing();
-        BasicBlockModel bbm = new BasicBlockModel(currentProgram);
-
-        List<String> funcJson = new ArrayList<>();
-        FunctionIterator fit = fm.getFunctions(true);
-        while (fit.hasNext()) {
-            Function f = fit.next();
-            if (f.isExternal() || f.isThunk()) {
-                continue;
-            }
-
-            List<String> mnems = new ArrayList<>();
-            TreeSet<String> callees = new TreeSet<>();
-            // Arch-INDEPENDENT features (DD-041): the same function compiled for x86-64 vs aarch64
-            // shares neither mnemonics nor addresses, but it references the SAME string literals and
-            // calls the SAME imported symbols by NAME. These are the cross-architecture re-anchoring
-            // signal (cosine over mnemonics is ~0 across ISAs). Sorted sets → stable, set-comparable.
-            TreeSet<String> imports = new TreeSet<>();
-            TreeSet<String> stringRefs = new TreeSet<>();
-            InstructionIterator iit = listing.getInstructions(f.getBody(), true);
-            while (iit.hasNext()) {
-                Instruction ins = iit.next();
-                mnems.add(ins.getMnemonicString());
-                for (Reference ref : ins.getReferencesFrom()) {
-                    if (ref.getReferenceType().isCall()) {
-                        Function tgt = fm.getFunctionAt(ref.getToAddress());
-                        if (tgt != null) {
-                            if (tgt.isExternal() || tgt.isThunk()) {
-                                // an imported/library call (printf, atoi, …) — keyed by NAME, which
-                                // is identical across architectures, unlike its PLT/thunk address.
-                                imports.add(tgt.getName());
-                            } else {
-                                callees.add(tgt.getEntryPoint().toString());
-                            }
-                        }
-                    } else if (ref.getReferenceType().isData()) {
-                        Data d = listing.getDataAt(ref.getToAddress());
-                        if (d != null && d.hasStringValue()) {
-                            Object v = d.getValue();
-                            if (v != null) {
-                                stringRefs.add(v.toString());
-                            }
-                        }
-                    }
-                }
-            }
-
-            int bb = 0;
-            CodeBlockIterator cbi = bbm.getCodeBlocksContaining(f.getBody(), monitor);
-            while (cbi.hasNext()) {
-                cbi.next();
-                bb++;
-            }
-
-            StringBuilder fj = new StringBuilder();
-            fj.append("    {");
-            fj.append("\"entry\": ").append(jstr(f.getEntryPoint().toString())).append(", ");
-            fj.append("\"name\": ").append(jstr(f.getName())).append(", ");
-            fj.append("\"size\": ").append(f.getBody().getNumAddresses()).append(", ");
-            fj.append("\"bb_count\": ").append(bb).append(", ");
-            fj.append("\"mnemonic_count\": ").append(mnems.size()).append(", ");
-            fj.append("\"callees\": ").append(jarr(new ArrayList<>(callees))).append(", ");
-            fj.append("\"imports\": ").append(jarr(new ArrayList<>(imports))).append(", ");
-            fj.append("\"string_refs\": ").append(jarr(new ArrayList<>(stringRefs))).append(", ");
-            fj.append("\"mnemonics\": ").append(jarr(mnems));
-            fj.append("}");
-            funcJson.add(fj.toString());
+        String json = ScyllaModel.toJson(currentProgram, monitor);
+        try (FileWriter w = new FileWriter(outPath)) {
+            w.write(json);
         }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append("  \"program\": ").append(jstr(currentProgram.getName())).append(",\n");
-        sb.append("  \"language\": ").append(jstr(currentProgram.getLanguageID().toString())).append(",\n");
-        sb.append("  \"function_count\": ").append(funcJson.size()).append(",\n");
-        sb.append("  \"functions\": [\n");
-        sb.append(String.join(",\n", funcJson));
-        sb.append("\n  ]\n}\n");
-
-        FileWriter w = new FileWriter(outPath);
-        w.write(sb.toString());
-        w.close();
-        println("Scylla: wrote snapshot with " + funcJson.size() + " functions to " + outPath);
-    }
-
-    private static String jstr(String s) {
-        StringBuilder b = new StringBuilder("\"");
-        for (char c : s.toCharArray()) {
-            if (c == '"' || c == '\\') {
-                b.append('\\').append(c);
-            } else if (c == '\n') {
-                b.append("\\n");
-            } else if (c == '\t') {
-                b.append("\\t");
-            } else if (c < 0x20) {
-                b.append(String.format("\\u%04x", (int) c));
-            } else {
-                b.append(c);
-            }
-        }
-        return b.append("\"").toString();
-    }
-
-    private static String jarr(List<String> xs) {
-        List<String> q = new ArrayList<>();
-        for (String x : xs) {
-            q.add(jstr(x));
-        }
-        return "[" + String.join(", ", q) + "]";
+        println("Scylla: wrote snapshot to " + outPath);
     }
 }

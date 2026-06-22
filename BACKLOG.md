@@ -53,9 +53,15 @@ Tracked "later / someday" items that aren't on the current sprint path
     positive (an inlined-away function latching onto a CRT stub via common small-function mnemonics),
     fixed with **reciprocal-best matching** (a fuzzy match must be mutual). `WRONG=0` held; edit
     classes still 100%. Grounded in the cross-ISA diffing literature (BinDiff/SIGMADIFF anchor on
-    strings+imports) via deep research, not guessed. The string/import extraction is **duplicated**
-    between `dump_model.java` and `ScyllaWarmWorker.java` (kept in sync by hand) — consolidation is a
-    tracked wart.
+    strings+imports) via deep research, not guessed.
+  - [x] **Consolidate the extraction (DD-041).** The program→snapshot-JSON extraction is now a single
+    `ScyllaModel.toJson` (in `engine-service/scripts/ScyllaModel.java`), called by BOTH producers:
+    `dump_model.java` (the cold/offline Ghidra script) and `ScyllaWarmWorker.java` (the warm
+    standalone worker). The earlier "OSGi can't share" fear was about the *import+analyze* classes
+    (`ProgramLoader`/`AutoAnalysisManager`) — the extraction touches none of those, only the public
+    `ghidra.program.model.*` API a script may use, so the OSGi script compiler resolves it as a
+    scriptPath helper (verified). The engine-service compiles `ScyllaModel` alongside the worker.
+    Cold AND warm outputs proven byte-identical to before. No more by-hand sync.
   - [x] **Call-graph propagation from the anchors (DD-041).** A fourth `scylla-merge` pass spreads
     confirmed matches along the **call graph**: a function the other passes can't place is matched by
     its position relative to already-matched functions, using a deliberately NON-structural
@@ -86,9 +92,9 @@ Tracked "later / someday" items that aren't on the current sprint path
   the Cap'n Proto artifact. The classloader-coexistence **spike** ([spike/warm-engine/](spike/warm-engine/))
   proved grpc-netty-shaded + in-process `Application.initializeApplication` coexist in ONE JVM
   (~700ms) — the DD-040 nightmare didn't happen. Default OFF: cold-only stays the proven,
-  dependency-light path; warm is opt-in. Follow-up: a **pool of warm contexts** (not just one) for
-  concurrent materialize, and consolidating the dump extraction shared with `dump_model.java`
-  (currently duplicated — the cold script can't link the standalone worker's class).
+  dependency-light path; warm is opt-in. The dump extraction is now shared with `dump_model.java`
+  via `ScyllaModel` (see the re-anchoring section — DD-041 consolidation). Follow-up: a **pool of
+  warm contexts** (not just one) for concurrent materialize.
 - [x] **Wire the Rust core to the engine-port gRPC stream.** The new `scylla` CLI
   (`crates/scylla-cli`) is the composition root: `scylla materialize <endpoint> <binary>
   <out.scylla>` drives the engine-service over gRPC and consumes the `Materialize` stream straight

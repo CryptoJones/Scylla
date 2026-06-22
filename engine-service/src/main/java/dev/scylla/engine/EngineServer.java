@@ -134,13 +134,14 @@ public final class EngineServer {
         private final BufferedWriter toWorker;
         private final BlockingQueue<String> markers = new LinkedBlockingQueue<>();
 
-        WarmEngine(String dist, String workerSrc) throws Exception {
+        WarmEngine(String dist, String workerSrc, String modelSrc) throws Exception {
             String distCp = distClasspath(dist);
             Path classesDir = Files.createTempDirectory("scylla-warm-classes");
 
-            // Compile the worker against the dist (javac ships in the JDK image). One-time, ~1s.
+            // Compile the worker AND the shared ScyllaModel extraction (DD-041 — same source the cold
+            // dump_model.java script uses) against the dist. javac ships in the JDK image. One-time, ~1s.
             Process jc = new ProcessBuilder("javac", "-proc:none", "-cp", distCp,
-                    "-d", classesDir.toString(), workerSrc)
+                    "-d", classesDir.toString(), workerSrc, modelSrc)
                     .redirectErrorStream(true).start();
             byte[] jcLog = jc.getInputStream().readAllBytes();
             if (!jc.waitFor(120, TimeUnit.SECONDS) || jc.exitValue() != 0) {
@@ -454,13 +455,17 @@ public final class EngineServer {
         WarmEngine warm = null;
         if (isTruthy(System.getenv("SCYLLA_ENGINE_WARM"))) {
             String workerSrc = resolveWarmWorkerSrc();
-            if (workerSrc.isEmpty()) {
-                System.err.println("WARN: SCYLLA_ENGINE_WARM set but ScyllaWarmWorker.java not found "
-                        + "(set SCYLLA_WARM_WORKER_SRC). Running COLD.");
+            // ScyllaModel.java (the shared extraction, DD-041) lives beside dump_model.java in the
+            // script dir; the worker is compiled together with it.
+            String modelSrc = Path.of(scriptDir, "ScyllaModel.java").toString();
+            if (workerSrc.isEmpty() || !Files.isRegularFile(Path.of(modelSrc))) {
+                System.err.println("WARN: SCYLLA_ENGINE_WARM set but the warm worker sources weren't "
+                        + "found (worker='" + workerSrc + "', model='" + modelSrc
+                        + "'; set SCYLLA_WARM_WORKER_SRC). Running COLD.");
             } else {
                 long t0 = System.nanoTime();
                 try {
-                    warm = new WarmEngine(dist, workerSrc);
+                    warm = new WarmEngine(dist, workerSrc, modelSrc);
                     System.out.println("warm engine ready in "
                             + ((System.nanoTime() - t0) / 1_000_000L) + " ms (in-process GayHydra)");
                 } catch (Exception e) {

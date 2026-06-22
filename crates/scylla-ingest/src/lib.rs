@@ -33,6 +33,11 @@ struct SnapFunc {
     /// snapshots → empty.
     #[serde(default)]
     callee_names: Vec<String>,
+    /// BSim LSH feature vector (DD-044): `(feature_hash, f32-weight-bits)` pairs. Absent in older
+    /// snapshots and on the cold path → empty (the cross-arch BSim re-anchoring pass simply doesn't
+    /// fire), so it degrades cleanly.
+    #[serde(default)]
+    bsim_vector: Vec<(u32, u32)>,
 }
 
 #[derive(Deserialize)]
@@ -80,7 +85,7 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             string_refs: f.string_refs.clone(),
             imports: f.imports.clone(),
             callee_names: f.callee_names.clone(),
-            bsim_vector: Vec::new(),
+            bsim_vector: f.bsim_vector.clone(),
         });
     }
 
@@ -155,5 +160,24 @@ mod tests {
             "both vtable area() overrides should materialize"
         );
         assert!(names.contains(&"Circle") && names.contains(&"Square"), "constructors present");
+    }
+
+    // DD-044: the snapshot carries the BSim feature vector as [[hash, f32_bits], …]; absent → empty.
+    #[test]
+    fn ingests_bsim_vector_and_degrades_when_absent() {
+        let json = r#"{"program":"p","language":"x86:LE:64:default","functions":[
+            {"entry":"0x1000","name":"factorial","size":40,"bb_count":3,
+             "bsim_vector":[[3735928559,1065353216],[4660,1056964608]]}
+        ]}"#;
+        let prog = snapshot_to_program(json).expect("parse snapshot with bsim_vector");
+        let f = prog.functions.iter().find(|f| f.name == "factorial").unwrap();
+        // 0xDEADBEEF -> 1.0f32 bits, 0x1234 -> 0.5f32 bits — carried verbatim into the model.
+        assert_eq!(
+            f.bsim_vector,
+            vec![(0xDEAD_BEEFu32, 1.0f32.to_bits()), (0x1234u32, 0.5f32.to_bits())]
+        );
+        // Older snapshots without the field degrade cleanly to empty (the BSim pass won't fire).
+        let bare = snapshot_to_program(MATHLIB).unwrap();
+        assert!(bare.functions.iter().all(|f| f.bsim_vector.is_empty()));
     }
 }

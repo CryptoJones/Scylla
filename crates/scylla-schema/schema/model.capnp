@@ -27,6 +27,16 @@ struct Function {
                                 # too. stringRefs+imports drive the cross-architecture ANCHOR pass.
   calleeNames @10 :List(Text);  # PACKAGE-QUALIFIED callee names (fmt.Fprintf, main.fib) — the Go
                                 # cross-arch lever (DD-043): survive .gopclntab stripping, ISA-stable.
+  bsimVector  @11 :List(BsimFeature);  # BSim decompiler-signature LSH feature vector (DD-044): the
+                                # ISA-abstracting cross-architecture lever for the symmetric arithmetic
+                                # leaves (factorial/sum_to) that strings/imports/callee-names/mnemonics
+                                # all miss. A weighted cosine over these == Ghidra's LSHVector.compare,
+                                # because the producer bakes BSim's feature weights into the coeffs.
+}
+
+struct BsimFeature {
+  hash   @0 :UInt32;   # decompiler p-code feature hash
+  weight @1 :UInt32;   # IEEE-754 bits of the f32 coefficient (kept integral so the model is exact)
 }
 
 struct MnemonicCount {

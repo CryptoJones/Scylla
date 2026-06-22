@@ -60,6 +60,15 @@ message FunctionChunk {
   repeated string imports = 8;     // imported/library calls BY NAME (printf, …) — arch-independent.
   repeated string callee_names = 9; // PACKAGE-QUALIFIED callee names (fmt.Fprintf, main.fib) — the
                                    // Go cross-arch lever (DD-043): survive pclntab stripping, ISA-stable.
+  repeated BsimFeature bsim_vector = 10; // BSim decompiler-signature LSH feature vector (DD-044) — the
+                                   // ISA-abstracting cross-arch lever for the symmetric arithmetic
+                                   // leaves. weight = f32 bits of the producer-weighted coefficient.
+}
+
+// One BSim LSH feature: a decompiler p-code feature hash + the f32-bits of its weighted coefficient.
+message BsimFeature {
+  uint32 hash = 1;
+  uint32 weight = 2;
 }
 
 message DecompileRequest { uint64 entry = 1; }

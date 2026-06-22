@@ -67,6 +67,12 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             for (j, s) in f.callee_names.iter().enumerate() {
                 cn.set(j as u32, s.as_str());
             }
+            let mut bv = fb.reborrow().init_bsim_vector(f.bsim_vector.len() as u32);
+            for (j, (h, w)) in f.bsim_vector.iter().enumerate() {
+                let mut bf = bv.reborrow().get(j as u32);
+                bf.set_hash(*h);
+                bf.set_weight(*w);
+            }
         }
 
         let mut facts = p.reborrow().init_facts(prog.facts.len() as u32);
@@ -131,9 +137,13 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
                 }
                 v
             },
-            // Not yet carried by the artifact — the capnp field + (de)serialization land with the
-            // producer that populates it (DD-044 slice 2); empty round-trips losslessly until then.
-            bsim_vector: Vec::new(),
+            bsim_vector: {
+                let mut v = Vec::new();
+                for bf in f.get_bsim_vector()?.iter() {
+                    v.push((bf.get_hash(), bf.get_weight()));
+                }
+                v
+            },
         });
     }
 
@@ -313,7 +323,7 @@ mod tests {
                     string_refs: vec!["result=%d\n".into()],
                     imports: vec!["printf".into()],
                     callee_names: vec!["main.helper".into()],
-                    bsim_vector: vec![],
+                    bsim_vector: vec![(0xDEAD_BEEF, 1.0f32.to_bits()), (0x1234, 0.5f32.to_bits())],
                 },
             ],
             facts: vec![

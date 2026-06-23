@@ -539,10 +539,11 @@ pub fn merge_into(old: &Program, new: &mut Program) -> MergeReport {
 pub struct ProgramDiff {
     /// `(a_id, b_id)` pairs matched by a UNIQUE shared structural signature (body unchanged).
     pub matched: Vec<(StableId, StableId)>,
-    /// `(a_id, b_id)` pairs whose BODY changed (the exact signature differs) but whose call-graph
-    /// neighbourhood among the EXACT-matched anchors agrees uniquely — the *same* function, modified.
-    /// BinDiff-style call-graph propagation iterated to a fixpoint, fail-closed: an ambiguous or
-    /// un-anchored neighbourhood is left in `only_a`/`only_b`, never guessed.
+    /// `(a_id, b_id)` pairs whose BODY changed (the exact signature differs) but which a later pass
+    /// re-identified as the *same* function, modified — by call-graph **propagation**, unique
+    /// arch-independent features (**anchor**: strings/imports), or mnemonic-mix similarity (**fuzzy**).
+    /// Fail-closed: a function with no unique reciprocal match across every pass stays in
+    /// `only_a`/`only_b`, never guessed (WRONG=0).
     pub changed: Vec<(StableId, StableId)>,
     /// Stable ids present only in `a` (removed / only-here).
     pub only_a: Vec<StableId>,
@@ -567,6 +568,154 @@ fn group_unique(items: &[(StableId, Neighbourhood)]) -> HashMap<Neighbourhood, S
         .filter(|(_, k)| counts[k] == 1)
         .map(|(id, k)| (k.clone(), *id))
         .collect()
+}
+
+/// Record a leftover pairing found by propagation/anchor/fuzzy: an UNCHANGED body (equal signature)
+/// is a `matched` the earlier passes missed only on ambiguity; a differing body is `changed`.
+fn record_pair(
+    diff: &mut ProgramDiff,
+    a_fn: &HashMap<StableId, &Function>,
+    b_fn: &HashMap<StableId, &Function>,
+    aid: StableId,
+    bid: StableId,
+) {
+    if signature(a_fn[&aid]) == signature(b_fn[&bid]) {
+        diff.matched.push((aid, bid));
+    } else {
+        diff.changed.push((aid, bid));
+    }
+}
+
+/// The candidate maximising `score`, accepted ONLY if it clears `threshold` AND beats the runner-up
+/// by `margin` — the never-guess-a-near-tie rule the exact/anchor/fuzzy/propagation passes all share.
+fn best_unique(
+    cands: &[StableId],
+    score: impl Fn(StableId) -> f64,
+    threshold: f64,
+    margin: f64,
+) -> Option<StableId> {
+    let (mut best, mut best_s, mut second_s) = (None, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for &id in cands {
+        let s = score(id);
+        if s > best_s {
+            second_s = best_s;
+            best_s = s;
+            best = Some(id);
+        } else if s > second_s {
+            second_s = s;
+        }
+    }
+    best.filter(|_| best_s >= threshold && best_s - second_s >= margin)
+}
+
+/// One round of call-graph propagation: pair leftovers whose neighbourhood of already-matched
+/// callers/callees is unique on both sides (in the shared id space). Mutates `diff` + the leftovers.
+fn propagate_round(
+    a: &Program,
+    b: &Program,
+    a_fn: &HashMap<StableId, &Function>,
+    b_fn: &HashMap<StableId, &Function>,
+    diff: &mut ProgramDiff,
+    left_a: &mut Vec<StableId>,
+    left_b: &mut Vec<StableId>,
+) {
+    let a2b: HashMap<StableId, StableId> =
+        diff.matched.iter().chain(diff.changed.iter()).copied().collect();
+    let matched_b: HashSet<StableId> = a2b.values().copied().collect();
+    let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
+    for f in &a.functions {
+        if let Some(&canon) = a2b.get(&f.id) {
+            for c in &f.callees {
+                a_callers.entry(*c).or_default().insert(canon);
+            }
+        }
+    }
+    let mut b_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
+    for f in &b.functions {
+        if matched_b.contains(&f.id) {
+            for c in &f.callees {
+                b_callers.entry(*c).or_default().insert(f.id);
+            }
+        }
+    }
+    let key_a = |id: &StableId| -> Neighbourhood {
+        let callees = a_fn[id].callees.iter().filter_map(|c| a2b.get(c).copied()).collect();
+        (callees, a_callers.get(id).cloned().unwrap_or_default())
+    };
+    let key_b = |id: &StableId| -> Neighbourhood {
+        let callees =
+            b_fn[id].callees.iter().filter(|c| matched_b.contains(c)).copied().collect();
+        (callees, b_callers.get(id).cloned().unwrap_or_default())
+    };
+    let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
+    let a_keys: Vec<(StableId, Neighbourhood)> = left_a.iter().map(|id| (*id, key_a(id))).collect();
+    let b_keys: Vec<(StableId, Neighbourhood)> = left_b.iter().map(|id| (*id, key_b(id))).collect();
+    let a_by_key = group_unique(&a_keys);
+    let b_by_key = group_unique(&b_keys);
+    let mut paired_a: HashSet<StableId> = HashSet::new();
+    let mut paired_b: HashSet<StableId> = HashSet::new();
+    for (id, k) in &a_keys {
+        if !nonempty(k) {
+            continue;
+        }
+        let (Some(&ua), Some(&ub)) = (a_by_key.get(k), b_by_key.get(k)) else {
+            continue;
+        };
+        if ua != *id || paired_b.contains(&ub) {
+            continue;
+        }
+        record_pair(diff, a_fn, b_fn, *id, ub);
+        paired_a.insert(*id);
+        paired_b.insert(ub);
+    }
+    left_a.retain(|id| !paired_a.contains(id));
+    left_b.retain(|id| !paired_b.contains(id));
+}
+
+/// One round of FEATURE matching: pair leftovers by a reciprocal unique best over `score` — ANCHOR
+/// (Jaccard of arch-independent features: strings/imports/callee-names) or FUZZY (mnemonic cosine +
+/// structure). Both sides are filtered to `eligible` first, so an undiscriminating function (too few
+/// features / no mnemonics) does NOT participate — the many feature-poor functions never look alike.
+/// Fail-closed: only a reciprocal unique winner clearing `threshold` + `margin` pairs (WRONG=0).
+#[allow(clippy::too_many_arguments)]
+fn feature_round(
+    a_fn: &HashMap<StableId, &Function>,
+    b_fn: &HashMap<StableId, &Function>,
+    diff: &mut ProgramDiff,
+    left_a: &mut Vec<StableId>,
+    left_b: &mut Vec<StableId>,
+    eligible: impl Fn(&Function) -> bool,
+    score: impl Fn(&Function, &Function) -> f64,
+    threshold: f64,
+    margin: f64,
+) {
+    let a_elig: Vec<StableId> = left_a.iter().copied().filter(|id| eligible(a_fn[id])).collect();
+    let b_elig: Vec<StableId> = left_b.iter().copied().filter(|id| eligible(b_fn[id])).collect();
+    if a_elig.is_empty() || b_elig.is_empty() {
+        return;
+    }
+    let mut paired_a: HashSet<StableId> = HashSet::new();
+    let mut paired_b: HashSet<StableId> = HashSet::new();
+    for &aid in &a_elig {
+        let Some(bid) =
+            best_unique(&b_elig, |bid| score(a_fn[&aid], b_fn[&bid]), threshold, margin)
+        else {
+            continue;
+        };
+        if paired_b.contains(&bid) {
+            continue;
+        }
+        // reciprocal-best (symmetric match): `aid` must also be `bid`'s unique best.
+        let recip = best_unique(&a_elig, |aid2| score(b_fn[&bid], a_fn[&aid2]), threshold, margin);
+        if recip != Some(aid) {
+            continue;
+        }
+        record_pair(diff, a_fn, b_fn, aid, bid);
+        paired_a.insert(aid);
+        paired_b.insert(bid);
+    }
+    left_a.retain(|id| !paired_a.contains(id));
+    left_b.retain(|id| !paired_b.contains(id));
 }
 
 /// Structurally diff `a` against `b` — **address-independent**: functions pair by the EXACT-pass
@@ -613,91 +762,45 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
         .filter(|id| !claimed_b.contains(id))
         .collect();
 
-    // --- propagation rounds: pair leftovers by their anchored call-graph neighbourhood ----------
-    // Project each anchor into a shared id space: an a-side anchor maps to its b-side twin (`a2b`);
-    // a b-side anchor is its own canonical. So "calls the same anchored function" and "is called by
-    // the same anchored function" become comparable across the two programs. MULTI-ROUND: each
-    // round's new pairings (recovered `matched` AND `changed`) become anchors for the next, so a
-    // match chains through a freshly-recovered neighbour; fixpoint when a round adds nothing. Every
-    // round stays fail-closed (unique-on-both-sides + non-empty neighbourhood, never a guess).
+    // --- climb the matching ladder on the leftovers, to a fixpoint --------------------------------
+    // The same EXACT → PROPAGATION → ANCHOR → FUZZY ladder the merge engine uses, now driving the
+    // diff. Each pass's pairings become anchors for the next pass and the next iteration, so a match
+    // chains through freshly-recovered neighbours; fixpoint when an iteration adds nothing. Every
+    // pass is fail-closed (a unique reciprocal winner clearing threshold + margin, never a guess —
+    // WRONG=0). A recovered pair is `matched` if its body is unchanged, `changed` if it differs.
     let a_fn: HashMap<StableId, &Function> = a.functions.iter().map(|f| (f.id, f)).collect();
     let b_fn: HashMap<StableId, &Function> = b.functions.iter().map(|f| (f.id, f)).collect();
     loop {
-        // anchors so far: exact matches + everything propagation has paired (matched + changed).
-        let a2b: HashMap<StableId, StableId> =
-            diff.matched.iter().chain(diff.changed.iter()).copied().collect();
-        let matched_b: HashSet<StableId> = a2b.values().copied().collect();
-        let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
-        for f in &a.functions {
-            if let Some(&canon) = a2b.get(&f.id) {
-                for c in &f.callees {
-                    a_callers.entry(*c).or_default().insert(canon);
-                }
-            }
+        let before = diff.matched.len() + diff.changed.len();
+        // call-graph propagation: position relative to already-matched callers/callees.
+        propagate_round(a, b, &a_fn, &b_fn, &mut diff, &mut left_a, &mut left_b);
+        // ANCHOR: unique arch-independent features (strings / imports / package-qualified callees).
+        feature_round(
+            &a_fn,
+            &b_fn,
+            &mut diff,
+            &mut left_a,
+            &mut left_b,
+            |f| anchor_set(f).len() >= ANCHOR_MIN_FEATURES,
+            |x, y| jaccard(&anchor_set(x), &anchor_set(y)),
+            ANCHOR_THRESHOLD,
+            ANCHOR_MARGIN,
+        );
+        // FUZZY: mnemonic-mix cosine + structural closeness (the soft last resort).
+        feature_round(
+            &a_fn,
+            &b_fn,
+            &mut diff,
+            &mut left_a,
+            &mut left_b,
+            |f| !f.mnemonics.is_empty(),
+            similarity,
+            FUZZY_THRESHOLD,
+            FUZZY_MARGIN,
+        );
+        if diff.matched.len() + diff.changed.len() == before {
+            break; // fixpoint — no pass recovered anything this iteration
         }
-        let mut b_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
-        for f in &b.functions {
-            if matched_b.contains(&f.id) {
-                for c in &f.callees {
-                    b_callers.entry(*c).or_default().insert(f.id);
-                }
-            }
-        }
-        // neighbourhood key = (anchored callees, anchored callers), in the shared (b-side) id space.
-        let key_a = |id: &StableId| -> Neighbourhood {
-            let callees = a_fn[id]
-                .callees
-                .iter()
-                .filter_map(|c| a2b.get(c).copied())
-                .collect();
-            (callees, a_callers.get(id).cloned().unwrap_or_default())
-        };
-        let key_b = |id: &StableId| -> Neighbourhood {
-            let callees = b_fn[id]
-                .callees
-                .iter()
-                .filter(|c| matched_b.contains(c))
-                .copied()
-                .collect();
-            (callees, b_callers.get(id).cloned().unwrap_or_default())
-        };
-        let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
-        let a_keys: Vec<(StableId, Neighbourhood)> =
-            left_a.iter().map(|id| (*id, key_a(id))).collect();
-        let b_keys: Vec<(StableId, Neighbourhood)> =
-            left_b.iter().map(|id| (*id, key_b(id))).collect();
-        let a_by_key = group_unique(&a_keys);
-        let b_by_key = group_unique(&b_keys);
-        let mut paired_a: HashSet<StableId> = HashSet::new();
-        let mut paired_b: HashSet<StableId> = HashSet::new();
-        for (id, k) in &a_keys {
-            // unique on BOTH sides + non-trivial neighbourhood, else fail closed.
-            if !nonempty(k) {
-                continue;
-            }
-            let (Some(&ua), Some(&ub)) = (a_by_key.get(k), b_by_key.get(k)) else {
-                continue;
-            };
-            if ua != *id || paired_b.contains(&ub) {
-                continue;
-            }
-            // The neighbourhood disambiguated the pair. If the signatures actually differ, the body
-            // changed → `changed`; if they're equal, this leftover was merely signature-ambiguous (a
-            // structural twin the exact pass couldn't tell apart) and the call graph just resolved
-            // it, so it's an unchanged `matched`.
-            if signature(a_fn[id]) == signature(b_fn[&ub]) {
-                diff.matched.push((*id, ub));
-            } else {
-                diff.changed.push((*id, ub));
-            }
-            paired_a.insert(*id);
-            paired_b.insert(ub);
-        }
-        if paired_a.is_empty() {
-            break; // fixpoint — no leftover could be anchored this round
-        }
-        left_a.retain(|id| !paired_a.contains(id));
-        left_b.retain(|id| !paired_b.contains(id));
     }
     diff.only_a = left_a;
     diff.only_b = left_b;
@@ -1163,12 +1266,12 @@ mod tests {
         assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
     }
 
-    /// Fail-closed under propagation: if a function's body AND its call-graph neighbourhood both
-    /// change, it has no unique counterpart on the other side, so it is left in only_a/only_b —
-    /// never guessed (WRONG=0). Here gcd's body is edited AND it gains a call to `fib`, so its
-    /// anchored-callee set differs from every v1 leftover's.
+    /// Fail-closed across the WHOLE ladder: a function changed past EVERY discriminator is never
+    /// guessed (WRONG=0). gcd's body is edited (exact fails), it gains a call to `fib` so its
+    /// neighbourhood differs (propagation fails), it has no strings/imports (anchor can't), and its
+    /// mnemonic mix is wiped (fuzzy can't) — so it is left in only_a/only_b, never matched.
     #[test]
-    fn diff_propagation_never_guesses_when_the_neighbourhood_also_changed() {
+    fn diff_never_guesses_a_function_changed_past_every_discriminator() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let name =
@@ -1179,15 +1282,94 @@ mod tests {
             g.bb_count += 3;
             g.size += 64;
             g.fingerprint ^= 0xA5A5;
-            g.callees.push(fib_id); // its neighbourhood now differs from gcd-in-v1
+            g.callees.push(fib_id); // neighbourhood now differs from gcd-in-v1 → propagation can't
+            g.mnemonics.clear(); // no instruction mix → fuzzy can't (gcd has no strings either)
         }
         let d = diff_programs(&v1, &v2);
         assert!(
             !d.changed.iter().any(|(a, _)| name(&v1, *a) == "gcd"),
-            "gcd not guessed — its neighbourhood also changed"
+            "gcd not guessed — changed past every discriminator"
         );
         assert!(d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
         assert!(d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
+    }
+
+    /// ANCHOR pass: an ISOLATED function (no call edges → propagation can't) with NO mnemonics
+    /// (fuzzy can't) but a unique pair of string refs in both builds is re-identified by its
+    /// arch-independent features alone — the binary-diffing anchor (BinDiff/SIGMADIFF).
+    #[test]
+    fn diff_anchor_pass_matches_by_unique_features() {
+        let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let mut iso = v1.functions[0].clone();
+        iso.name = "string_keyed".into();
+        iso.callees.clear();
+        iso.imports.clear();
+        iso.callee_names.clear();
+        iso.mnemonics.clear(); // deny fuzzy
+        iso.string_refs = vec!["unique_marker_alpha".into(), "unique_marker_beta".into()];
+        let mut iso1 = iso.clone();
+        iso1.id = StableId(9_000_001);
+        iso1.bb_count = 5;
+        iso1.size = 100;
+        iso1.fingerprint = 0x1111;
+        let mut iso2 = iso;
+        iso2.id = StableId(9_000_002);
+        iso2.bb_count = 40; // a different body → exact + structure differ
+        iso2.size = 900;
+        iso2.fingerprint = 0x2222;
+        v1.functions.push(iso1);
+        v2.functions.push(iso2);
+        let d = diff_programs(&v1, &v2);
+        assert!(
+            d.changed
+                .iter()
+                .any(|(x, y)| name(&v1, *x) == "string_keyed" && name(&v2, *y) == "string_keyed"),
+            "anchor pass should re-identify the string-keyed function by its features"
+        );
+        assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "string_keyed"));
+        assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "string_keyed"));
+    }
+
+    /// FUZZY pass: an isolated function (propagation can't) with NO strings/imports (anchor can't)
+    /// but a near-identical mnemonic mix across builds is re-identified by cosine + structure — the
+    /// soft last resort, still threshold + margin + reciprocal (WRONG=0).
+    #[test]
+    fn diff_fuzzy_pass_matches_by_mnemonic_mix() {
+        let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let mut iso = v1.functions[0].clone();
+        iso.name = "mnemonic_keyed".into();
+        iso.callees.clear();
+        iso.imports.clear();
+        iso.callee_names.clear();
+        iso.string_refs.clear(); // deny anchor
+        iso.mnemonics = vec![("mov".into(), 20), ("add".into(), 12), ("cmp".into(), 7)];
+        let mut iso1 = iso.clone();
+        iso1.id = StableId(9_000_011);
+        iso1.bb_count = 6;
+        iso1.size = 120;
+        iso1.fingerprint = 0xAAAA;
+        let mut iso2 = iso;
+        iso2.id = StableId(9_000_012);
+        iso2.bb_count = 30; // different body → exact fails
+        iso2.size = 800;
+        iso2.fingerprint = 0xBBBB;
+        v1.functions.push(iso1);
+        v2.functions.push(iso2);
+        let d = diff_programs(&v1, &v2);
+        assert!(
+            d.changed
+                .iter()
+                .any(|(x, y)| name(&v1, *x) == "mnemonic_keyed" && name(&v2, *y) == "mnemonic_keyed"),
+            "fuzzy pass should re-identify by mnemonic mix"
+        );
+        assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "mnemonic_keyed"));
+        assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "mnemonic_keyed"));
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

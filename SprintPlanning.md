@@ -172,10 +172,11 @@ Everything before the prototype is there *only* because the prototype can't run 
 **Tasks.**
 - **Sandbox** the engine producer (DD-014/029); **cosign** releases; inherit GayHydra's deserialization posture.
 - Golden-binary regression corpus expanded (DD-030); contract-conformance per head (**CLI + HTTP +
-  RPC heads landed**: `crates/{scylla-cli,scylla-http,scylla-rpc}/tests/conformance.rs` assert each
-  head's output equals what `scylla_port::Session` computes for the same artifact — verb by verb, no
-  frozen golden numbers — proving "many heads, one body". MCP/WASM follow the same shape: drive the
-  head, derive the answer from the port, assert equal).
+  RPC + MCP heads landed**: `crates/{scylla-cli,scylla-http,scylla-rpc,scylla-mcp}/tests/conformance.rs`
+  assert each head's output equals what `scylla_port::Session` computes for the same artifact — verb
+  by verb, no frozen golden numbers — proving "many heads, one body" (the MCP one also checks the
+  answer survives the `<untrusted-data>` envelope intact). WASM (the browser head) follows via its
+  node verifier, the one head not driven from a cargo test).
 - **CONTRIBUTING** + issue/PR lanes + triage SLA (DD-033); license/NOTICE accuracy (DD-032).
 - Confirm in code: SLEIGH/.sla wholesale (DD-013), decompiler boundary as-is (DD-012), P-code at the escape hatch (DD-003).
 

@@ -160,4 +160,15 @@ fn mcp_diff_matches_the_port() {
         d.matched.len() + d.changed.len(),
         "methods account for every matched/changed pair"
     );
+    // …and per-pair confidence: one entry per matched/changed pair, each {method, confidence}.
+    let confidence = v["confidence"].as_object().expect("a confidence object");
+    assert_eq!(
+        confidence.len(),
+        d.matched.len() + d.changed.len(),
+        "one confidence entry per pair"
+    );
+    for entry in confidence.values() {
+        assert!(entry["method"].is_string(), "each entry names a method");
+        assert!(entry["confidence"].is_u64(), "each entry has a confidence %");
+    }
 }

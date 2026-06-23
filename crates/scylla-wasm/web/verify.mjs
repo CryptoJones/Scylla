@@ -96,6 +96,13 @@ const methodTotal = Object.values(pdiff.methods).reduce((a, b) => a + b, 0);
 const methodsOk = pdiff.methods.exact >= 1 && methodTotal === pdiff.matched.length + pdiff.changed.length;
 console.log("diff methods:", pdiff.methods, "| every pair accounted?", methodsOk);
 
+// Per-pair confidence (DD-017): one {method, confidence%} per matched/changed pair, keyed by name.
+const confKeys = Object.keys(pdiff.confidence);
+const confOk =
+  confKeys.length === pdiff.matched.length + pdiff.changed.length &&
+  confKeys.every((k) => typeof pdiff.confidence[k].confidence === "number" && typeof pdiff.confidence[k].method === "string");
+console.log("diff confidence:", pdiff.confidence.euclid_gcd, "| every pair labelled?", confOk);
+
 // Merge round-trip: re-anchor the rename onto the RE-ANALYSIS (same binary, fresh stable ids).
 // merge_into matches functions by structural identity (not id), so the euclid_gcd rename should
 // follow gcd across the rebuild — DD-005 identity-anchored merge, in the browser.
@@ -118,6 +125,7 @@ const ok =
   pdiff.changed.length === 1 &&
   gcdModified &&
   methodsOk &&
+  confOk &&
   report.merged >= 1 &&
   reanchored;
 console.log(ok ? "PASS — navigate + annotate + export + diff + modified + provenance + merge round-trip in WASM" : "FAIL");

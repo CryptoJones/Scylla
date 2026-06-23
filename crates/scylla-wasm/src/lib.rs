@@ -252,9 +252,14 @@ pub unsafe extern "C" fn scylla_diff(ptr: *const u8, len: usize) -> u64 {
         let d = here.diff(&there);
         // Match-confidence breakdown by ladder rung (DD-017): exact is certain, fuzzy a best-guess.
         let mut methods = serde_json::Map::new();
-        for (_, m) in &d.provenance {
-            let e = methods.entry(m.method.as_str()).or_insert(json!(0));
+        let mut confidence = serde_json::Map::new();
+        for (name, info) in &d.provenance {
+            let e = methods.entry(info.method.as_str()).or_insert(json!(0));
             *e = json!(e.as_u64().unwrap_or(0) + 1);
+            confidence.insert(
+                name.clone(),
+                json!({"method": info.method.as_str(), "confidence": info.confidence}),
+            );
         }
         ret_string(
             json!({
@@ -263,6 +268,7 @@ pub unsafe extern "C" fn scylla_diff(ptr: *const u8, len: usize) -> u64 {
                 "onlyHere": d.only_here,
                 "onlyThere": d.only_there,
                 "methods": serde_json::Value::Object(methods),
+                "confidence": serde_json::Value::Object(confidence),
             })
             .to_string(),
         )

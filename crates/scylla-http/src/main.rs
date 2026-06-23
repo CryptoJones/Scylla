@@ -336,9 +336,14 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
         |v: &[(String, String)]| v.iter().map(|(a, b)| json!([a, b])).collect::<Vec<Value>>();
     // Match-confidence breakdown by ladder rung (DD-017): exact is certain, fuzzy a best-guess.
     let mut methods = serde_json::Map::new();
-    for (_, m) in &d.provenance {
-        let e = methods.entry(m.method.as_str()).or_insert(json!(0));
+    let mut confidence = serde_json::Map::new();
+    for (name, info) in &d.provenance {
+        let e = methods.entry(info.method.as_str()).or_insert(json!(0));
         *e = json!(e.as_u64().unwrap_or(0) + 1);
+        confidence.insert(
+            name.clone(),
+            json!({"method": info.method.as_str(), "confidence": info.confidence}),
+        );
     }
     (
         200,
@@ -349,6 +354,7 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
             "added": d.only_there,
             "removed": d.only_here,
             "methods": Value::Object(methods),
+            "confidence": Value::Object(confidence),
         })
         .to_string(),
     )

@@ -115,6 +115,10 @@ fn http_gateway_serves_the_model_as_json() {
         diff.contains("\"methods\""),
         "diff has a methods breakdown: {diff}"
     );
+    assert!(
+        diff.contains("\"confidence\""),
+        "diff has per-pair confidence: {diff}"
+    );
 
     // unknown id → 404
     let err = ureq::get(&format!("{base}/api/functions/999999")).call();

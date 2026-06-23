@@ -1,0 +1,25 @@
+[package]
+name = "scylla-rpc"
+description = "DD-002: the client port (scylla-port) projected as a Cap'n Proto promise-pipelining RPC interface — the remote head's seam."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+# The promise-pipelining RPC the model-artifact format was chosen for (DD-002). A lookup returns a
+# capability, so `session.function(id).callers().view()` collapses to one round-trip over the wire.
+capnp = "0.26"
+capnp-rpc = "0.26"
+futures = "0.3"
+tokio = { version = "1", features = ["rt", "macros", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+# A REMOTE consumer of the client port (DD-017) — server impls drive `scylla_port::Session`.
+scylla-model = { path = "../scylla-model" }
+scylla-port = { path = "../scylla-port" }
+
+[build-dependencies]
+capnpc = "0.26"
+
+[dev-dependencies]
+scylla-ingest = { path = "../scylla-ingest" }

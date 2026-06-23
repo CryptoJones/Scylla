@@ -212,18 +212,18 @@ pub extern "C" fn scylla_export() -> u64 {
 #[no_mangle]
 pub unsafe extern "C" fn scylla_merge(ptr: *const u8, len: usize) -> u64 {
     let bytes = std::slice::from_raw_parts(ptr, len);
-    SESSION.with_borrow_mut(|opt| {
-        let Some(old) = opt.as_ref() else {
-            return ret_string(json!({ "error": "no session loaded" }).to_string());
-        };
-        let mut new = match scylla_schema::load(bytes) {
-            Ok((program, _report)) => program,
-            Err(e) => return ret_string(json!({ "error": e.to_string() }).to_string()),
-        };
-        let report = scylla_merge::merge_into(old.program(), &mut new);
-        let result = json!({ "merged": report.merged, "flagged": report.flagged }).to_string();
-        *opt = Some(Session::open(new));
-        ret_string(result)
+    // Pure port consumer: load the re-analysis as a Session, then drive the port's `merge_from`
+    // (re-anchor + adopt) — no reaching into the merge engine / schema directly.
+    let other = match Session::from_artifact(bytes) {
+        Ok(s) => s,
+        Err(e) => return ret_string(json!({ "error": e.to_string() }).to_string()),
+    };
+    SESSION.with_borrow_mut(|opt| match opt {
+        Some(session) => {
+            let report = session.merge_from(&other);
+            ret_string(json!({ "merged": report.merged, "flagged": report.flagged }).to_string())
+        }
+        None => ret_string(json!({ "error": "no session loaded" }).to_string()),
     })
 }
 

@@ -789,10 +789,8 @@ name = "scylla-wasm"
 version = "0.1.0"
 dependencies = [
  "scylla-ingest",
- "scylla-merge",
  "scylla-model",
  "scylla-port",
- "scylla-schema",
  "serde_json",
 ]
 

@@ -39,4 +39,16 @@ fn main() {
         g.fingerprint ^= 0xA5A5;
     }
     write("mathlib_patched.scylla", patched);
+    // An "annotated" build: the same binary with a user rename (gcd -> euclid_gcd) recorded as a
+    // durable fact (DD-005). Fixture for carrying annotations forward — `scylla merge` re-anchors
+    // these onto a fresh re-analysis by structural identity.
+    let mut annotated = scylla_ingest::snapshot_to_program(SNAPSHOT).unwrap();
+    if let Some(g) = annotated.functions.iter().find(|f| f.name == "gcd") {
+        let gid = g.id;
+        annotated.facts.push(scylla_model::UserFact::new(
+            gid,
+            scylla_model::FactKind::Rename("euclid_gcd".into()),
+        ));
+    }
+    write("mathlib_annotated.scylla", annotated);
 }

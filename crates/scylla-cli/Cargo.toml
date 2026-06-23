@@ -1,6 +1,6 @@
 [package]
 name = "scylla-cli"
-description = "The Scylla CLI — materialize a binary into the canonical model artifact (DD-009/040), diff two artifacts, and inspect one (info/functions/view/callers) — DD-017."
+description = "The Scylla CLI — materialize a binary (DD-009/040), diff/merge artifacts, and inspect one (info/functions/view/callers) — DD-017."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -8,6 +8,7 @@
 //!   scylla functions <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
 //!   scylla view <artifact.scylla> <id> [zoom]   # one function's detail + call graph
 //!   scylla callers <artifact.scylla> <id>       # functions that call <id>
+//!   scylla merge <annotated.scylla> <reanalysis.scylla> <out.scylla>   # carry annotations forward
 //!
 //! The offline GayHydra-headless snapshot path still lives in `scylla-ingest`, for dev / corpus
 //! work without a running engine-service — but the engine port is the one the product ships on.
@@ -31,6 +32,7 @@ async fn main() -> ExitCode {
             view(&args[2], &args[3], args.get(4).map(String::as_str))
         }
         Some("callers") if args.len() == 4 => callers(&args[2], &args[3]),
+        Some("merge") if args.len() == 5 => merge(&args[2], &args[3], &args[4]),
         _ => {
             eprintln!(
                 "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
@@ -38,13 +40,15 @@ async fn main() -> ExitCode {
                  {prog} info <artifact.scylla>\n       \
                  {prog} functions <artifact.scylla> [intent|domain|detail]\n       \
                  {prog} view <artifact.scylla> <id> [intent|domain|detail]\n       \
-                 {prog} callers <artifact.scylla> <id>\n\n  \
+                 {prog} callers <artifact.scylla> <id>\n       \
+                 {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
                  materialize — the engine port (DD-009/040): GayHydra over gRPC -> canonical artifact\n  \
                  diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
                  info        — artifact metadata (name / language / function count)\n  \
                  functions   — list functions at a zoom altitude (default domain)\n  \
                  view        — one function by stable id at a zoom altitude\n  \
-                 callers     — the functions that call a given function (call-graph navigation)",
+                 callers     — the functions that call a given function (call-graph navigation)\n  \
+                 merge       — re-anchor the annotations from one artifact onto a re-analysis (DD-005)",
                 prog = args.first().map(String::as_str).unwrap_or("scylla"),
             );
             ExitCode::from(2)
@@ -191,6 +195,35 @@ fn callers(path: &str, id_arg: &str) -> ExitCode {
     for (cid, cname) in &callers {
         println!("{cid}\t{cname}");
     }
+    ExitCode::SUCCESS
+}
+
+/// `scylla merge <annotated> <reanalysis> <out>` — carry annotations forward (DD-005): re-anchor the
+/// user facts (renames/retypes/comments) recorded in `annotated` onto a fresh `reanalysis` of the
+/// same program — by structural identity, address-independent, fail-closed (a near-tie never
+/// anchors) — and write the merged model to `out`. The terminal tool for a reproducible-annotation
+/// pipeline: re-build, re-analyze, re-apply your work, with zero by-hand re-tagging.
+fn merge(base_path: &str, reanalysis_path: &str, out_path: &str) -> ExitCode {
+    let mut base = match load_session(base_path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let other = match load_session(reanalysis_path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let report = base.merge_from(&other);
+    let bytes = base.to_artifact();
+    if let Err(e) = std::fs::write(out_path, &bytes) {
+        eprintln!("error: writing {out_path}: {e}");
+        return ExitCode::from(2);
+    }
+    eprintln!(
+        "scylla merge: re-anchored {} fact(s), flagged {} → {out_path} ({} bytes)",
+        report.merged,
+        report.flagged,
+        bytes.len(),
+    );
     ExitCode::SUCCESS
 }
 

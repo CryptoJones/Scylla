@@ -113,6 +113,54 @@ impl session::Server for SessionImpl {
             Ok(())
         }
     }
+
+    fn diff(
+        self: capnp::capability::Rc<Self>,
+        params: session::DiffParams,
+        mut results: session::DiffResults,
+    ) -> impl Future<Output = Result<(), capnp::Error>> + 'static {
+        let session = self.session.clone();
+        async move {
+            let bytes = params.get()?.get_artifact()?;
+            let other =
+                Session::from_artifact(bytes).map_err(|e| capnp::Error::failed(e.to_string()))?;
+            let d = session.borrow().diff(&other);
+            let renamed: Vec<(String, String)> =
+                d.matched.iter().filter(|(a, b)| a != b).cloned().collect();
+            let unchanged = (d.matched.len() - renamed.len()) as u32;
+            let mut r = results.get();
+            r.set_matched(unchanged);
+            {
+                let mut list = r.reborrow().init_renamed(renamed.len() as u32);
+                for (i, (a, b)) in renamed.iter().enumerate() {
+                    let mut p = list.reborrow().get(i as u32);
+                    p.set_here(a.as_str());
+                    p.set_there(b.as_str());
+                }
+            }
+            {
+                let mut list = r.reborrow().init_modified(d.changed.len() as u32);
+                for (i, (a, b)) in d.changed.iter().enumerate() {
+                    let mut p = list.reborrow().get(i as u32);
+                    p.set_here(a.as_str());
+                    p.set_there(b.as_str());
+                }
+            }
+            {
+                let mut list = r.reborrow().init_added(d.only_there.len() as u32);
+                for (i, n) in d.only_there.iter().enumerate() {
+                    list.set(i as u32, n.as_str());
+                }
+            }
+            {
+                let mut list = r.reborrow().init_removed(d.only_here.len() as u32);
+                for (i, n) in d.only_here.iter().enumerate() {
+                    list.set(i as u32, n.as_str());
+                }
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Server impl of `Function` — a stable id + a handle to the in-process port.

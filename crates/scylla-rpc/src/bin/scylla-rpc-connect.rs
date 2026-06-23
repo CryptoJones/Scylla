@@ -6,13 +6,14 @@
 //!   scylla-rpc-connect <host:port> functions
 //!   scylla-rpc-connect <host:port> view <id> [intent|domain|detail]
 //!   scylla-rpc-connect <host:port> callers <id>
+//!   scylla-rpc-connect <host:port> diff <other.scylla>   # structural diff over the wire (DD-017)
 
 use std::process::ExitCode;
 
 use scylla_rpc::connect;
 
-const USAGE: &str =
-    "usage: scylla-rpc-connect <host:port> <info | functions | view <id> [zoom] | callers <id>>";
+const USAGE: &str = "usage: scylla-rpc-connect <host:port> \
+     <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla>>";
 
 fn zoom_byte(arg: Option<&String>) -> u8 {
     match arg.map(String::as_str) {
@@ -115,6 +116,53 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
                 names.sort();
                 for n in names {
                     println!("{n}");
+                }
+            }
+            "diff" => {
+                let Some(other) = args.get(2) else {
+                    eprintln!("error: diff needs <other.scylla>\n{USAGE}");
+                    return Err(capnp::Error::failed("usage".into()));
+                };
+                // The CLIENT reads the comparison artifact and ships the bytes — the server never
+                // touches the client's filesystem.
+                let bytes = std::fs::read(other)
+                    .map_err(|e| capnp::Error::failed(format!("reading {other}: {e}")))?;
+                let mut req = session.diff_request();
+                req.get().set_artifact(&bytes);
+                let resp = req.send().promise.await?;
+                let d = resp.get()?;
+                let (renamed, modified) = (d.get_renamed()?, d.get_modified()?);
+                let (added, removed) = (d.get_added()?, d.get_removed()?);
+                println!(
+                    "{} unchanged · {} renamed · {} modified · {} added · {} removed",
+                    d.get_matched(),
+                    renamed.len(),
+                    modified.len(),
+                    added.len(),
+                    removed.len()
+                );
+                for i in 0..renamed.len() {
+                    let p = renamed.get(i);
+                    println!(
+                        "renamed: {} -> {}",
+                        p.get_here()?.to_str()?,
+                        p.get_there()?.to_str()?
+                    );
+                }
+                for i in 0..modified.len() {
+                    let p = modified.get(i);
+                    let (h, t) = (p.get_here()?.to_str()?, p.get_there()?.to_str()?);
+                    if h == t {
+                        println!("modified: {h}");
+                    } else {
+                        println!("modified: {h} -> {t}");
+                    }
+                }
+                for i in 0..added.len() {
+                    println!("added: {}", added.get(i)?.to_str()?);
+                }
+                for i in 0..removed.len() {
+                    println!("removed: {}", removed.get(i)?.to_str()?);
                 }
             }
             other => {

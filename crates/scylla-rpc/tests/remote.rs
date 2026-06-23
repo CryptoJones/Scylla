@@ -10,6 +10,10 @@ const ARTIFACT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib.scylla"
 );
+const PATCHED: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scylla-wasm/web/mathlib_patched.scylla"
+);
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
@@ -89,6 +93,15 @@ fn remote_head_drives_the_port_over_tcp() {
     assert!(
         out.contains("main"),
         "gcd's remote callers should include main: {out}"
+    );
+
+    // diff — the full structural diff runs server-side, the report comes back over the wire.
+    let (code, out) = connect(&addr, &["diff", PATCHED]);
+    assert_eq!(code, 0, "remote diff exit 0");
+    assert!(out.contains("1 modified"), "remote diff summary: {out}");
+    assert!(
+        out.contains("modified: gcd"),
+        "gcd reported modified over the wire: {out}"
     );
 
     // a non-integer id is a clean failure, not a panic

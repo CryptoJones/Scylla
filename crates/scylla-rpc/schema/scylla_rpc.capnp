@@ -12,6 +12,12 @@
 # Zoom is the DD-020 altitude as a u8 (0 = intent, 1 = domain, 2 = detail). Mutating verbs map a
 # rejected value (PortError::InvalidInput, DD-021) straight to a capnp::Error.
 
+# A function pairing across two builds, by display name (DD-017 diff).
+struct FnPair {
+  here  @0 :Text;
+  there @1 :Text;
+}
+
 interface Session {
   # Artifact metadata (name / language / function count).
   info @0 () -> (name :Text, language :Text, functions :UInt32);
@@ -19,6 +25,9 @@ interface Session {
   functions @1 () -> (fns :List(Function));
   # Look up one function by stable id -> a Function capability (the pipelining seam).
   function @2 (id :UInt64) -> (fn :Function);
+  # Structurally diff the served model against another .scylla (sent as bytes) — DD-017, read-only.
+  # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names.
+  diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text));
 }
 
 interface Function {

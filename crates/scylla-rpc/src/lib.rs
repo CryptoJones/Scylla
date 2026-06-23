@@ -207,6 +207,20 @@ impl session::Server for SessionImpl {
                     list.set(i as u32, n.as_str());
                 }
             }
+            {
+                // Match-confidence breakdown by ladder rung (DD-017), aggregated from provenance.
+                let mut counts: std::collections::BTreeMap<&str, u32> =
+                    std::collections::BTreeMap::new();
+                for (_, m) in &d.provenance {
+                    *counts.entry(m.as_str()).or_default() += 1;
+                }
+                let mut list = r.reborrow().init_methods(counts.len() as u32);
+                for (i, (method, count)) in counts.iter().enumerate() {
+                    let mut mc = list.reborrow().get(i as u32);
+                    mc.set_method(method);
+                    mc.set_count(*count);
+                }
+            }
             Ok(())
         }
     }

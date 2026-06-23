@@ -187,6 +187,16 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
                     added.len(),
                     removed.len()
                 );
+                // Match-confidence breakdown by ladder rung (DD-017), as the server reported it.
+                let methods = d.get_methods()?;
+                let mut parts = Vec::new();
+                for i in 0..methods.len() {
+                    let mc = methods.get(i);
+                    parts.push(format!("{} {}", mc.get_count(), mc.get_method()?.to_str()?));
+                }
+                if !parts.is_empty() {
+                    println!("matched by: {}", parts.join(", "));
+                }
                 for i in 0..renamed.len() {
                     let p = renamed.get(i);
                     println!(

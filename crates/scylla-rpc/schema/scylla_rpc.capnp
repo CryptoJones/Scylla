@@ -25,6 +25,12 @@ struct FnPair {
   there @1 :Text;
 }
 
+# How many matched/changed pairs each ladder rung recovered — the diff confidence breakdown.
+struct MethodCount {
+  method @0 :Text;    # exact | propagation | anchor | bsim | fuzzy
+  count  @1 :UInt32;
+}
+
 interface Session {
   # Artifact metadata (name / language / function count).
   info @0 () -> (name :Text, language :Text, functions :UInt32);
@@ -33,8 +39,9 @@ interface Session {
   # Look up one function by stable id -> a Function capability (the pipelining seam).
   function @2 (id :UInt64) -> (fn :Function);
   # Structurally diff the served model against another .scylla (sent as bytes) — DD-017, read-only.
-  # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names.
-  diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text));
+  # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names;
+  # `methods` is the match-confidence breakdown by ladder rung (exact/propagation/anchor/bsim/fuzzy).
+  diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text), methods :List(MethodCount));
   # Serialize the served model — INCLUDING annotations made this session (renames/retypes/comments)
   # — back to a .scylla (DD-026), so a remote analyst can pull their work down. The wire counterpart
   # of the HTTP head's GET /api/export and the MCP head's `export`.

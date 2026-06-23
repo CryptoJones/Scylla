@@ -1109,7 +1109,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-engine",
  "scylla-model",
@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hyper-util",
  "prost",
@@ -1135,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-http"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rcgen",
  "scylla-model",
@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-ingest"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-model",
  "scylla-schema",
@@ -1157,7 +1157,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-merge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -1175,11 +1175,11 @@ dependencies = [
 
 [[package]]
 name = "scylla-model"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "scylla-port"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-ingest",
  "scylla-merge",
@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-rpc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "capnp",
  "capnp-rpc",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-schema"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "capnp",
  "capnpc",
@@ -1216,11 +1216,11 @@ dependencies = [
 
 [[package]]
 name = "scylla-serve"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "scylla-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "scylla-ingest",
  "scylla-model",

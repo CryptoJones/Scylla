@@ -11,11 +11,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 Nothing yet.
 
-## [0.1.0] — 2026-06-23
+## [0.2.0] — 2026-06-23
 
-First tagged release. A hexagonal reverse-engineering platform: a durable, transport-agnostic RE
-**domain model** (the *body*) wrapped behind thin, disposable protocol **adapters** (the *heads*).
-The body is the one bet that can't be taken back; the heads are cheap on purpose.
+The platform built out on the v0.1.0 core spine: from a model + MCP-head + merge foundation to a
+**feature-complete, six-headed** RE platform with a real fail-closed binary-differ. A durable,
+transport-agnostic RE **domain model** (the *body*) wrapped behind thin, disposable protocol
+**adapters** (the *heads*) — the body is the one bet that can't be taken back; the heads are cheap on
+purpose. Everything below is backward-compatible with v0.1.0 (a SemVer minor bump).
 
 ### The body (the durable core)
 
@@ -89,5 +91,21 @@ Each projects the *same* client port; lop one off and grow another, the body nev
 `scripts/check-wasm.sh` (the consume-side core builds for `wasm32`), and
 `node crates/scylla-wasm/web/verify.mjs` (the browser head round-trip) all green.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.1.0...HEAD
+## [0.1.0] — 2026-06-21
+
+The **durable core spine** — design-locked and prototype-de-risked, *not a production RE tool yet*.
+
+### Added
+
+- The body: the RE domain model (`scylla-model`), the Cap'n Proto model-artifact + round-trip
+  (`scylla-schema`), GayHydra → `.scylla` materialization (`scylla-ingest`), the identity-anchored
+  merge (`scylla-merge`), and the client port with semantic zoom (`scylla-port`) — six Rust crates.
+- The **MCP head** (`scylla-mcp`): agents can drive an RE session over the port.
+- Collaboration (git-for-RE artifact merge); the consume-side core builds to `wasm32`.
+- The keystone risk — re-anchoring an analyst's facts across re-analysis — empirically de-risked:
+  zero silent mis-attachment, made a code invariant (`WRONG = 0`).
+- 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
+
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...HEAD
+[0.2.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.1.0...v0.2.0
 [0.1.0]: https://codeberg.org/CryptoJones/Scylla/src/tag/v0.1.0

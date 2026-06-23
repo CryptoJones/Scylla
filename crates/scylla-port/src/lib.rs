@@ -14,6 +14,8 @@
 
 use std::collections::BTreeSet;
 
+/// Re-exported so heads can name the diff match method without depending on `scylla-merge` directly.
+pub use scylla_merge::MatchMethod;
 use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
 
 /// Typed port errors (DD-021): a SMALL taxonomy that faithfully mirrors Ghidra's own
@@ -93,6 +95,10 @@ pub struct SessionDiff {
     pub only_here: Vec<String>,
     /// Display names of functions present only in the other session.
     pub only_there: Vec<String>,
+    /// `(this_name, method)` for each matched/changed pair — HOW the matcher recovered it
+    /// ([`MatchMethod`]), so a consumer can report diff **confidence** (an exact match vs a fuzzy
+    /// best-guess). One entry per `matched`+`changed` pair; `only_*` functions have none.
+    pub provenance: Vec<(String, MatchMethod)>,
 }
 
 /// A live analysis session: the client port over one loaded model.
@@ -261,6 +267,11 @@ impl Session {
                 .collect(),
             only_here: d.only_a.into_iter().map(|id| self.name_of(id)).collect(),
             only_there: d.only_b.into_iter().map(|id| other.name_of(id)).collect(),
+            provenance: d
+                .provenance
+                .into_iter()
+                .map(|(aid, method)| (self.name_of(aid), method))
+                .collect(),
         }
     }
 

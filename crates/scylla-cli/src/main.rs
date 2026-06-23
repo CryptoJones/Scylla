@@ -292,6 +292,13 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
         || !d.only_here.is_empty()
         || !d.only_there.is_empty();
 
+    // How the matcher recovered each matched/changed pair — a confidence breakdown by ladder rung
+    // (DD-017): exact is certain, fuzzy is a threshold-cleared best-guess.
+    let mut by_method: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    for (_, m) in &d.provenance {
+        *by_method.entry(m.as_str()).or_default() += 1;
+    }
+
     if json {
         let pairs = |v: &[(String, String)]| -> Vec<serde_json::Value> {
             v.iter().map(|(x, y)| serde_json::json!([x, y])).collect()
@@ -305,6 +312,7 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
             "modified": pairs(&d.changed),
             "added": d.only_there,
             "removed": d.only_here,
+            "methods": serde_json::to_value(&by_method).unwrap(),
         });
         println!("{}", serde_json::to_string_pretty(&out).unwrap());
     } else {
@@ -316,6 +324,14 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
             d.only_there.len(),
             d.only_here.len(),
         );
+        if !by_method.is_empty() {
+            let breakdown = by_method
+                .iter()
+                .map(|(k, v)| format!("{v} {k}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            println!("  matched by: {breakdown}");
+        }
         let section = |title: &str, lines: &[String]| {
             if !lines.is_empty() {
                 println!("\n{title}:");

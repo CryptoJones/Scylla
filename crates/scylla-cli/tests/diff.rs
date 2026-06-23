@@ -81,6 +81,28 @@ fn diff_json_emits_structured_output() {
 }
 
 #[test]
+fn diff_reports_a_match_confidence_breakdown() {
+    // Identical artifacts: every function is recovered by the most confident rung — EXACT.
+    let (_, out) = run(&["diff", BASE, BASE]);
+    assert!(
+        out.contains("matched by: 13 exact"),
+        "confidence breakdown by ladder rung: {out}"
+    );
+
+    // The patched build (gcd's body edited) exposes the breakdown in JSON too: the unchanged pairs
+    // are `exact`; gcd is recovered by a softer rung (so it is NOT counted as exact).
+    let (_, json) = run(&["diff", "--json", BASE, PATCHED]);
+    assert!(
+        json.contains("\"methods\""),
+        "json has a methods object: {json}"
+    );
+    assert!(
+        json.contains("\"exact\""),
+        "the unchanged pairs are exact: {json}"
+    );
+}
+
+#[test]
 fn diff_json_of_identical_is_not_differing_exit_0() {
     let (code, out) = run(&["diff", "--json", BASE, BASE]);
     assert_eq!(code, 0, "identical -> exit 0 in json mode");

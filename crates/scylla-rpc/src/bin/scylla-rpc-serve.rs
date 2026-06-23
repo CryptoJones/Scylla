@@ -46,6 +46,13 @@ fn main() -> ExitCode {
     let token = std::env::var("SCYLLA_RPC_TOKEN")
         .ok()
         .filter(|t| !t.is_empty());
+    // Cap concurrent connections so a flood can't spawn unbounded tasks (a DoS bound). Over the cap,
+    // the surplus connection is accepted then immediately dropped.
+    let max_conn: usize = std::env::var("SCYLLA_RPC_MAX_CONN")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(64)
+        .max(1);
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -55,21 +62,29 @@ fn main() -> ExitCode {
     let result: std::io::Result<()> = local.block_on(&rt, async move {
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         let shared: SharedSession = Rc::new(RefCell::new(session));
+        let active = Rc::new(std::cell::Cell::new(0usize));
         let auth = if token.is_some() {
             "token-gated"
         } else {
             "OPEN (set SCYLLA_RPC_TOKEN to gate)"
         };
         eprintln!(
-            "scylla-rpc-serve: {artifact} on {} — {auth} (DD-002 capnp RPC; Ctrl-C to stop)",
+            "scylla-rpc-serve: {artifact} on {} — {auth}, max {max_conn} conns (DD-002 capnp RPC; Ctrl-C to stop)",
             listener.local_addr()?
         );
         loop {
             let (stream, _peer) = listener.accept().await?;
+            if active.get() >= max_conn {
+                drop(stream); // at capacity — refuse the surplus connection
+                continue;
+            }
             let _ = stream.set_nodelay(true);
+            active.set(active.get() + 1);
+            let counter = active.clone();
             let rpc = serve_connection(shared.clone(), token.clone(), stream);
             tokio::task::spawn_local(async move {
                 let _ = rpc.await;
+                counter.set(counter.get() - 1);
             });
         }
     });

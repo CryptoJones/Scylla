@@ -167,3 +167,50 @@ fn token_gated_server_denies_without_the_token_over_tcp() {
     assert_eq!(ok, 0, "the right token authenticates");
     assert!(out.contains("functions: 13"), "authed info: {out}");
 }
+
+#[test]
+fn connection_cap_refuses_the_surplus_connection() {
+    use std::net::TcpStream;
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
+            .args([ARTIFACT, &addr])
+            .env("SCYLLA_RPC_MAX_CONN", "1") // a single slot
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-rpc-serve"),
+    );
+
+    // Ready (a normal client connects, completes, frees its slot).
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if connect(&addr, &["info"]).0 == 0 {
+            break;
+        }
+        assert!(Instant::now() < deadline, "capped server never came up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // Occupy the only slot with a raw, silent connection (held open), then the next client is over
+    // the cap → its connection is dropped → login fails.
+    let _hog = TcpStream::connect(&addr).expect("raw connect occupies the slot");
+    std::thread::sleep(Duration::from_millis(500)); // let the server accept + count it
+    let (code, _out) = connect(&addr, &["info"]);
+    assert_ne!(code, 0, "a connection over the cap must be refused");
+
+    // Free the slot; a client works again.
+    drop(_hog);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if connect(&addr, &["info"]).0 == 0 {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "slot never freed after the hog dropped"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}

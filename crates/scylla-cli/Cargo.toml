@@ -1,6 +1,6 @@
 [package]
 name = "scylla-cli"
-description = "The Scylla CLI — materialize a binary into the canonical model artifact via the engine port (DD-009/040)."
+description = "The Scylla CLI — materialize a binary into the canonical model artifact (DD-009/040), and diff two artifacts (DD-017)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,4 +16,6 @@ path = "src/main.rs"
 # to carry the other's dependency (DD-002: two IDLs by design).
 scylla-engine = { path = "../scylla-engine" }
 scylla-schema = { path = "../scylla-schema" }
+# The client port, for the offline `diff` verb (DD-017) — no engine, just two artifacts in.
+scylla-port = { path = "../scylla-port" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

@@ -709,6 +709,7 @@ name = "scylla-cli"
 version = "0.1.0"
 dependencies = [
  "scylla-engine",
+ "scylla-port",
  "scylla-schema",
  "tokio",
 ]

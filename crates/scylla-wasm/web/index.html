@@ -86,6 +86,14 @@
   .gnode.match rect { stroke: var(--green); stroke-width: 2; filter: drop-shadow(0 0 5px rgba(85,255,153,.5)); }
   .gnode.match text { fill: var(--green); }
   .gnode.dim { opacity: .26; }
+  /* diff-on-graph: colour nodes by what the diff changed across two builds */
+  .gnode.d-added rect { stroke: var(--green); stroke-width: 2; }
+  .gnode.d-added text { fill: var(--green); }
+  .gnode.d-renamed rect { stroke: var(--cyan); stroke-width: 2; }
+  .gnode.d-renamed text { fill: var(--cyan); }
+  .dlegend { display: flex; gap: 16px; align-items: center; color: var(--dim); font-size: 14px; }
+  .dlegend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 5px; vertical-align: -1px; }
+  .dlegend .ren { border-color: var(--cyan); } .dlegend .add { border-color: var(--green); } .dlegend .rem { border-color: var(--dim); }
 </style>
 </head>
 <body>
@@ -117,6 +125,7 @@
   <div class="ovbar">
     <span class="ovtitle">⊞ whole-program call graph</span>
     <span class="ovhint">layered left→right by call depth · click a node to open it · type to highlight · Esc to close</span>
+    <span id="ovlegend" class="dlegend"></span>
     <button id="ovx">✕ close</button>
   </div>
   <div id="ovbody"></div>
@@ -124,7 +133,7 @@
 
 <script>
 const dec = new TextDecoder(), enc = new TextEncoder();
-let X, mem, info = null, zoom = 1, fns = [], sel = null, query = '';
+let X, mem, info = null, zoom = 1, fns = [], sel = null, query = '', lastDiff = null;
 
 // A returned (ptr<<32 | len) handle (BigInt) -> copy the bytes out of linear memory, then free.
 function readBytes(packed) {
@@ -172,6 +181,7 @@ async function mergeFile(file) {
   X.scylla_free(p, bytes.length);
   if (report.error) { alert('merge failed: ' + report.error); return; }
   sel = null;
+  lastDiff = null; // the merged-in artifact is now the session; any prior diff is stale
   info = J(X.scylla_info());
   refresh();
   flash(`merged ${report.merged} annotation(s) onto the re-analysis · ${report.flagged} flagged`);
@@ -190,7 +200,17 @@ async function diffFile(file) {
   const rep = J(X.scylla_diff(p, bytes.length));
   X.scylla_free(p, bytes.length);
   if (rep.error) { alert('diff failed: ' + rep.error); return; }
+  lastDiff = { rep, fname: file.name };
   renderDiff(rep, file.name);
+  if (overlayOpen()) renderOverview(); // recolour the program graph live
+  flash(`diff: ${rep.matched.length} matched · open ⊞ graph to see it on the call graph`);
+}
+// Map each here-side function name to its diff status (renamed / added); unchanged → absent.
+function diffStatusByName(rep) {
+  const m = new Map();
+  for (const [a, b] of rep.matched) if (a !== b) m.set(a, 'renamed');
+  for (const n of rep.onlyHere) m.set(n, 'added');
+  return m;
 }
 function renderDiff(rep, fname) {
   sel = null; renderList();
@@ -373,9 +393,11 @@ function renderOverview() {
     const ax = a.x + wf / 2, ay = a.y, bx = b.x - wt / 2, by = b.y, mx = (ax + bx) / 2;
     e += `<path class="gedge${forward ? '' : ' gback'}" d="M ${ax.toFixed(1)} ${ay.toFixed(1)} C ${mx.toFixed(1)} ${ay.toFixed(1)} ${mx.toFixed(1)} ${by.toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)}" marker-end="url(#arr2)"/>`;
   }
+  const status = lastDiff ? diffStatusByName(lastDiff.rep) : null;
   for (const n of nodes) {
     const p = L.pos.get(n.id), wd = L.wById.get(n.id);
-    g += `<g class="gnode" data-go="${n.id}"><rect x="${(p.x - wd / 2).toFixed(1)}" y="${p.y - L.H / 2}" width="${wd}" height="${L.H}" rx="6"/>` +
+    const ds = status ? status.get(n.name) : null;
+    g += `<g class="gnode${ds ? ' d-' + ds : ''}" data-go="${n.id}"><rect x="${(p.x - wd / 2).toFixed(1)}" y="${p.y - L.H / 2}" width="${wd}" height="${L.H}" rx="6"/>` +
       `<text x="${p.x.toFixed(1)}" y="${p.y + 5}" text-anchor="middle">${esc(n.name)}</text></g>`;
   }
   const body = document.getElementById('ovbody');
@@ -384,6 +406,14 @@ function renderOverview() {
     `<defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">` +
     `<path d="M0 0 L10 5 L0 10 z" fill="#5a6678"/></marker></defs>${e}${g}</svg>`;
   body.querySelectorAll('[data-go]').forEach(el => { el.onclick = () => { select(+el.dataset.go); closeOverview(); }; });
+  // legend: only when a diff is loaded (otherwise the bar stays clean)
+  const leg = document.getElementById('ovlegend');
+  if (lastDiff) {
+    const renamed = lastDiff.rep.matched.filter(([a, b]) => a !== b).length;
+    leg.innerHTML = `<span title="diff vs ${esc(lastDiff.fname)}"><span class="sw ren"></span>renamed ${renamed}</span>` +
+      `<span><span class="sw add"></span>added ${lastDiff.rep.onlyHere.length}</span>` +
+      `<span><span class="sw rem"></span>removed ${lastDiff.rep.onlyThere.length} (not shown)</span>`;
+  } else leg.innerHTML = '';
   highlightOverview();
 }
 // Live-highlight nodes matching the search query while the overview is open.

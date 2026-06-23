@@ -23,3 +23,10 @@ scylla-model = { path = "../scylla-model" }
 # Machine-readable output (`--json`) for CI / automation.
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+# Contract-conformance (Sprint 9): drive the real binary, then derive the expected answer from the
+# client port in-process and assert the head agrees — no frozen golden numbers, drift is caught.
+scylla-port = { path = "../scylla-port" }
+scylla-model = { path = "../scylla-model" }
+serde_json = "1"

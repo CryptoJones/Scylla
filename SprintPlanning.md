@@ -171,7 +171,10 @@ Everything before the prototype is there *only* because the prototype can't run 
 
 **Tasks.**
 - **Sandbox** the engine producer (DD-014/029); **cosign** releases; inherit GayHydra's deserialization posture.
-- Golden-binary regression corpus expanded (DD-030); contract-conformance per head.
+- Golden-binary regression corpus expanded (DD-030); contract-conformance per head (**CLI head
+  landed**: `crates/scylla-cli/tests/conformance.rs` asserts the head's `--json` equals what
+  `scylla_port::Session` computes for the same artifact — verb by verb, no frozen golden numbers —
+  proving "many heads, one body"; the pattern the other heads follow).
 - **CONTRIBUTING** + issue/PR lanes + triage SLA (DD-033); license/NOTICE accuracy (DD-032).
 - Confirm in code: SLEIGH/.sla wholesale (DD-013), decompiler boundary as-is (DD-012), P-code at the escape hatch (DD-003).
 

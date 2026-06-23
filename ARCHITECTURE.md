@@ -1,6 +1,6 @@
 # Scylla — implementation map
 
-The *why* lives in [DesignDecisions.md](DesignDecisions.md) (39 decisions). This is the *what*:
+The *why* lives in [DesignDecisions.md](DesignDecisions.md) (44 decisions). This is the *what*:
 the crates, how they connect, and how to drive them. If you want to change the structure, the
 matching DD is the contract — read it before you argue with the shape.
 
@@ -26,14 +26,16 @@ arch test in `scylla-mcp`).
 | `scylla-schema` | the canonical Cap'n Proto artifact + the **total loader** (explicit caps, validate, quarantine) | DD-002 / 026 / 036 |
 | `scylla-engine` | the **engine port** (gRPC client to the sandboxed JVM engine-as-service) — the primary producer | DD-009 / 040 |
 | `scylla-ingest` | the offline producer — a GayHydra headless snapshot JSON → model (dev / corpus, no running service) | DD-009 |
-| `scylla-cli`    | the `scylla` CLI — `materialize` a binary into the artifact over the engine port (composition root) | DD-009 / 040 |
-| `scylla-merge`  | identity-anchored re-anchoring + collaboration merge — `WRONG = 0` is the contract | DD-005 / 027 |
-| `scylla-port`   | the client port — model-primary navigation, semantic zoom, annotation, typed errors | DD-017 / 019 / 020 / 021 |
+| `scylla-cli`    | the `scylla` CLI head — `materialize` (engine port) + `diff` / `merge` / `info` / `functions` / `view` / `callers` (offline, over the client port) | DD-009 / 040 / 017 |
+| `scylla-merge`  | identity-anchored re-anchoring + collaboration merge + the **structural diff** (the binary-differ behind DD-017's `diff`) — `WRONG = 0` is the contract | DD-005 / 017 / 027 |
+| `scylla-port`   | the client port — model-primary navigation, semantic zoom, annotation, **diff / merge**, typed errors | DD-017 / 019 / 020 / 021 |
 | `scylla-mcp`    | the MCP head — projects the port 1:1 as agent tools; **no domain logic** | DD-022 / 024 / 025 |
+| `scylla-wasm`   | the **browser head** — the client port compiled to wasm32; navigate/annotate/diff/merge a `.scylla` client-side (a pure port consumer) | DD-028 |
+| `scylla-serve`  | the **native single-binary head** — a zero-dep binary that bakes in the WASM head and serves it + an artifact (auto-diffs two builds), no JVM | DD-028 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 
-The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028); the
-engine-touching producers deliberately do not.
+The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the
+`scylla-wasm` browser head, shipped by `scylla-serve`; the engine-touching producers deliberately do not.
 
 ## Data flow
 
@@ -50,15 +52,29 @@ engine-touching producers deliberately do not.
    carry it across; ambiguous/absent → flag it. **Never silently wrong.**
 5. Share an artifact → `scylla-merge::collaborate` merges another analyst's facts (git-for-RE);
    disagreements surface as conflicts, never silent overwrites.
+6. **Diff** two builds → `scylla-port::Session::diff` (the structural binary-differ in `scylla-merge`):
+   functions matched / renamed / **modified** / added / removed by structural identity,
+   address-independent, climbing the BinDiff-style ladder EXACT → call-graph propagation → anchor
+   (strings/imports) → BSim feature vector → fuzzy mnemonic-cosine — the *same* matcher the merge
+   uses, fail-closed (`WRONG=0`).
+
+The client port is driven by **four heads** today, each projecting the same verbs: `scylla-mcp`
+(agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`
+(the browser, client-side), `scylla-serve` (the native binary serving it), and `scylla-cli` (the
+terminal). Lop one off, grow another; the body never notices.
 
 ## Driving it
 
 ```
 cargo test --workspace                         # everything, incl. the DD-038 re-anchoring gate (WRONG=0)
-scripts/check-wasm.sh                          # DD-028: consume-side core compiles to wasm32
-cargo +nightly fuzz run artifact_loader        # DD-039 nightly lane (per-commit replay rides in cargo test)
+scripts/check-wasm.sh                           # DD-028: consume-side core compiles to wasm32
+cargo +nightly fuzz run artifact_loader         # DD-039 nightly lane (per-commit replay rides in cargo test)
 scylla materialize http://127.0.0.1:50051 <bin> out.scylla   # primary: binary -> .scylla over the engine port
 prototype/harness/materialize.sh <bin> out.scylla            # offline alternative (no engine-service)
+scylla diff [--json] a.scylla b.scylla          # structural diff (exit 1 if they differ); info/functions/view/callers too
+scylla merge annotated.scylla rebuilt.scylla out.scylla      # carry annotations forward (DD-005)
+cargo run -p scylla-serve -- a.scylla b.scylla  # serve the browser head; auto-diff two builds
+node crates/scylla-wasm/web/verify.mjs          # headless check of the browser head
 ```
 
 ## Not built yet (on purpose)

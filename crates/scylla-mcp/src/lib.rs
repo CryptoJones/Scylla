@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 /// delimited as untrusted (DD-035). Default-untrusted on purpose — a future read tool (e.g.
 /// `decompile`) is wrapped automatically, and forgetting to allowlist a new *status* tool only
 /// over-marks, never under-marks.
-const STATUS_ONLY_TOOLS: &[&str] = &["rename", "comment", "export"];
+const STATUS_ONLY_TOOLS: &[&str] = &["rename", "retype", "comment", "export", "merge"];
 
 /// Wrap binary-derived content so an agent treats it as data, never instructions (DD-035).
 fn wrap_untrusted(text: String) -> String {
@@ -76,7 +76,13 @@ pub fn tools() -> Value {
          "inputSchema": {"type": "object", "properties": {"artifact_path": {"type": "string"}}, "required": ["artifact_path"]}},
         {"name": "export",
          "description": "Write the loaded program — INCLUDING your annotations (renames/comments) — to a .scylla model-artifact at the given local path (DD-026), so the work persists across sessions and can be re-loaded or diffed later. Returns a status ack.",
-         "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}
+         "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+        {"name": "retype",
+         "description": "Set a function's type (durable user fact, DD-005).",
+         "inputSchema": {"type": "object", "properties": {"id": {"type": "integer"}, "type": {"type": "string"}}, "required": ["id", "type"]}},
+        {"name": "merge",
+         "description": "Re-anchor the loaded session's annotations onto a RE-ANALYSIS .scylla (by local path) by structural identity (DD-005, fail-closed), then adopt the merged model as the session — so your renames/comments follow their functions across a rebuild / fresh ids. Returns {merged, flagged} counts (a status ack).",
+         "inputSchema": {"type": "object", "properties": {"artifact_path": {"type": "string"}}, "required": ["artifact_path"]}}
     ])
 }
 
@@ -143,6 +149,20 @@ pub fn call_tool(session: &mut Session, name: &str, args: &Value) -> Result<Valu
             std::fs::write(path, &bytes).map_err(|e| format!("writing {path}: {e}"))?;
             Ok(json!({"ok": true, "path": path, "bytes": len}))
         }
+        "retype" => {
+            let ty = args.get("type").and_then(Value::as_str).ok_or("missing 'type'")?;
+            session.retype(want_id()?, ty).map(|_| json!({"ok": true})).map_err(|e| e.to_string())
+        }
+        "merge" => {
+            let path = args
+                .get("artifact_path")
+                .and_then(Value::as_str)
+                .ok_or("missing 'artifact_path'")?;
+            let bytes = std::fs::read(path).map_err(|e| format!("reading {path}: {e}"))?;
+            let other = Session::from_artifact(&bytes).map_err(|e| e.to_string())?;
+            let report = session.merge_from(&other);
+            Ok(json!({"merged": report.merged, "flagged": report.flagged}))
+        }
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -205,9 +225,64 @@ mod tests {
         let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}));
         let names: Vec<&str> = resp["result"]["tools"]
             .as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-        for expected in ["list_functions", "get_function", "callers", "rename", "comment", "diff"] {
+        for expected in [
+            "list_functions",
+            "get_function",
+            "callers",
+            "rename",
+            "retype",
+            "comment",
+            "diff",
+            "export",
+            "merge",
+        ] {
             assert!(names.contains(&expected), "missing tool {expected}");
         }
+    }
+
+    #[test]
+    fn retype_through_the_tool_acks() {
+        let mut s = session();
+        let gcd = id_of(&s, "gcd");
+        let r = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {"name": "retype", "arguments": {"id": gcd, "type": "int (*)(int, int)"}}}),
+        );
+        let text = r["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"ok\":true"), "retype acks ok: {text}");
+    }
+
+    #[test]
+    fn merge_through_the_tool_reanchors_a_rename() {
+        // Rename gcd, then merge a RE-ANALYSIS (same binary, fresh ids) — the rename re-anchors onto
+        // it by structural identity (DD-005), and the session becomes the merged model.
+        let mut s = session();
+        let gcd = id_of(&s, "gcd");
+        dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {"name": "rename", "arguments": {"id": gcd, "name": "euclid_gcd"}}}),
+        );
+        let rebuilt = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../scylla-wasm/web/mathlib_rebuilt.scylla"
+        );
+        let resp = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {"name": "merge", "arguments": {"artifact_path": rebuilt}}}),
+        );
+        let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"merged\":"), "merge returns a report: {text}");
+        // the session is now the rebuild with the rename re-anchored — list shows euclid_gcd.
+        let list = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                "params": {"name": "list_functions", "arguments": {}}}),
+        );
+        let ltext = list["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(ltext.contains("euclid_gcd"), "rename followed the function across the rebuild: {ltext}");
     }
 
     #[test]

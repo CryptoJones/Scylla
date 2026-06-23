@@ -263,6 +263,19 @@ impl Session {
             only_there: d.only_b.into_iter().map(|id| other.name_of(id)).collect(),
         }
     }
+
+    /// Re-anchor this session's user facts onto `other` — a RE-ANALYSIS of the same program (fresh
+    /// stable ids, possibly an address shift) — by structural identity (DD-005), then adopt the
+    /// merged model as this session. The mutating sibling of [`Session::diff`]: where `diff` reports
+    /// the correspondence, `merge_from` carries the annotations across it. Returns the merge engine's
+    /// report (`merged` facts confidently carried, `flagged` left for review — fail-closed: a
+    /// near-tie never anchors). `other` is consumed structurally (cloned), not mutated.
+    pub fn merge_from(&mut self, other: &Session) -> scylla_merge::MergeReport {
+        let mut new = other.program.clone();
+        let report = scylla_merge::merge_into(&self.program, &mut new);
+        self.program = new;
+        report
+    }
 }
 
 #[cfg(test)]
@@ -406,6 +419,23 @@ mod tests {
         assert!(
             !diff.only_there.iter().any(|n| n == "gcd"),
             "not double-counted as added"
+        );
+    }
+
+    #[test]
+    fn merge_from_reanchors_annotations_onto_a_reanalysis() {
+        // DD-005: rename a function, then merge a RE-ANALYSIS (same program, fresh stable ids) — the
+        // rename re-anchors onto it by structural identity, and the session becomes the merged model.
+        let mut a = session();
+        let gcd = id_of(&a, "gcd");
+        a.rename(gcd, "euclid_gcd").unwrap();
+        let report = a.merge_from(&session()); // a fresh materialization = the re-analysis
+        assert!(report.merged >= 1, "the rename should carry: {report:?}");
+        assert!(
+            a.functions(Zoom::Domain)
+                .iter()
+                .any(|f| f.name == "euclid_gcd"),
+            "euclid_gcd re-anchored onto the fresh-id rebuild"
         );
     }
 

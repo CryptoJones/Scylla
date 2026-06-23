@@ -200,6 +200,32 @@ pub extern "C" fn scylla_export() -> u64 {
     })
 }
 
+/// Re-anchor the current session's user facts onto a RE-ANALYSIS (a fresh `.scylla` from `(ptr,len)`,
+/// with different stable ids) by structural identity (DD-005), then make the merged model the
+/// session. Returns `{merged, flagged}` — facts confidently carried, and those a structural
+/// ambiguity flagged for review (fail-closed: a near-tie never anchors). The browser payoff: rename
+/// a function, re-import a rebuilt binary, and the rename follows the function across the rebuild.
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_merge(ptr: *const u8, len: usize) -> u64 {
+    let bytes = std::slice::from_raw_parts(ptr, len);
+    SESSION.with_borrow_mut(|opt| {
+        let Some(old) = opt.as_ref() else {
+            return ret_string(json!({ "error": "no session loaded" }).to_string());
+        };
+        let mut new = match scylla_schema::load(bytes) {
+            Ok((program, _report)) => program,
+            Err(e) => return ret_string(json!({ "error": e.to_string() }).to_string()),
+        };
+        let report = scylla_merge::merge_into(old.program(), &mut new);
+        let result = json!({ "merged": report.merged, "flagged": report.flagged }).to_string();
+        *opt = Some(Session::open(new));
+        ret_string(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

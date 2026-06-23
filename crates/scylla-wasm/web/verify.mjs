@@ -63,10 +63,23 @@ X.scylla_free(rp, exported.length);
 const renamed = J(X.scylla_view(BigInt(gcd.id), 1)).name;
 console.log("after rename → export → reload, gcd is now:", renamed, `(${exported.length}-byte artifact)`);
 
+// Merge round-trip: re-anchor the rename onto a RE-ANALYSIS (same binary, fresh stable ids).
+// merge_into matches functions by structural identity (not id), so the euclid_gcd rename should
+// follow gcd across the rebuild — DD-005 identity-anchored merge, in the browser.
+const rebuilt = readFileSync(join(dir, "mathlib_rebuilt.scylla"));
+const mp = X.scylla_alloc(rebuilt.length);
+new Uint8Array(mem.buffer, mp, rebuilt.length).set(rebuilt);
+const report = J(X.scylla_merge(mp, rebuilt.length));
+X.scylla_free(mp, rebuilt.length);
+const reanchored = J(X.scylla_functions(1)).some((f) => f.name === "euclid_gcd");
+console.log("merge report:", report, "| rename re-anchored onto the rebuild?", reanchored);
+
 const ok =
   info.functions === fns.length &&
   callers.includes("main") &&
   rc === 0 &&
-  renamed === "euclid_gcd";
-console.log(ok ? "PASS — navigate + annotate + export round-trips in WASM" : "FAIL");
+  renamed === "euclid_gcd" &&
+  report.merged >= 1 &&
+  reanchored;
+console.log(ok ? "PASS — navigate + annotate + export + merge round-trip in WASM" : "FAIL");
 process.exit(ok ? 0 : 1);

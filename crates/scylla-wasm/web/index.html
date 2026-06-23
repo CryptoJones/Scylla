@@ -20,7 +20,7 @@
   .sub { color: var(--dim); font-size: 16px; margin-top: 4px; }
   #info { color: var(--green); font-size: 16px; margin-top: 8px; }
   .zoom { margin-top: 10px; font-size: 16px; color: var(--dim); }
-  .zoom button {
+  .zoom button, .zoom .zbtn {
     font: inherit; font-size: 15px; background: var(--panel); color: var(--fg);
     border: 1px solid var(--line); padding: 4px 12px; margin-right: 6px; cursor: pointer; border-radius: 4px;
   }
@@ -56,6 +56,7 @@
     <button data-z="1" class="on">domain</button>
     <button data-z="2">detail</button>
     &nbsp;&nbsp;<button id="dl" title="export the annotated artifact">⤓ download .scylla</button>
+    <label class="zbtn" title="re-anchor your annotations onto a re-analyzed .scylla">⟳ merge re-analysis<input type="file" id="mg" accept=".scylla" hidden></label>
   </div>
 </header>
 <main>
@@ -102,6 +103,25 @@ function exportArtifact() {
   a.download = (info && info.name ? info.name : 'model') + '.scylla';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+// Merge a re-analyzed .scylla: re-anchor the current annotations onto it by structural identity
+// (DD-005), then refresh the view onto the merged model.
+async function mergeFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const p = X.scylla_alloc(bytes.length);
+  new Uint8Array(mem.buffer, p, bytes.length).set(bytes);
+  const report = J(X.scylla_merge(p, bytes.length));
+  X.scylla_free(p, bytes.length);
+  if (report.error) { alert('merge failed: ' + report.error); return; }
+  sel = null;
+  info = J(X.scylla_info());
+  refresh();
+  flash(`merged ${report.merged} annotation(s) onto the re-analysis · ${report.flagged} flagged`);
+}
+function flash(msg) {
+  const i = document.getElementById('info'), prev = i.textContent;
+  i.textContent = msg;
+  setTimeout(() => { i.textContent = prev; }, 4000);
 }
 
 function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
@@ -168,6 +188,7 @@ document.querySelectorAll('.zoom button[data-z]').forEach(b => b.onclick = () =>
   refresh();
 });
 document.getElementById('dl').onclick = exportArtifact;
+document.getElementById('mg').onchange = (e) => { if (e.target.files[0]) mergeFile(e.target.files[0]); e.target.value = ''; };
 
 async function boot() {
   try {

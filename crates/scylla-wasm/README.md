@@ -27,6 +27,7 @@ toolchain beyond the `wasm32-unknown-unknown` target. The module is self-contain
 | `scylla_retype(id, ptr, len) -> 0/-1` | retype a function |
 | `scylla_comment(id, ptr, len) -> 0/-1` | comment a function (may be empty) |
 | `scylla_export() -> handle` | the (annotated) `.scylla` artifact bytes, to download |
+| `scylla_merge(ptr, len) -> handle` | re-anchor the current annotations onto a re-analysis (DD-005); `{merged, flagged}` |
 | `scylla_free(ptr, len)` | release a buffer |
 
 A **string result** is returned as a `(ptr<<32 | len)` u64 (a BigInt in JS); the caller copies it
@@ -54,12 +55,18 @@ the browser demo works.
 
 ## Scope
 
-**Navigate + annotate + export**, all in the browser: list/zoom/navigate, rename/retype/comment
-(durable user facts, DD-005), and download the modified `.scylla` (DD-026) — re-load it and the
-renames survive. **git-for-RE, client-side.** Verified end-to-end by `verify.mjs` (a rename →
-export → reload round-trip).
+**Navigate + annotate + export + merge**, all in the browser:
 
-Still future work: **merge** (re-importing a re-analyzed binary against the annotated artifact —
-the in-core port supports it, the head doesn't surface it yet) and engine verbs (`decompile`,
-which needs the JVM engine, not available client-side). A *live* browser head over a serving core
-would use the Cap'n Proto RPC surface (DD-002, deferred — shape-validated by `spike/rpc-shape`).
+- list/zoom/navigate the call graph;
+- rename/retype/comment (durable user facts, DD-005) and download the modified `.scylla` (DD-026)
+  — re-load it and the renames survive;
+- **merge a re-analysis** — re-anchor your annotations onto a rebuilt binary by *structural
+  identity*, so a rename follows its function across an address shift / fresh ids (DD-005,
+  fail-closed: a near-tie never anchors). **git-for-RE, client-side.**
+
+End-to-end verified by `verify.mjs`: a rename → export → reload → **merge** round-trip (the rename
+re-anchors onto a fresh-id rebuild).
+
+Still future: engine verbs (`decompile`, which needs the JVM engine — not available client-side).
+A *live* browser head over a serving core would use the Cap'n Proto RPC surface (DD-002, deferred —
+shape-validated by `spike/rpc-shape`).

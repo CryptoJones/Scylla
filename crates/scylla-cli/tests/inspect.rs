@@ -110,3 +110,30 @@ fn callers_of_a_non_integer_id_is_trouble_exit_2() {
     let (code, _out) = run(&["callers", BASE, "abc"]);
     assert_eq!(code, 2, "non-integer id -> exit 2");
 }
+
+#[test]
+fn info_json_emits_an_object() {
+    let (code, out) = run(&["info", "--json", BASE]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("\"functions\": 13"),
+        "json function count: {out}"
+    );
+    assert!(out.contains("\"name\""), "json has a name field: {out}");
+}
+
+#[test]
+fn functions_json_emits_an_array() {
+    let (code, out) = run(&["functions", "--json", BASE]);
+    assert_eq!(code, 0);
+    assert!(out.trim_start().starts_with('['), "a json array: {out}");
+    assert!(out.contains("\"name\": \"gcd\""), "lists gcd: {out}");
+}
+
+#[test]
+fn view_json_emits_an_object() {
+    let (code, out) = run(&["view", "--json", BASE, &gcd_id()]);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"name\": \"gcd\""), "names gcd: {out}");
+    assert!(out.contains("\"callers\""), "has a callers field: {out}");
+}

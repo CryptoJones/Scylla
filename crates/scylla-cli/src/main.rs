@@ -4,9 +4,9 @@
 //!
 //!   scylla materialize <engine-endpoint> <binary> <out.scylla>
 //!   scylla diff [--json] <a.scylla> <b.scylla>   # structural diff of two model artifacts (DD-017)
-//!   scylla info <artifact.scylla>          # name / language / function count
-//!   scylla functions <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
-//!   scylla view <artifact.scylla> <id> [zoom]   # one function's detail + call graph
+//!   scylla info [--json] <artifact.scylla>          # name / language / function count
+//!   scylla functions [--json] <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
+//!   scylla view [--json] <artifact.scylla> <id> [zoom]   # one function's detail + call graph
 //!   scylla callers <artifact.scylla> <id>       # functions that call <id>
 //!   scylla merge <annotated.scylla> <reanalysis.scylla> <out.scylla>   # carry annotations forward
 //!
@@ -20,16 +20,20 @@ use scylla_port::{Session, Zoom};
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().collect();
+    let raw: Vec<String> = std::env::args().collect();
+    // `--json` is a global flag for the read commands (diff/info/functions/view); strip it once so
+    // it can sit anywhere, and the per-command parsing stays positional.
+    let json = raw.iter().any(|a| a == "--json");
+    let args: Vec<String> = raw.into_iter().filter(|a| a != "--json").collect();
     match args.get(1).map(String::as_str) {
         Some("materialize") if args.len() == 5 => materialize(&args[2], &args[3], &args[4]).await,
-        Some("diff") => diff_cmd(&args[2..]),
-        Some("info") if args.len() == 3 => info(&args[2]),
+        Some("diff") if args.len() == 4 => diff(&args[2], &args[3], json),
+        Some("info") if args.len() == 3 => info(&args[2], json),
         Some("functions") if args.len() == 3 || args.len() == 4 => {
-            functions(&args[2], args.get(3).map(String::as_str))
+            functions(&args[2], args.get(3).map(String::as_str), json)
         }
         Some("view") if args.len() == 4 || args.len() == 5 => {
-            view(&args[2], &args[3], args.get(4).map(String::as_str))
+            view(&args[2], &args[3], args.get(4).map(String::as_str), json)
         }
         Some("callers") if args.len() == 4 => callers(&args[2], &args[3]),
         Some("merge") if args.len() == 5 => merge(&args[2], &args[3], &args[4]),
@@ -37,9 +41,9 @@ async fn main() -> ExitCode {
             eprintln!(
                 "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
                  {prog} diff [--json] <a.scylla> <b.scylla>\n       \
-                 {prog} info <artifact.scylla>\n       \
-                 {prog} functions <artifact.scylla> [intent|domain|detail]\n       \
-                 {prog} view <artifact.scylla> <id> [intent|domain|detail]\n       \
+                 {prog} info [--json] <artifact.scylla>\n       \
+                 {prog} functions [--json] <artifact.scylla> [intent|domain|detail]\n       \
+                 {prog} view [--json] <artifact.scylla> <id> [intent|domain|detail]\n       \
                  {prog} callers <artifact.scylla> <id>\n       \
                  {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
                  materialize — the engine port (DD-009/040): GayHydra over gRPC -> canonical artifact\n  \
@@ -68,16 +72,25 @@ fn load_session(path: &str) -> Result<Session, ExitCode> {
     })
 }
 
-/// `scylla info <artifact>` — the artifact's name, language, and function count (offline, no engine).
-fn info(path: &str) -> ExitCode {
+/// `scylla info [--json] <artifact>` — the artifact's name, language, and function count (offline).
+fn info(path: &str, json: bool) -> ExitCode {
     let session = match load_session(path) {
         Ok(s) => s,
         Err(code) => return code,
     };
     let p = session.program();
-    println!("name:      {}", p.name);
-    println!("language:  {}", p.language);
-    println!("functions: {}", p.functions.len());
+    if json {
+        let out = serde_json::json!({
+            "name": p.name,
+            "language": p.language,
+            "functions": p.functions.len(),
+        });
+        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    } else {
+        println!("name:      {}", p.name);
+        println!("language:  {}", p.language);
+        println!("functions: {}", p.functions.len());
+    }
     ExitCode::SUCCESS
 }
 
@@ -102,9 +115,10 @@ fn parse_id(s: &str) -> Result<StableId, ExitCode> {
     })
 }
 
-/// `scylla functions <artifact> [zoom]` — list every function at a zoom altitude (DD-020), one per
-/// line as `<id>\t<name>\t<summary>`, sorted by name for a stable, greppable, diff-friendly listing.
-fn functions(path: &str, zoom_arg: Option<&str>) -> ExitCode {
+/// `scylla functions [--json] <artifact> [zoom]` — list every function at a zoom altitude (DD-020),
+/// sorted by name for stable output: text is `<id>\t<name>\t<summary>` (greppable), `--json` is an
+/// array of `{id, name, summary}` (for structured consumers).
+fn functions(path: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
     let zoom = match parse_zoom(zoom_arg) {
         Ok(z) => z,
         Err(code) => return code,
@@ -115,14 +129,24 @@ fn functions(path: &str, zoom_arg: Option<&str>) -> ExitCode {
     };
     let mut fns = session.functions(zoom);
     fns.sort_by(|a, b| a.name.cmp(&b.name));
-    for f in &fns {
-        println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
+    if json {
+        let arr: Vec<serde_json::Value> = fns
+            .iter()
+            .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+    } else {
+        for f in &fns {
+            println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
+        }
     }
     ExitCode::SUCCESS
 }
 
-/// `scylla view <artifact> <id> [zoom]` — one function by stable id at a zoom altitude (DD-020).
-fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>) -> ExitCode {
+/// `scylla view [--json] <artifact> <id> [zoom]` — one function by stable id at a zoom altitude
+/// (DD-020). Text is key: value lines; `--json` is the full `{id, name, summary, addr, bb_count,
+/// size, callees, callers}` (fields above the zoom altitude are `null`).
+fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
     let zoom = match parse_zoom(zoom_arg) {
         Ok(z) => z,
         Err(code) => return code,
@@ -142,6 +166,20 @@ fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if json {
+        let out = serde_json::json!({
+            "id": v.id.0,
+            "name": v.name,
+            "summary": v.summary,
+            "addr": v.addr,
+            "bb_count": v.bb_count,
+            "size": v.size,
+            "callees": v.callees,
+            "callers": v.callers,
+        });
+        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+        return ExitCode::SUCCESS;
+    }
     let list = |xs: &[String]| {
         if xs.is_empty() {
             "(none)".to_string()
@@ -225,21 +263,6 @@ fn merge(base_path: &str, reanalysis_path: &str, out_path: &str) -> ExitCode {
         bytes.len(),
     );
     ExitCode::SUCCESS
-}
-
-/// Parse `diff [--json] <a> <b>` and dispatch (the flag may sit anywhere among the args).
-fn diff_cmd(rest: &[String]) -> ExitCode {
-    let json = rest.iter().any(|a| a == "--json");
-    let paths: Vec<&str> = rest
-        .iter()
-        .map(String::as_str)
-        .filter(|a| *a != "--json")
-        .collect();
-    if paths.len() != 2 {
-        eprintln!("usage: scylla diff [--json] <a.scylla> <b.scylla>");
-        return ExitCode::from(2);
-    }
-    diff(paths[0], paths[1], json)
 }
 
 /// `scylla diff [--json] <a> <b>` — the offline `diff` verb (DD-017): load two model artifacts and

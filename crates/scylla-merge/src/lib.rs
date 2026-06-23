@@ -22,7 +22,7 @@
 //!    **propagation** from these anchors is now realized in the `diff` verb ([`diff_programs`]): a
 //!    leftover function re-identified by its unique neighbourhood of already-matched callers/callees
 //!    is recovered — as `matched` if its body is unchanged (signature-ambiguous twin), or as
-//!    `changed` if its body differs (the "modified" class). One round, fail-closed.
+//!    `changed` if its body differs (the "modified" class). Iterated to a fixpoint, fail-closed.
 //! 3. **FUZZY** — cosine over the stored mnemonic histogram + structural closeness, accepted only
 //!    above a confidence threshold AND with a runner-up margin. Lifts both edit classes to 100% and
 //!    recovers some recompile.
@@ -541,8 +541,8 @@ pub struct ProgramDiff {
     pub matched: Vec<(StableId, StableId)>,
     /// `(a_id, b_id)` pairs whose BODY changed (the exact signature differs) but whose call-graph
     /// neighbourhood among the EXACT-matched anchors agrees uniquely — the *same* function, modified.
-    /// One round of BinDiff-style call-graph propagation, fail-closed: an ambiguous or un-anchored
-    /// neighbourhood is left in `only_a`/`only_b`, never guessed.
+    /// BinDiff-style call-graph propagation iterated to a fixpoint, fail-closed: an ambiguous or
+    /// un-anchored neighbourhood is left in `only_a`/`only_b`, never guessed.
     pub changed: Vec<(StableId, StableId)>,
     /// Stable ids present only in `a` (removed / only-here).
     pub only_a: Vec<StableId>,
@@ -581,7 +581,8 @@ fn group_unique(items: &[(StableId, Neighbourhood)]) -> HashMap<Neighbourhood, S
 /// leftover on each side shares the SAME neighbourhood of exact-matched callers/callees (projected
 /// into a shared id space) and that neighbourhood is unique on both sides, it is the same function
 /// with an edited body → `changed`. This is the "call-graph propagation from the anchors" the module
-/// header names as the next lever. One round, fail-closed (no anchor / ambiguous → stays only_a/_b).
+/// header names as the next lever. Iterated to a fixpoint (each round's new pairings anchor the
+/// next, so a match chains through a freshly-recovered neighbour); fail-closed every round.
 pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
     let mut a_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
     for f in &a.functions {
@@ -605,88 +606,101 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
             _ => left_a.push(f.id),
         }
     }
-    let left_b: Vec<StableId> = b
+    let mut left_b: Vec<StableId> = b
         .functions
         .iter()
         .map(|f| f.id)
         .filter(|id| !claimed_b.contains(id))
         .collect();
 
-    // --- propagation pass: pair leftovers by their anchored call-graph neighbourhood ----------
-    // Project each anchor into a shared id space: an a-side matched id maps to its b-side twin
-    // (`a2b`); a b-side matched id is its own canonical. So "calls the same matched function" and
-    // "is called by the same matched function" become comparable across the two programs.
-    let a2b: HashMap<StableId, StableId> = diff.matched.iter().copied().collect();
-    let matched_b: HashSet<StableId> = diff.matched.iter().map(|(_, b)| *b).collect();
+    // --- propagation rounds: pair leftovers by their anchored call-graph neighbourhood ----------
+    // Project each anchor into a shared id space: an a-side anchor maps to its b-side twin (`a2b`);
+    // a b-side anchor is its own canonical. So "calls the same anchored function" and "is called by
+    // the same anchored function" become comparable across the two programs. MULTI-ROUND: each
+    // round's new pairings (recovered `matched` AND `changed`) become anchors for the next, so a
+    // match chains through a freshly-recovered neighbour; fixpoint when a round adds nothing. Every
+    // round stays fail-closed (unique-on-both-sides + non-empty neighbourhood, never a guess).
     let a_fn: HashMap<StableId, &Function> = a.functions.iter().map(|f| (f.id, f)).collect();
     let b_fn: HashMap<StableId, &Function> = b.functions.iter().map(|f| (f.id, f)).collect();
-    // anchored callers: callee id -> canonical ids of its EXACT-matched callers.
-    let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
-    for f in &a.functions {
-        if let Some(&canon) = a2b.get(&f.id) {
-            for c in &f.callees {
-                a_callers.entry(*c).or_default().insert(canon);
+    loop {
+        // anchors so far: exact matches + everything propagation has paired (matched + changed).
+        let a2b: HashMap<StableId, StableId> =
+            diff.matched.iter().chain(diff.changed.iter()).copied().collect();
+        let matched_b: HashSet<StableId> = a2b.values().copied().collect();
+        let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
+        for f in &a.functions {
+            if let Some(&canon) = a2b.get(&f.id) {
+                for c in &f.callees {
+                    a_callers.entry(*c).or_default().insert(canon);
+                }
             }
         }
-    }
-    let mut b_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
-    for f in &b.functions {
-        if matched_b.contains(&f.id) {
-            for c in &f.callees {
-                b_callers.entry(*c).or_default().insert(f.id);
+        let mut b_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
+        for f in &b.functions {
+            if matched_b.contains(&f.id) {
+                for c in &f.callees {
+                    b_callers.entry(*c).or_default().insert(f.id);
+                }
             }
         }
-    }
-    // neighbourhood key = (anchored callees, anchored callers), both in the shared (b-side) id space.
-    let key_a = |id: &StableId| -> Neighbourhood {
-        let callees = a_fn[id]
-            .callees
-            .iter()
-            .filter_map(|c| a2b.get(c).copied())
-            .collect();
-        (callees, a_callers.get(id).cloned().unwrap_or_default())
-    };
-    let key_b = |id: &StableId| -> Neighbourhood {
-        let callees = b_fn[id]
-            .callees
-            .iter()
-            .filter(|c| matched_b.contains(c))
-            .copied()
-            .collect();
-        (callees, b_callers.get(id).cloned().unwrap_or_default())
-    };
-    let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
-    let a_keys: Vec<(StableId, Neighbourhood)> = left_a.iter().map(|id| (*id, key_a(id))).collect();
-    let b_keys: Vec<(StableId, Neighbourhood)> = left_b.iter().map(|id| (*id, key_b(id))).collect();
-    let a_by_key = group_unique(&a_keys);
-    let b_by_key = group_unique(&b_keys);
-    let mut paired_a: HashSet<StableId> = HashSet::new();
-    let mut paired_b: HashSet<StableId> = HashSet::new();
-    for (id, k) in &a_keys {
-        // unique on BOTH sides + non-trivial neighbourhood, else fail closed.
-        if !nonempty(k) {
-            continue;
-        }
-        let (Some(&ua), Some(&ub)) = (a_by_key.get(k), b_by_key.get(k)) else {
-            continue;
+        // neighbourhood key = (anchored callees, anchored callers), in the shared (b-side) id space.
+        let key_a = |id: &StableId| -> Neighbourhood {
+            let callees = a_fn[id]
+                .callees
+                .iter()
+                .filter_map(|c| a2b.get(c).copied())
+                .collect();
+            (callees, a_callers.get(id).cloned().unwrap_or_default())
         };
-        if ua != *id {
-            continue;
+        let key_b = |id: &StableId| -> Neighbourhood {
+            let callees = b_fn[id]
+                .callees
+                .iter()
+                .filter(|c| matched_b.contains(c))
+                .copied()
+                .collect();
+            (callees, b_callers.get(id).cloned().unwrap_or_default())
+        };
+        let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
+        let a_keys: Vec<(StableId, Neighbourhood)> =
+            left_a.iter().map(|id| (*id, key_a(id))).collect();
+        let b_keys: Vec<(StableId, Neighbourhood)> =
+            left_b.iter().map(|id| (*id, key_b(id))).collect();
+        let a_by_key = group_unique(&a_keys);
+        let b_by_key = group_unique(&b_keys);
+        let mut paired_a: HashSet<StableId> = HashSet::new();
+        let mut paired_b: HashSet<StableId> = HashSet::new();
+        for (id, k) in &a_keys {
+            // unique on BOTH sides + non-trivial neighbourhood, else fail closed.
+            if !nonempty(k) {
+                continue;
+            }
+            let (Some(&ua), Some(&ub)) = (a_by_key.get(k), b_by_key.get(k)) else {
+                continue;
+            };
+            if ua != *id || paired_b.contains(&ub) {
+                continue;
+            }
+            // The neighbourhood disambiguated the pair. If the signatures actually differ, the body
+            // changed → `changed`; if they're equal, this leftover was merely signature-ambiguous (a
+            // structural twin the exact pass couldn't tell apart) and the call graph just resolved
+            // it, so it's an unchanged `matched`.
+            if signature(a_fn[id]) == signature(b_fn[&ub]) {
+                diff.matched.push((*id, ub));
+            } else {
+                diff.changed.push((*id, ub));
+            }
+            paired_a.insert(*id);
+            paired_b.insert(ub);
         }
-        // The neighbourhood disambiguated the pair. If the signatures actually differ, the body
-        // changed → `changed`; if they're equal, this leftover was merely signature-ambiguous (a
-        // structural twin the exact pass couldn't tell apart) and the call graph just resolved it,
-        // so it's an unchanged `matched`.
-        if signature(a_fn[id]) == signature(b_fn[&ub]) {
-            diff.matched.push((*id, ub));
-        } else {
-            diff.changed.push((*id, ub));
+        if paired_a.is_empty() {
+            break; // fixpoint — no leftover could be anchored this round
         }
-        paired_a.insert(*id);
-        paired_b.insert(ub);
+        left_a.retain(|id| !paired_a.contains(id));
+        left_b.retain(|id| !paired_b.contains(id));
     }
-    diff.only_a = left_a.into_iter().filter(|id| !paired_a.contains(id)).collect();
-    diff.only_b = left_b.into_iter().filter(|id| !paired_b.contains(id)).collect();
+    diff.only_a = left_a;
+    diff.only_b = left_b;
     diff
 }
 
@@ -1119,11 +1133,12 @@ mod tests {
         }
     }
 
-    /// Fail-closed: one round of propagation anchors only on EXACT matches. If a changed function's
-    /// sole anchor also changed, there is nothing to anchor it to, so it is left in only_a/only_b —
-    /// never guessed. (main keeps other anchored callees, so main itself is still recovered.)
+    /// Multi-round propagation: when a changed function's sole anchor ALSO changed, round 1 recovers
+    /// the anchor (main, via its OTHER matched callees) and round 2 then recovers the dependent (gcd,
+    /// now that main is itself an anchor). Both end up `changed` — propagation chains through fresh
+    /// matches, recovering what a single round could not.
     #[test]
-    fn diff_propagation_is_fail_closed_when_the_only_anchor_also_changed() {
+    fn diff_propagation_chains_through_freshly_matched_anchors() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let name =
@@ -1140,10 +1155,37 @@ mod tests {
         }
         let d = diff_programs(&v1, &v2);
         let changed: Vec<String> = d.changed.iter().map(|(a, _)| name(&v1, *a)).collect();
-        // main keeps anchored callees (fib/factorial/sum_to), so it is recovered as changed…
-        assert!(changed.contains(&"main".to_string()), "main recovered via its other anchors");
-        // …but gcd's only anchor was main, now itself a leftover → gcd is NOT guessed.
-        assert!(!changed.contains(&"gcd".to_string()), "gcd never guessed without a live anchor");
+        // main recovered in round 1 (anchored by fib/factorial/sum_to)…
+        assert!(changed.contains(&"main".to_string()), "main recovered (round 1)");
+        // …then gcd recovered in round 2, now that main is an anchor (single round could not).
+        assert!(changed.contains(&"gcd".to_string()), "gcd recovered (round 2, chained off main)");
+        assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
+        assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
+    }
+
+    /// Fail-closed under propagation: if a function's body AND its call-graph neighbourhood both
+    /// change, it has no unique counterpart on the other side, so it is left in only_a/only_b —
+    /// never guessed (WRONG=0). Here gcd's body is edited AND it gains a call to `fib`, so its
+    /// anchored-callee set differs from every v1 leftover's.
+    #[test]
+    fn diff_propagation_never_guesses_when_the_neighbourhood_also_changed() {
+        let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let fib_id = v2.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        {
+            let g = v2.functions.iter_mut().find(|f| f.name == "gcd").unwrap();
+            g.bb_count += 3;
+            g.size += 64;
+            g.fingerprint ^= 0xA5A5;
+            g.callees.push(fib_id); // its neighbourhood now differs from gcd-in-v1
+        }
+        let d = diff_programs(&v1, &v2);
+        assert!(
+            !d.changed.iter().any(|(a, _)| name(&v1, *a) == "gcd"),
+            "gcd not guessed — its neighbourhood also changed"
+        );
         assert!(d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
         assert!(d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
     }

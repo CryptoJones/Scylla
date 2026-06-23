@@ -47,6 +47,13 @@ const passStr = (s) => {
   new Uint8Array(mem.buffer, p, b.length).set(b);
   return [p, b.length];
 };
+// search: case-insensitive substring narrows to gcd, browser-side (before the rename below).
+const [sp, sl] = passStr("GC");
+const searchHits = J(X.scylla_search(sp, sl, 1)).map((f) => f.name);
+X.scylla_free(sp, sl);
+const searchOk = searchHits.length === 1 && searchHits[0] === "gcd";
+console.log("search('GC'):", searchHits, "| narrows to gcd?", searchOk);
+
 const [np, nl] = passStr("euclid_gcd");
 const rc = X.scylla_rename(BigInt(gcd.id), np, nl);
 X.scylla_free(np, nl);
@@ -116,6 +123,7 @@ console.log("merge report:", report, "| rename re-anchored onto the rebuild?", r
 const ok =
   info.functions === fns.length &&
   callers.includes("main") &&
+  searchOk &&
   rc === 0 &&
   renamed === "euclid_gcd" &&
   diff.matched.length === fns.length &&

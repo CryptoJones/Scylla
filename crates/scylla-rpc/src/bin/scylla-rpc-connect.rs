@@ -14,7 +14,7 @@ use scylla_rpc::{connect, login, tls_connector};
 use tokio_rustls::rustls::pki_types::ServerName;
 
 const USAGE: &str = "usage: scylla-rpc-connect <host:port> \
-     <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla> | export <out.scylla>>";
+     <info | functions | search <query> | view <id> [zoom] | callers <id> | diff <other.scylla> | export <out.scylla>>";
 
 fn zoom_byte(arg: Option<&String>) -> u8 {
     match arg.map(String::as_str) {
@@ -120,6 +120,26 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
             "functions" => {
                 let all = session.functions_request().send().promise.await?;
                 let fns = all.get()?.get_fns()?;
+                let mut rows = Vec::new();
+                for k in 0..fns.len() {
+                    let v = fns.get(k)?.view_request().send().promise.await?;
+                    let v = v.get()?;
+                    rows.push((v.get_id(), v.get_name()?.to_str()?.to_string()));
+                }
+                rows.sort_by(|a, b| a.1.cmp(&b.1));
+                for (id, name) in rows {
+                    println!("{id}\t{name}");
+                }
+            }
+            "search" => {
+                let Some(query) = args.get(2) else {
+                    eprintln!("error: search needs <query>\n{USAGE}");
+                    return Err(capnp::Error::failed("usage".into()));
+                };
+                let mut req = session.search_request();
+                req.get().set_query(query);
+                let resp = req.send().promise.await?;
+                let fns = resp.get()?.get_fns()?;
                 let mut rows = Vec::new();
                 for k in 0..fns.len() {
                     let v = fns.get(k)?.view_request().send().promise.await?;

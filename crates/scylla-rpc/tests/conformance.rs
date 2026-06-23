@@ -126,6 +126,22 @@ fn rpc_head_conforms_to_the_port() {
     got.sort();
     assert_eq!(got, expected, "the remote head lists the port's functions");
 
+    // search — case-insensitive substring narrows to the port's matches, over the wire.
+    let mut want: Vec<String> = p
+        .search("gc", Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
+    want.sort();
+    let (code, out) = connect(&addr, &["search", "gc"]);
+    assert_eq!(code, 0, "search exit 0");
+    let mut hits: Vec<String> = out
+        .lines()
+        .filter_map(|l| l.split('\t').nth(1).map(str::to_string))
+        .collect();
+    hits.sort();
+    assert_eq!(hits, want, "remote search == the port's search");
+
     // gcd's id, resolved over the wire (robust to re-mint).
     let gid = out
         .lines()

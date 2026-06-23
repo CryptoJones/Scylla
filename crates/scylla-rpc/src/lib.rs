@@ -163,6 +163,29 @@ impl session::Server for SessionImpl {
         }
     }
 
+    fn search(
+        self: capnp::capability::Rc<Self>,
+        params: session::SearchParams,
+        mut results: session::SearchResults,
+    ) -> impl Future<Output = Result<(), capnp::Error>> + 'static {
+        let session = self.session.clone();
+        async move {
+            let query = params.get()?.get_query()?.to_str()?.to_string();
+            // Name-matching is zoom-independent; we only need the matching ids -> capabilities.
+            let ids: Vec<StableId> = session
+                .borrow()
+                .search(&query, Zoom::Domain)
+                .into_iter()
+                .map(|v| v.id)
+                .collect();
+            let mut list = results.get().init_fns(ids.len() as u32);
+            for (i, id) in ids.into_iter().enumerate() {
+                list.set(i as u32, function_client(&session, id).into_client_hook());
+            }
+            Ok(())
+        }
+    }
+
     fn diff(
         self: capnp::capability::Rc<Self>,
         params: session::DiffParams,

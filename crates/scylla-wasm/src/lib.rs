@@ -117,6 +117,26 @@ pub extern "C" fn scylla_functions(zoom: u32) -> u64 {
     })
 }
 
+/// Functions whose display name contains the query (UTF-8 bytes at `ptr`/`len`), case-insensitive,
+/// at a zoom altitude — a JSON-array handle. The browser's server-free `search` over the loaded model.
+///
+/// # Safety
+/// `ptr`/`len` must describe a valid initialized byte range (the query), as from `scylla_alloc`.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_search(ptr: *const u8, len: usize, zoom: u32) -> u64 {
+    let query = std::str::from_utf8(std::slice::from_raw_parts(ptr, len))
+        .unwrap_or("")
+        .to_string();
+    with_session("[]", |s| {
+        let arr: Vec<serde_json::Value> = s
+            .search(&query, zoom_of(zoom))
+            .iter()
+            .map(view_json)
+            .collect();
+        serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+    })
+}
+
 /// One function by stable id at a zoom altitude, as a JSON handle (`{error}` if the id is unknown).
 #[no_mangle]
 pub extern "C" fn scylla_view(id: u64, zoom: u32) -> u64 {

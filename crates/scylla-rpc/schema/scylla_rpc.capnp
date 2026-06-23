@@ -45,6 +45,9 @@ interface Session {
   functions @1 () -> (fns :List(Function));
   # Look up one function by stable id -> a Function capability (the pipelining seam).
   function @2 (id :UInt64) -> (fn :Function);
+  # Functions whose display name contains `query` (case-insensitive), as capabilities — `functions`
+  # narrowed to a substring, for a large program.
+  search @5 (query :Text) -> (fns :List(Function));
   # Structurally diff the served model against another .scylla (sent as bytes) — DD-017, read-only.
   # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names;
   # `methods` is the match-confidence breakdown by ladder rung (exact/propagation/anchor/bsim/fuzzy);

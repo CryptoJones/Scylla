@@ -18,8 +18,11 @@
 //!    source references the same **string literals** and calls the same **imports by name**. We
 //!    match functions with a rich-enough arch-independent feature set by **Jaccard** over it,
 //!    accepted only on a unique best clearing a high threshold AND a runner-up margin. This is the
-//!    binary-diffing standard (BinDiff/SIGMADIFF anchor on unique strings/imports); call-graph
-//!    propagation from these anchors is the next lever.
+//!    binary-diffing standard (BinDiff/SIGMADIFF anchor on unique strings/imports). Call-graph
+//!    **propagation** from these anchors is now realized in the `diff` verb ([`diff_programs`]): a
+//!    leftover function re-identified by its unique neighbourhood of already-matched callers/callees
+//!    is recovered — as `matched` if its body is unchanged (signature-ambiguous twin), or as
+//!    `changed` if its body differs (the "modified" class). One round, fail-closed.
 //! 3. **FUZZY** — cosine over the stored mnemonic histogram + structural closeness, accepted only
 //!    above a confidence threshold AND with a runner-up margin. Lifts both edit classes to 100% and
 //!    recovers some recompile.
@@ -27,7 +30,7 @@
 //! Zero-wrong holds throughout — exact is unique-match, anchor and fuzzy are threshold+margin over a
 //! unique best ("never guess a near-tie").
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use scylla_model::{FactKind, Function, Program, StableId, UserFact};
 
@@ -534,12 +537,36 @@ pub fn merge_into(old: &Program, new: &mut Program) -> MergeReport {
 /// matched across them and which live on only one side.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ProgramDiff {
-    /// `(a_id, b_id)` pairs matched by a UNIQUE shared structural signature.
+    /// `(a_id, b_id)` pairs matched by a UNIQUE shared structural signature (body unchanged).
     pub matched: Vec<(StableId, StableId)>,
+    /// `(a_id, b_id)` pairs whose BODY changed (the exact signature differs) but whose call-graph
+    /// neighbourhood among the EXACT-matched anchors agrees uniquely — the *same* function, modified.
+    /// One round of BinDiff-style call-graph propagation, fail-closed: an ambiguous or un-anchored
+    /// neighbourhood is left in `only_a`/`only_b`, never guessed.
+    pub changed: Vec<(StableId, StableId)>,
     /// Stable ids present only in `a` (removed / only-here).
     pub only_a: Vec<StableId>,
     /// Stable ids present only in `b` (added / only-there).
     pub only_b: Vec<StableId>,
+}
+
+/// A function's anchored call-graph neighbourhood: the EXACT-matched callees it calls and callers
+/// that call it, both projected into the shared (b-side) id space — its identity to the propagation.
+type Neighbourhood = (BTreeSet<StableId>, BTreeSet<StableId>);
+
+/// Index `(id, key)` pairs by key, keeping only keys that occur EXACTLY once (the no-guess rule):
+/// an ambiguous neighbourhood — two leftovers with the same anchored neighbours — is dropped, so it
+/// can never produce a `changed` match.
+fn group_unique(items: &[(StableId, Neighbourhood)]) -> HashMap<Neighbourhood, StableId> {
+    let mut counts: HashMap<&Neighbourhood, usize> = HashMap::new();
+    for (_, k) in items {
+        *counts.entry(k).or_default() += 1;
+    }
+    items
+        .iter()
+        .filter(|(_, k)| counts[k] == 1)
+        .map(|(id, k)| (k.clone(), *id))
+        .collect()
 }
 
 /// Structurally diff `a` against `b` — **address-independent**: functions pair by the EXACT-pass
@@ -548,6 +575,13 @@ pub struct ProgramDiff {
 /// changed). Only a signature UNIQUE on *both* sides pairs; an ambiguous one is reported on each
 /// side rather than guessed — the same no-wrong discipline as the merge. The two programs need not
 /// share stable ids (separate materializations), so this is the basis for "git for RE" diff.
+///
+/// A second **call-graph propagation** pass then recovers *modified* functions: a body change shifts
+/// the signature, so a changed function falls out of the exact pass into the leftovers — but if a
+/// leftover on each side shares the SAME neighbourhood of exact-matched callers/callees (projected
+/// into a shared id space) and that neighbourhood is unique on both sides, it is the same function
+/// with an edited body → `changed`. This is the "call-graph propagation from the anchors" the module
+/// header names as the next lever. One round, fail-closed (no anchor / ambiguous → stays only_a/_b).
 pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
     let mut a_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
     for f in &a.functions {
@@ -559,6 +593,7 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
     }
     let mut diff = ProgramDiff::default();
     let mut claimed_b: HashSet<StableId> = HashSet::new();
+    let mut left_a: Vec<StableId> = Vec::new();
     for f in &a.functions {
         let sig = signature(f);
         let a_unique = a_by_sig.get(&sig).is_some_and(|ids| ids.len() == 1);
@@ -567,14 +602,91 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
                 diff.matched.push((f.id, ids[0]));
                 claimed_b.insert(ids[0]);
             }
-            _ => diff.only_a.push(f.id),
+            _ => left_a.push(f.id),
         }
     }
+    let left_b: Vec<StableId> = b
+        .functions
+        .iter()
+        .map(|f| f.id)
+        .filter(|id| !claimed_b.contains(id))
+        .collect();
+
+    // --- propagation pass: pair leftovers by their anchored call-graph neighbourhood ----------
+    // Project each anchor into a shared id space: an a-side matched id maps to its b-side twin
+    // (`a2b`); a b-side matched id is its own canonical. So "calls the same matched function" and
+    // "is called by the same matched function" become comparable across the two programs.
+    let a2b: HashMap<StableId, StableId> = diff.matched.iter().copied().collect();
+    let matched_b: HashSet<StableId> = diff.matched.iter().map(|(_, b)| *b).collect();
+    let a_fn: HashMap<StableId, &Function> = a.functions.iter().map(|f| (f.id, f)).collect();
+    let b_fn: HashMap<StableId, &Function> = b.functions.iter().map(|f| (f.id, f)).collect();
+    // anchored callers: callee id -> canonical ids of its EXACT-matched callers.
+    let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
+    for f in &a.functions {
+        if let Some(&canon) = a2b.get(&f.id) {
+            for c in &f.callees {
+                a_callers.entry(*c).or_default().insert(canon);
+            }
+        }
+    }
+    let mut b_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
     for f in &b.functions {
-        if !claimed_b.contains(&f.id) {
-            diff.only_b.push(f.id);
+        if matched_b.contains(&f.id) {
+            for c in &f.callees {
+                b_callers.entry(*c).or_default().insert(f.id);
+            }
         }
     }
+    // neighbourhood key = (anchored callees, anchored callers), both in the shared (b-side) id space.
+    let key_a = |id: &StableId| -> Neighbourhood {
+        let callees = a_fn[id]
+            .callees
+            .iter()
+            .filter_map(|c| a2b.get(c).copied())
+            .collect();
+        (callees, a_callers.get(id).cloned().unwrap_or_default())
+    };
+    let key_b = |id: &StableId| -> Neighbourhood {
+        let callees = b_fn[id]
+            .callees
+            .iter()
+            .filter(|c| matched_b.contains(c))
+            .copied()
+            .collect();
+        (callees, b_callers.get(id).cloned().unwrap_or_default())
+    };
+    let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
+    let a_keys: Vec<(StableId, Neighbourhood)> = left_a.iter().map(|id| (*id, key_a(id))).collect();
+    let b_keys: Vec<(StableId, Neighbourhood)> = left_b.iter().map(|id| (*id, key_b(id))).collect();
+    let a_by_key = group_unique(&a_keys);
+    let b_by_key = group_unique(&b_keys);
+    let mut paired_a: HashSet<StableId> = HashSet::new();
+    let mut paired_b: HashSet<StableId> = HashSet::new();
+    for (id, k) in &a_keys {
+        // unique on BOTH sides + non-trivial neighbourhood, else fail closed.
+        if !nonempty(k) {
+            continue;
+        }
+        let (Some(&ua), Some(&ub)) = (a_by_key.get(k), b_by_key.get(k)) else {
+            continue;
+        };
+        if ua != *id {
+            continue;
+        }
+        // The neighbourhood disambiguated the pair. If the signatures actually differ, the body
+        // changed → `changed`; if they're equal, this leftover was merely signature-ambiguous (a
+        // structural twin the exact pass couldn't tell apart) and the call graph just resolved it,
+        // so it's an unchanged `matched`.
+        if signature(a_fn[id]) == signature(b_fn[&ub]) {
+            diff.matched.push((*id, ub));
+        } else {
+            diff.changed.push((*id, ub));
+        }
+        paired_a.insert(*id);
+        paired_b.insert(ub);
+    }
+    diff.only_a = left_a.into_iter().filter(|id| !paired_a.contains(id)).collect();
+    diff.only_b = left_b.into_iter().filter(|id| !paired_b.contains(id)).collect();
     diff
 }
 
@@ -973,6 +1085,67 @@ mod tests {
         let d2 = diff_programs(&v1, &v2);
         let only_b: Vec<String> = d2.only_b.iter().map(|id| name(&v2, *id)).collect();
         assert!(only_b.contains(&"lcm".to_string()), "lcm is new in v2 -> only_b");
+    }
+
+    /// DD-017 `diff`, call-graph propagation (the module header's "next lever"): a function whose
+    /// BODY changed falls out of the exact pass (its signature shifts), but its anchored call-graph
+    /// neighbourhood (unchanged callers/callees) re-identifies it — reported as `changed` (the same
+    /// function, modified), NOT as a spurious remove+add.
+    #[test]
+    fn diff_programs_detects_a_modified_body_via_call_graph_propagation() {
+        let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap(); // same binary, fresh ids…
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        // …except gcd's body is edited: bump CFG/size/fingerprint so its EXACT signature differs,
+        // but leave its call edges intact so the call-graph neighbourhood is preserved.
+        {
+            let g = v2.functions.iter_mut().find(|f| f.name == "gcd").unwrap();
+            g.bb_count += 3;
+            g.size += 64;
+            g.fingerprint ^= 0xA5A5;
+        }
+        let d = diff_programs(&v1, &v2);
+        assert_eq!(d.changed.len(), 1, "exactly gcd is modified");
+        let (ca, cb) = d.changed[0];
+        assert_eq!(name(&v1, ca), "gcd");
+        assert_eq!(name(&v2, cb), "gcd", "no-wrong: the modified pair is the same function");
+        // gcd is reported ONCE, as changed — never double-counted as removed + added.
+        assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
+        assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
+        // everything else still exact-matched.
+        for n in ["main", "fib", "factorial", "sum_to"] {
+            assert!(d.matched.iter().any(|(a, _)| name(&v1, *a) == n), "{n} exact-matched");
+        }
+    }
+
+    /// Fail-closed: one round of propagation anchors only on EXACT matches. If a changed function's
+    /// sole anchor also changed, there is nothing to anchor it to, so it is left in only_a/only_b —
+    /// never guessed. (main keeps other anchored callees, so main itself is still recovered.)
+    #[test]
+    fn diff_propagation_is_fail_closed_when_the_only_anchor_also_changed() {
+        let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        {
+            let m = v2.functions.iter_mut().find(|f| f.name == "main").unwrap();
+            m.bb_count += 2;
+            m.size += 32;
+            m.fingerprint ^= 0x1234;
+            let g = v2.functions.iter_mut().find(|f| f.name == "gcd").unwrap();
+            g.bb_count += 3;
+            g.size += 64;
+            g.fingerprint ^= 0xA5A5;
+        }
+        let d = diff_programs(&v1, &v2);
+        let changed: Vec<String> = d.changed.iter().map(|(a, _)| name(&v1, *a)).collect();
+        // main keeps anchored callees (fib/factorial/sum_to), so it is recovered as changed…
+        assert!(changed.contains(&"main".to_string()), "main recovered via its other anchors");
+        // …but gcd's only anchor was main, now itself a leftover → gcd is NOT guessed.
+        assert!(!changed.contains(&"gcd".to_string()), "gcd never guessed without a live anchor");
+        assert!(d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
+        assert!(d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

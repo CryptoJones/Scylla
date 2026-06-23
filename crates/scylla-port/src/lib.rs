@@ -84,8 +84,11 @@ pub struct FunctionView {
 /// identity-based verb, built on the merge engine's structural matcher.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct SessionDiff {
-    /// `(this_name, other_name)` for each structurally-matched function pair.
+    /// `(this_name, other_name)` for each structurally-matched function pair (body unchanged).
     pub matched: Vec<(String, String)>,
+    /// `(this_name, other_name)` for each function whose BODY changed but which call-graph
+    /// propagation re-identified as the same function (DD-017 "modified" — added vs removed).
+    pub changed: Vec<(String, String)>,
     /// Display names of functions present only in this session.
     pub only_here: Vec<String>,
     /// Display names of functions present only in the other session.
@@ -251,6 +254,11 @@ impl Session {
                 .into_iter()
                 .map(|(a, b)| (self.name_of(a), other.name_of(b)))
                 .collect(),
+            changed: d
+                .changed
+                .into_iter()
+                .map(|(a, b)| (self.name_of(a), other.name_of(b)))
+                .collect(),
             only_here: d.only_a.into_iter().map(|id| self.name_of(id)).collect(),
             only_there: d.only_b.into_iter().map(|id| other.name_of(id)).collect(),
         }
@@ -368,6 +376,37 @@ mod tests {
                 "{n} should pair with itself"
             );
         }
+    }
+
+    #[test]
+    fn semantic_diff_reports_a_modified_function_by_name() {
+        // DD-017 "modified": gcd's body is edited (its structural signature shifts) but its call
+        // edges are intact, so call-graph propagation re-identifies it — `changed`, not removed+added.
+        let a = session();
+        let mut b_prog = scylla_ingest::snapshot_to_program(MATHLIB).unwrap();
+        {
+            let g = b_prog
+                .functions
+                .iter_mut()
+                .find(|f| f.name == "gcd")
+                .unwrap();
+            g.bb_count += 3;
+            g.size += 64;
+            g.fingerprint ^= 0xA5A5;
+        }
+        let diff = a.diff(&Session::open(b_prog));
+        assert!(
+            diff.changed.iter().any(|(x, y)| x == "gcd" && y == "gcd"),
+            "gcd reported as changed by name (no-wrong)"
+        );
+        assert!(
+            !diff.only_here.iter().any(|n| n == "gcd"),
+            "not double-counted as removed"
+        );
+        assert!(
+            !diff.only_there.iter().any(|n| n == "gcd"),
+            "not double-counted as added"
+        );
     }
 
     #[test]

@@ -32,6 +32,9 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
         bb_count: chunk.bb_count,
         callees: Vec::new(),
         fingerprint: scylla_model::histogram_fingerprint(&histogram),
+        // Ordered trigrams from the streamed in-order mnemonics — same computation as the snapshot
+        // path, before the histogram drops the order; so live + offline artifacts carry the signal.
+        trigrams: scylla_model::mnemonic_trigrams(&chunk.mnemonics),
         mnemonics: histogram,
         // Arch-independent features (DD-041) ride the wire raw — the engine already emits them; the
         // core just carries them, same as the snapshot path, so live + offline artifacts re-anchor.

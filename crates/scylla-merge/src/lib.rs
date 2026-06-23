@@ -72,13 +72,25 @@ fn closeness(x: f64, y: f64) -> f64 {
     1.0 - (x - y).abs() / (x + y).max(1.0)
 }
 
-/// Fuzzy structural similarity of two functions, in `0..=1`: cosine over the instruction mix
-/// (dominant), plus CFG-size and out-degree closeness. The model echo of the prototype's threshold
-/// matcher — cosine + structure (we don't store ordered trigrams), not the full prototype signal.
+/// Fuzzy structural similarity of two functions, in `0..=1`: the instruction-mix signal (dominant),
+/// plus CFG-size and out-degree closeness. The instruction-mix signal blends the order-INDEPENDENT
+/// mnemonic histogram with the ORDERED-trigram histogram (`mov add cmp` windows) — trigrams pull
+/// apart two functions with the same instruction multiset but different flow, the discrimination a
+/// bag-of-mnemonics throws away. When either side has no trigrams (a function under 3 instructions,
+/// or a pre-trigram artifact), the whole instruction-mix weight falls back to the unigram cosine, so
+/// short functions and older artifacts score exactly as before (no regression, no WRONG introduced —
+/// the threshold + margin + reciprocal-best gates are unchanged; a sharper signal only separates
+/// near-ties further or drops a match below threshold, never invents one).
 fn similarity(a: &Function, b: &Function) -> f64 {
-    0.60 * cosine(&a.mnemonics, &b.mnemonics)
-        + 0.25 * closeness(f64::from(a.bb_count), f64::from(b.bb_count))
-        + 0.15 * closeness(a.callees.len() as f64, b.callees.len() as f64)
+    let structure = 0.25 * closeness(f64::from(a.bb_count), f64::from(b.bb_count))
+        + 0.15 * closeness(a.callees.len() as f64, b.callees.len() as f64);
+    let unigram = cosine(&a.mnemonics, &b.mnemonics);
+    let mix = if a.trigrams.is_empty() || b.trigrams.is_empty() {
+        0.60 * unigram
+    } else {
+        0.35 * unigram + 0.25 * cosine(&a.trigrams, &b.trigrams)
+    };
+    mix + structure
 }
 
 /// The old function whose [`similarity`] to `g` is highest, over ALL of `olds` — the *reverse*
@@ -1071,6 +1083,7 @@ mod tests {
             callees: vec![],
             fingerprint: 0,
             mnemonics: vec![(mnem.into(), 5)],
+            trigrams: vec![],
             string_refs: vec![],
             imports: vec![],
             callee_names: callee_names.into_iter().map(String::from).collect(),
@@ -1105,6 +1118,93 @@ mod tests {
         assert_eq!(landed.as_deref(), Some("main.main"), "callee-name anchor lands on main.main");
     }
 
+    /// Ordered trigrams add discrimination the order-INDEPENDENT mnemonic histogram can't: two
+    /// rebuild candidates with an IDENTICAL instruction multiset (so unigram cosine can't separate
+    /// them) but different instruction ORDER. The annotated function's trigrams match one of them —
+    /// so the fact re-anchors there, where without trigrams it's a near-tie the fuzzy margin refuses
+    /// to guess (fail-closed).
+    #[test]
+    fn ordered_trigrams_break_a_unigram_tie_and_stay_zero_wrong() {
+        use scylla_model::{Function, IdMinter};
+        // An isolated leaf: no strings/imports/callee-names/bsim/callees, so exact/anchor/bsim/
+        // propagation all defer — the histogram + trigrams come from a real ORDERED stream.
+        let leaf = |m: &mut IdMinter, name: &str, seq: &[&str], with_trigrams: bool| Function {
+            id: m.mint(),
+            addr: 0,
+            name: name.into(),
+            size: 100,
+            bb_count: 5,
+            callees: vec![],
+            fingerprint: 0,
+            mnemonics: scylla_model::mnemonic_histogram(seq),
+            trigrams: if with_trigrams {
+                scylla_model::mnemonic_trigrams(seq)
+            } else {
+                vec![]
+            },
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: vec![],
+        };
+        // Same multiset, different order — identical histograms, distinct trigrams.
+        let target_seq = ["push", "mov", "add", "mov", "ret"];
+        let decoy_seq = ["mov", "push", "mov", "add", "ret"];
+        assert_eq!(
+            scylla_model::mnemonic_histogram(&target_seq),
+            scylla_model::mnemonic_histogram(&decoy_seq),
+            "fixture: identical histograms -> unigram cosine == 1.0, can't separate them"
+        );
+
+        // One annotated OLD function; the rebuild has TWO candidates — one that preserves its
+        // instruction order, one that reorders it — with IDENTICAL histograms. The fuzzy margin is
+        // measured between the two NEW candidates, so only a signal that separates *them* can place
+        // the fact; the unigram cosine ties them, the ordered trigrams don't.
+        let run = |with_trigrams: bool| {
+            let mut m = IdMinter::new();
+            let mut old = Program {
+                name: "lib".into(),
+                language: "x86:LE:64:default".into(),
+                functions: vec![leaf(&mut m, "the_target", &target_seq, with_trigrams)],
+                facts: Vec::new(),
+            };
+            let tid = old.functions[0].id;
+            old.facts.push(UserFact::new(tid, FactKind::Rename("KEEP".into())));
+            let mut new = Program {
+                name: "lib".into(),
+                language: "x86:LE:64:default".into(),
+                functions: vec![
+                    leaf(&mut m, "FUN_same_order", &target_seq, with_trigrams),
+                    leaf(&mut m, "FUN_reordered", &decoy_seq, with_trigrams),
+                ],
+                facts: Vec::new(),
+            };
+            let report = merge_into(&old, &mut new);
+            let landed = new
+                .facts
+                .iter()
+                .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "KEEP"))
+                .map(|f| new.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
+            (report.merged, landed)
+        };
+
+        // WITHOUT trigrams: the two rebuild candidates are indistinguishable (same histogram +
+        // structure) — a near-tie the fuzzy margin refuses to guess, so the fact stays flagged.
+        let (merged_without, landed_without) = run(false);
+        assert_eq!(merged_without, 0, "no trigrams: the tie is flagged, not guessed");
+        assert_eq!(landed_without, None);
+
+        // WITH trigrams: the order-preserving candidate's trigrams match the target's, breaking the
+        // tie — the rename re-anchors onto it, never onto the reordered decoy (WRONG=0).
+        let (merged_with, landed_with) = run(true);
+        assert_eq!(merged_with, 1, "trigrams break the tie, the fact re-anchors");
+        assert_eq!(
+            landed_with.as_deref(),
+            Some("FUN_same_order"),
+            "the fact lands on the order-preserving rebuild, not the reordered decoy"
+        );
+    }
+
     /// DD-044: BSim is the cross-arch lever for the symmetric arithmetic LEAVES nothing else can
     /// place — no strings/imports/callee-names (anchor blind), disjoint mnemonics across ISAs (fuzzy
     /// cosine 0), and no graph position (propagation can't reach them). `factorial` and `sum_to`
@@ -1131,6 +1231,7 @@ mod tests {
             callees: vec![],
             fingerprint: 0,
             mnemonics: vec![(mnem.into(), 5)],
+            trigrams: vec![],
             string_refs: vec![],
             imports: vec![],
             callee_names: vec![],

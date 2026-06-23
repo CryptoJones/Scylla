@@ -32,6 +32,10 @@ struct Function {
                                 # leaves (factorial/sum_to) that strings/imports/callee-names/mnemonics
                                 # all miss. A weighted cosine over these == Ghidra's LSHVector.compare,
                                 # because the producer bakes BSim's feature weights into the coeffs.
+  trigrams    @12 :List(MnemonicCount);  # ORDERED mnemonic trigrams (length-3 instruction windows)
+                                # as a histogram — the local-order signal the order-independent
+                                # `mnemonics` histogram discards. Folded into the FUZZY cosine. Empty
+                                # for functions with < 3 instructions or no mnemonic data.
 }
 
 struct BsimFeature {

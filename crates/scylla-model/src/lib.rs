@@ -55,6 +55,13 @@ pub struct Function {
     /// scores cosine similarity over these to recover cross-build matches the exact fingerprint
     /// can't; the `fingerprint` above is just its hash, cached for the fast exact path.
     pub mnemonics: Vec<(String, u32)>,
+    /// The function's **ordered mnemonic trigrams** (see [`mnemonic_trigrams`]) — the instruction
+    /// stream's length-3 windows, as a sorted histogram. Where [`Function::mnemonics`] is the
+    /// order-INDEPENDENT multiset, these encode local instruction order, so the fuzzy matcher can
+    /// tell apart two functions with the same instruction mix but different flow. Empty when the
+    /// function has < 3 instructions or the producer emitted no mnemonics. Computed at producer time
+    /// (the ordered stream isn't otherwise persisted) and stored in the artifact.
+    pub trigrams: Vec<(String, u32)>,
     /// **Arch-independent** features (DD-041): the string literals this function references and the
     /// imported/library symbols it calls *by name*. Unlike mnemonics and addresses, these survive
     /// recompilation for a *different ISA* — x86-64 and aarch64 share neither instruction set nor
@@ -89,6 +96,21 @@ pub fn mnemonic_histogram<S: AsRef<str>>(mnemonics: &[S]) -> Vec<(String, u32)> 
         *counts.entry(m.as_ref()).or_default() += 1;
     }
     counts.into_iter().map(|(m, c)| (m.to_string(), c)).collect()
+}
+
+/// The function's **ordered mnemonic trigrams** as a histogram: every length-3 window of the
+/// instruction stream (`"mov add cmp"`), counted and sorted. Unlike the order-INDEPENDENT
+/// [`mnemonic_histogram`], a trigram encodes *local instruction order*, so two functions with the
+/// same instruction multiset but different control/data flow no longer score identical — the order
+/// signal the plain histogram throws away. Fewer than 3 mnemonics → empty (no window). Sorted for
+/// determinism, like the histogram, and comparable with the same cosine the fuzzy matcher uses.
+pub fn mnemonic_trigrams<S: AsRef<str>>(mnemonics: &[S]) -> Vec<(String, u32)> {
+    let mut counts: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+    for w in mnemonics.windows(3) {
+        let key = format!("{} {} {}", w[0].as_ref(), w[1].as_ref(), w[2].as_ref());
+        *counts.entry(key).or_default() += 1;
+    }
+    counts.into_iter().collect()
 }
 
 /// FNV-1a hash of a (sorted) mnemonic histogram. `0` is reserved to mean "no mnemonic data"; a
@@ -217,6 +239,7 @@ mod tests {
                 callees: vec![],
                 fingerprint: 0,
                 mnemonics: vec![],
+                trigrams: vec![],
                 string_refs: vec![],
                 imports: vec![],
                 callee_names: vec![],
@@ -240,5 +263,36 @@ mod tests {
         let h = mnemonic_histogram(&["MOV", "PUSH", "MOV", "RET"]);
         assert_eq!(h, vec![("MOV".into(), 2), ("PUSH".into(), 1), ("RET".into(), 1)]);
         assert_eq!(histogram_fingerprint(&h), a);
+    }
+
+    #[test]
+    fn trigrams_capture_the_order_the_histogram_loses() {
+        // Fewer than 3 mnemonics -> no window, no trigrams.
+        assert!(mnemonic_trigrams::<&str>(&[]).is_empty());
+        assert!(mnemonic_trigrams(&["MOV", "RET"]).is_empty());
+
+        // Sliding length-3 windows, counted and sorted (deterministic).
+        let t = mnemonic_trigrams(&["MOV", "ADD", "CMP", "MOV", "ADD", "CMP"]);
+        assert_eq!(
+            t,
+            vec![
+                ("ADD CMP MOV".into(), 1),
+                ("CMP MOV ADD".into(), 1),
+                ("MOV ADD CMP".into(), 2),
+            ]
+        );
+
+        // The whole point: two streams with the SAME instruction multiset (identical histogram) but
+        // different ORDER yield DIFFERENT trigrams — the signal the order-independent histogram drops.
+        assert_eq!(
+            mnemonic_histogram(&["MOV", "ADD", "RET"]),
+            mnemonic_histogram(&["ADD", "MOV", "RET"]),
+            "same multiset -> identical histogram"
+        );
+        assert_ne!(
+            mnemonic_trigrams(&["MOV", "ADD", "RET"]),
+            mnemonic_trigrams(&["ADD", "MOV", "RET"]),
+            "but the trigrams differ -> order is captured"
+        );
     }
 }

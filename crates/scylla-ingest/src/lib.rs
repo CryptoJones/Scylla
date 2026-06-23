@@ -81,6 +81,9 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             bb_count: f.bb_count,
             callees,
             fingerprint: scylla_model::histogram_fingerprint(&histogram),
+            // Ordered trigrams from the in-order stream — computed here, before the order is lost to
+            // the histogram (the raw stream isn't persisted).
+            trigrams: scylla_model::mnemonic_trigrams(&f.mnemonics),
             mnemonics: histogram,
             string_refs: f.string_refs.clone(),
             imports: f.imports.clone(),

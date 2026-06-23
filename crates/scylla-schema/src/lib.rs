@@ -73,6 +73,12 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
                 bf.set_hash(*h);
                 bf.set_weight(*w);
             }
+            let mut tg = fb.reborrow().init_trigrams(f.trigrams.len() as u32);
+            for (j, (t, c)) in f.trigrams.iter().enumerate() {
+                let mut mc = tg.reborrow().get(j as u32);
+                mc.set_mnemonic(t.as_str());
+                mc.set_count(*c);
+            }
         }
 
         let mut facts = p.reborrow().init_facts(prog.facts.len() as u32);
@@ -143,6 +149,13 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
                     v.push((bf.get_hash(), bf.get_weight()));
                 }
                 v
+            },
+            trigrams: {
+                let mut h = Vec::new();
+                for mc in f.get_trigrams()?.iter() {
+                    h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
+                }
+                h
             },
         });
     }
@@ -306,6 +319,7 @@ mod tests {
                     callees: vec![],
                     fingerprint: 0x1111_2222_3333_4444,
                     mnemonics: vec![("MOV".into(), 2), ("RET".into(), 1)],
+                    trigrams: vec![("MOV MOV RET".into(), 1)],
                     string_refs: vec![],
                     imports: vec![],
                     callee_names: vec![],
@@ -320,6 +334,7 @@ mod tests {
                     callees: vec![gcd],
                     fingerprint: 0xAAAA_BBBB_CCCC_DDDD,
                     mnemonics: vec![("CALL".into(), 1), ("PUSH".into(), 3)],
+                    trigrams: vec![("CALL PUSH PUSH".into(), 1), ("PUSH PUSH PUSH".into(), 1)],
                     string_refs: vec!["result=%d\n".into()],
                     imports: vec!["printf".into()],
                     callee_names: vec!["main.helper".into()],

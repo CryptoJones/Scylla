@@ -541,9 +541,9 @@ pub struct ProgramDiff {
     pub matched: Vec<(StableId, StableId)>,
     /// `(a_id, b_id)` pairs whose BODY changed (the exact signature differs) but which a later pass
     /// re-identified as the *same* function, modified — by call-graph **propagation**, unique
-    /// arch-independent features (**anchor**: strings/imports), or mnemonic-mix similarity (**fuzzy**).
-    /// Fail-closed: a function with no unique reciprocal match across every pass stays in
-    /// `only_a`/`only_b`, never guessed (WRONG=0).
+    /// arch-independent features (**anchor**: strings/imports), Ghidra BSim feature-vector cosine
+    /// (**bsim**), or mnemonic-mix similarity (**fuzzy**). Fail-closed: a function with no unique
+    /// reciprocal match across every pass stays in `only_a`/`only_b`, never guessed (WRONG=0).
     pub changed: Vec<(StableId, StableId)>,
     /// Stable ids present only in `a` (removed / only-here).
     pub only_a: Vec<StableId>,
@@ -763,11 +763,11 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
         .collect();
 
     // --- climb the matching ladder on the leftovers, to a fixpoint --------------------------------
-    // The same EXACT → PROPAGATION → ANCHOR → FUZZY ladder the merge engine uses, now driving the
-    // diff. Each pass's pairings become anchors for the next pass and the next iteration, so a match
-    // chains through freshly-recovered neighbours; fixpoint when an iteration adds nothing. Every
-    // pass is fail-closed (a unique reciprocal winner clearing threshold + margin, never a guess —
-    // WRONG=0). A recovered pair is `matched` if its body is unchanged, `changed` if it differs.
+    // The same EXACT → PROPAGATION → ANCHOR → BSIM → FUZZY ladder the merge engine uses, now driving
+    // the diff. Each pass's pairings become anchors for the next pass and the next iteration, so a
+    // match chains through freshly-recovered neighbours; fixpoint when an iteration adds nothing.
+    // Every pass is fail-closed (a unique reciprocal winner clearing threshold + margin, never a
+    // guess — WRONG=0). A recovered pair is `matched` if its body is unchanged, `changed` if it differs.
     let a_fn: HashMap<StableId, &Function> = a.functions.iter().map(|f| (f.id, f)).collect();
     let b_fn: HashMap<StableId, &Function> = b.functions.iter().map(|f| (f.id, f)).collect();
     loop {
@@ -785,6 +785,19 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
             |x, y| jaccard(&anchor_set(x), &anchor_set(y)),
             ANCHOR_THRESHOLD,
             ANCHOR_MARGIN,
+        );
+        // BSIM: Ghidra's feature-vector match (weighted cosine over the BSim signature) — the
+        // strongest fuzzy signal, so it runs before the cruder mnemonic-mix fallback.
+        feature_round(
+            &a_fn,
+            &b_fn,
+            &mut diff,
+            &mut left_a,
+            &mut left_b,
+            |f| f.bsim_vector.len() >= BSIM_MIN_FEATURES,
+            |x, y| bsim_similarity(&x.bsim_vector, &y.bsim_vector),
+            BSIM_THRESHOLD,
+            BSIM_MARGIN,
         );
         // FUZZY: mnemonic-mix cosine + structural closeness (the soft last resort).
         feature_round(
@@ -1283,7 +1296,8 @@ mod tests {
             g.size += 64;
             g.fingerprint ^= 0xA5A5;
             g.callees.push(fib_id); // neighbourhood now differs from gcd-in-v1 → propagation can't
-            g.mnemonics.clear(); // no instruction mix → fuzzy can't (gcd has no strings either)
+            g.mnemonics.clear(); // no instruction mix → mnemonic-fuzzy can't (gcd has no strings)
+            g.bsim_vector.clear(); // no BSim vector → the feature-vector pass can't either
         }
         let d = diff_programs(&v1, &v2);
         assert!(
@@ -1370,6 +1384,55 @@ mod tests {
         );
         assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "mnemonic_keyed"));
         assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "mnemonic_keyed"));
+    }
+
+    /// BSIM pass: an isolated function (propagation can't), with no strings (anchor can't) and NO
+    /// mnemonics (mnemonic-fuzzy can't), but a near-identical Ghidra BSim feature vector across both
+    /// builds — re-identified by weighted cosine, the strongest fuzzy signal (threshold 0.7 + margin
+    /// + reciprocal). Proves the diff climbs the LAST rung of the merge engine's matching ladder.
+    #[test]
+    fn diff_bsim_pass_matches_by_feature_vector() {
+        let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let name =
+            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let mut iso = v1.functions[0].clone();
+        iso.name = "vector_keyed".into();
+        iso.callees.clear();
+        iso.imports.clear();
+        iso.callee_names.clear();
+        iso.string_refs.clear(); // deny anchor
+        iso.mnemonics.clear(); // deny mnemonic-fuzzy
+        // A BSim feature vector (feature id, f32-bits weight), >= BSIM_MIN_FEATURES entries, identical
+        // in both builds → weighted cosine 1.0.
+        iso.bsim_vector = vec![
+            (10, 1.0f32.to_bits()),
+            (20, 2.5f32.to_bits()),
+            (30, 0.75f32.to_bits()),
+            (40, 1.5f32.to_bits()),
+            (50, 3.0f32.to_bits()),
+        ];
+        let mut iso1 = iso.clone();
+        iso1.id = StableId(9_000_021);
+        iso1.bb_count = 8;
+        iso1.size = 200;
+        iso1.fingerprint = 0xC0DE;
+        let mut iso2 = iso;
+        iso2.id = StableId(9_000_022);
+        iso2.bb_count = 33; // different body → exact fails
+        iso2.size = 700;
+        iso2.fingerprint = 0xF00D;
+        v1.functions.push(iso1);
+        v2.functions.push(iso2);
+        let d = diff_programs(&v1, &v2);
+        assert!(
+            d.changed
+                .iter()
+                .any(|(x, y)| name(&v1, *x) == "vector_keyed" && name(&v2, *y) == "vector_keyed"),
+            "bsim pass should re-identify by the BSim feature vector"
+        );
+        assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "vector_keyed"));
+        assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "vector_keyed"));
     }
 
     // --- DD-027 collaboration (git-for-RE): merging two analysts' work ---

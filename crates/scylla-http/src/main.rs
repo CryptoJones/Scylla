@@ -334,6 +334,12 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
     let unchanged = d.matched.len() - renamed.len();
     let pairs =
         |v: &[(String, String)]| v.iter().map(|(a, b)| json!([a, b])).collect::<Vec<Value>>();
+    // Match-confidence breakdown by ladder rung (DD-017): exact is certain, fuzzy a best-guess.
+    let mut methods = serde_json::Map::new();
+    for (_, m) in &d.provenance {
+        let e = methods.entry(m.as_str()).or_insert(json!(0));
+        *e = json!(e.as_u64().unwrap_or(0) + 1);
+    }
     (
         200,
         json!({
@@ -342,6 +348,7 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
             "modified": pairs(&d.changed),
             "added": d.only_there,
             "removed": d.only_here,
+            "methods": Value::Object(methods),
         })
         .to_string(),
     )

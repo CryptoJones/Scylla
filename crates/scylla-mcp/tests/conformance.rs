@@ -152,4 +152,12 @@ fn mcp_diff_matches_the_port() {
         d.only_there.len(),
         "diff only_in_other == the port"
     );
+    // The match-confidence breakdown is carried through too (DD-017 provenance).
+    let methods = v["methods"].as_object().expect("a methods object");
+    let total: u64 = methods.values().filter_map(serde_json::Value::as_u64).sum();
+    assert_eq!(
+        total as usize,
+        d.matched.len() + d.changed.len(),
+        "methods account for every matched/changed pair"
+    );
 }

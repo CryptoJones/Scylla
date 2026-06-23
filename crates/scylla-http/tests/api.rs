@@ -111,6 +111,10 @@ fn http_gateway_serves_the_model_as_json() {
         .unwrap();
     assert!(diff.contains("\"matched\":12"), "diff: {diff}");
     assert!(diff.contains("gcd"), "diff names gcd: {diff}");
+    assert!(
+        diff.contains("\"methods\""),
+        "diff has a methods breakdown: {diff}"
+    );
 
     // unknown id → 404
     let err = ureq::get(&format!("{base}/api/functions/999999")).call();

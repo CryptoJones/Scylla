@@ -131,12 +131,19 @@ pub fn call_tool(session: &mut Session, name: &str, args: &Value) -> Result<Valu
             let pairs = |v: &[(String, String)]| -> Vec<Value> {
                 v.iter().map(|(a, b)| json!([a, b])).collect()
             };
+            // Match-confidence breakdown by ladder rung (DD-017): exact is certain, fuzzy a guess.
+            let mut methods = serde_json::Map::new();
+            for (_, m) in &d.provenance {
+                let e = methods.entry(m.as_str()).or_insert(json!(0));
+                *e = json!(e.as_u64().unwrap_or(0) + 1);
+            }
             Ok(json!({
                 "matched": d.matched.len(),
                 "renamed": pairs(&d.matched.iter().filter(|(a, b)| a != b).cloned().collect::<Vec<_>>()),
                 "modified": pairs(&d.changed),
                 "only_in_session": d.only_here,
                 "only_in_other": d.only_there,
+                "methods": Value::Object(methods),
             }))
         }
         "export" => {

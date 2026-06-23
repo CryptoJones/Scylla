@@ -62,7 +62,8 @@ can't take back:
 ![Scylla proposed hexagonal architecture — the "after"](docs/proposed-scylla-architecture.png)
 
 The reasoning behind every box is recorded in [DesignDecisions.md](DesignDecisions.md) (all
-44 decisions); the build path — prototype-first — is in [SprintPlanning.md](SprintPlanning.md).
+44 decisions); the build path — prototype-first — is in [SprintPlanning.md](SprintPlanning.md);
+what shipped when is in [CHANGELOG.md](CHANGELOG.md).
 
 ## The heads
 

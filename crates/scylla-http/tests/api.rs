@@ -2,9 +2,12 @@
 //! endpoint with a real HTTP client (ureq), asserting the JSON. Proves any HTTP consumer can read
 //! the model — no WASM, no capnp.
 
+use std::io::Read;
 use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
+
+use scylla_port::{Session, Zoom};
 
 const ARTIFACT: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -203,6 +206,67 @@ fn http_gateway_annotates_the_resident_session() {
     assert!(
         matches!(missing, Err(ureq::Error::Status(404, _))),
         "unknown id must be 404"
+    );
+}
+
+#[test]
+fn http_gateway_exports_the_annotated_model() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let base = format!("http://{addr}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
+            .args([ARTIFACT, &addr])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-http"),
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if ureq::get(&format!("{base}/api/info")).call().is_ok() {
+            break;
+        }
+        assert!(Instant::now() < deadline, "scylla-http never came up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // Find gcd, rename it in the resident session.
+    let fns_body = ureq::get(&format!("{base}/api/functions"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    let fns: serde_json::Value = serde_json::from_str(&fns_body).unwrap();
+    let gid = fns
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "gcd")
+        .expect("gcd listed")["id"]
+        .as_u64()
+        .unwrap();
+    ureq::post(&format!("{base}/api/functions/{gid}/rename"))
+        .send_string(r#"{"name": "euclid_gcd"}"#)
+        .unwrap();
+
+    // Export the model and reload it — the annotation persisted across the artifact round-trip.
+    let resp = ureq::get(&format!("{base}/api/export")).call().unwrap();
+    assert_eq!(
+        resp.header("Content-Type"),
+        Some("application/octet-stream"),
+        "export is binary, not JSON"
+    );
+    let mut bytes = Vec::new();
+    resp.into_reader().read_to_end(&mut bytes).unwrap();
+    let reloaded = Session::from_artifact(&bytes).expect("exported bytes are a valid .scylla");
+    assert!(
+        reloaded
+            .functions(Zoom::Domain)
+            .iter()
+            .any(|f| f.name == "euclid_gcd"),
+        "the rename survived export → reload"
     );
 }
 

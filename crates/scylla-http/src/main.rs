@@ -13,6 +13,7 @@
 //!   POST /api/functions/<id>/retype  — body {"type": "…"}
 //!   POST /api/functions/<id>/comment — body {"text": "…"}   (may be empty — clears it)
 //!   POST /api/diff                 — body = a .scylla; → {matched, renamed, modified, added, removed}
+//!   GET  /api/export               — download the resident model, INCLUDING your annotations, as a .scylla
 
 use std::process::ExitCode;
 
@@ -22,6 +23,18 @@ use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const USAGE: &str = "usage: scylla-http <artifact.scylla> [host:port]   (default 127.0.0.1:8800)";
+
+/// A routed response: a JSON document (the common case) or the raw model bytes (`/api/export`).
+enum Reply {
+    Json(u16, String),
+    Octet(Vec<u8>),
+}
+
+impl From<(u16, String)> for Reply {
+    fn from((status, body): (u16, String)) -> Self {
+        Reply::Json(status, body)
+    }
+}
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -108,16 +121,20 @@ fn main() -> ExitCode {
     );
 
     for mut request in server.incoming_requests() {
-        let (status, body) = if authorized(&request, &token) {
+        let reply = if authorized(&request, &token) {
             handle(&mut session, &mut request)
         } else {
-            (
+            Reply::Json(
                 401,
                 json!({"error": "unauthorized — send Authorization: Bearer <token>"}).to_string(),
             )
         };
-        let header = Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap();
-        let resp = Response::from_string(body)
+        let (status, ctype, body): (u16, &str, Vec<u8>) = match reply {
+            Reply::Json(s, b) => (s, "application/json", b.into_bytes()),
+            Reply::Octet(b) => (200, "application/octet-stream", b),
+        };
+        let header = Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes()).unwrap();
+        let resp = Response::from_data(body)
             .with_status_code(status)
             .with_header(header);
         let _ = request.respond(resp);
@@ -192,9 +209,10 @@ fn type_of(prog: &Program, id: StableId) -> Option<String> {
     })
 }
 
-/// Route one request to `(status, json_body)`. GETs read; the POST annotation routes mutate the
-/// resident session in place (hence `&mut`); `/api/diff` consumes a POSTed artifact without mutating.
-fn handle(session: &mut Session, req: &mut Request) -> (u16, String) {
+/// Route one request to a [`Reply`]. GETs read; the POST annotation routes mutate the resident
+/// session in place (hence `&mut`); `/api/diff` consumes a POSTed artifact without mutating;
+/// `/api/export` serializes the (possibly annotated) session back to a `.scylla` for download.
+fn handle(session: &mut Session, req: &mut Request) -> Reply {
     let method = req.method().clone();
     let url = req.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((url.as_str(), ""));
@@ -202,16 +220,20 @@ fn handle(session: &mut Session, req: &mut Request) -> (u16, String) {
     let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
     match (&method, segs.as_slice()) {
-        (Method::Get, []) => (200, help()),
-        (Method::Get, ["api", "info"]) => (200, info(session)),
-        (Method::Get, ["api", "functions"]) => (200, functions(session, zoom)),
-        (Method::Get, ["api", "functions", id]) => view(session, id, zoom),
-        (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id),
-        (Method::Post, ["api", "functions", id, "rename"]) => rename(session, id, req),
-        (Method::Post, ["api", "functions", id, "retype"]) => retype(session, id, req),
-        (Method::Post, ["api", "functions", id, "comment"]) => comment(session, id, req),
-        (Method::Post, ["api", "diff"]) => diff(session, req),
-        _ => (404, json!({"error": "not found"}).to_string()),
+        (Method::Get, []) => Reply::Json(200, help()),
+        (Method::Get, ["api", "info"]) => Reply::Json(200, info(session)),
+        (Method::Get, ["api", "functions"]) => Reply::Json(200, functions(session, zoom)),
+        (Method::Get, ["api", "functions", id]) => view(session, id, zoom).into(),
+        (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id).into(),
+        // The resident model — with any annotations made this session — as a downloadable .scylla
+        // (DD-026). The HTTP-native counterpart of the MCP head's `export`: a remote client can pull
+        // its work back out, since in-memory annotations otherwise die with the server.
+        (Method::Get, ["api", "export"]) => Reply::Octet(session.to_artifact()),
+        (Method::Post, ["api", "functions", id, "rename"]) => rename(session, id, req).into(),
+        (Method::Post, ["api", "functions", id, "retype"]) => retype(session, id, req).into(),
+        (Method::Post, ["api", "functions", id, "comment"]) => comment(session, id, req).into(),
+        (Method::Post, ["api", "diff"]) => diff(session, req).into(),
+        _ => Reply::Json(404, json!({"error": "not found"}).to_string()),
     }
 }
 
@@ -227,6 +249,7 @@ fn help() -> String {
             "POST /api/functions/<id>/retype (body: {\"type\": \"…\"})",
             "POST /api/functions/<id>/comment (body: {\"text\": \"…\"})",
             "POST /api/diff (body: a .scylla artifact)",
+            "GET /api/export (download the annotated model as a .scylla)",
         ],
     })
     .to_string()

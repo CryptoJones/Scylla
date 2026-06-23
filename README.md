@@ -88,8 +88,9 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   for, DD-002). Auth-gated, connection-capped, slow-loris-bounded, TLS-capable.
 - **HTTP/JSON gateway** — `crates/scylla-http`: `scylla-http` serves the model as a plain
   HTTP/JSON API (`GET /api/info` / `/api/functions` / `/api/functions/<id>` / `…/callers`,
-  `POST /api/diff`) and lets any client *annotate* it (`POST …/rename` / `…/retype` / `…/comment`),
-  so any language, dashboard, or `curl` drives the full verb set with no special client.
+  `POST /api/diff`) and lets any client *annotate* it (`POST …/rename` / `…/retype` / `…/comment`)
+  then pull the annotated model back as a `.scylla` (`GET /api/export`), so any language, dashboard,
+  or `curl` drives the full verb set — including persistence — with no special client.
   Token-gated and TLS-capable, like the RPC head.
 
 The **diff** is a real binary-differ: it pairs functions across two builds by structural identity

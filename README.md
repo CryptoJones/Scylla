@@ -14,9 +14,10 @@ reverse-engineering domain model** — the *body* — and exposes it through thi
 **disposable protocol adapters** — the *heads*.
 
 Named for the six-headed sea monster of Homer's *Odyssey*: many heads, one immortal
-body. Lop a head off and grow a new one. Today's head is an **MCP server** — so AI
-agents can reverse-engineer binaries directly. When MCP is the CORBA of 2040, you
-grow a new head and the body never notices.
+body. Lop a head off and grow a new one. Today there are **four heads** — an MCP server
+(so AI agents reverse-engineer binaries directly), a browser/WASM head, a native serving
+binary, and a terminal CLI — all projecting the *same* body. When MCP is the CORBA of 2040,
+you grow a new head and the body never notices.
 
 ## The idea
 
@@ -60,13 +61,42 @@ can't take back:
 ![Scylla proposed hexagonal architecture — the "after"](docs/proposed-scylla-architecture.png)
 
 The reasoning behind every box is recorded in [DesignDecisions.md](DesignDecisions.md) (all
-33 decisions); the build path — prototype-first — is in [SprintPlanning.md](SprintPlanning.md).
+44 decisions); the build path — prototype-first — is in [SprintPlanning.md](SprintPlanning.md).
+
+## The heads
+
+One body — the durable RE domain model (`scylla-model`) and the client port over it
+(`scylla-port`) — and four heads today, each a thin adapter projecting the *same* verbs
+(navigate / annotate / **diff** / merge / export):
+
+- **Browser (WASM)** — `crates/scylla-wasm`: the client port compiled to `wasm32`, so a browser
+  navigates / annotates / **diffs** a `.scylla` model-artifact entirely client-side — no server,
+  no engine. Renders the call graph as an actual graph, paints a structural diff onto it, searches.
+- **Native single binary** — `crates/scylla-serve`: a zero-dependency binary that bakes in the
+  browser head and serves it + an artifact over HTTP. `scylla-serve old.scylla new.scylla` opens
+  straight onto *what the rebuild changed*.
+- **Terminal** — `crates/scylla-cli` (`scylla`): `materialize` a binary via the engine, then
+  `diff` / `info` / `functions` / `view` / `callers` an artifact offline. `scylla diff` carries
+  `git diff --exit-code` semantics for CI.
+- **AI agents (MCP)** — `crates/scylla-mcp`: an MCP server exposing the port 1:1 as tools
+  (list_functions / get_function / callers / rename / retype / comment / diff / merge / export),
+  so an agent reverse-engineers a binary directly. Binary-derived text is wrapped untrusted (DD-035).
+
+The **diff** is a real binary-differ: it pairs functions across two builds by structural identity
+(address-independent), then climbs the BinDiff-style ladder — call-graph propagation, unique
+strings/imports, BSim feature vectors, mnemonic cosine — to report functions matched / renamed /
+**modified** / added / removed. Fail-closed throughout: a near-tie is never guessed.
 
 ## Status
 
-Early — **design phase.** Sibling project to
-[GayHydra](https://github.com/CryptoJones/GayHydra) (a hardened fork of NSA Ghidra,
-which provides the proven engine Scylla wraps).
+**Feature-complete core, four working heads.** The durable Rust body (model + client port +
+Cap'n Proto model-artifact) is built, with a structural binary-diff engine at parity with the
+identity-anchored merge. The heads above all run today over that one body; the heavy JVM engine is
+reached over gRPC as a droppable producer (DD-009/040). Sibling project to
+[GayHydra](https://github.com/CryptoJones/GayHydra) (a hardened fork of NSA Ghidra, which provides
+the proven engine Scylla wraps). Deferred *by decision*, not omission: a **live remote** head over
+the Cap'n Proto promise-pipelining RPC surface (DD-002) — shape-validated, awaiting a real
+networked consumer.
 
 ## Acknowledgements
 

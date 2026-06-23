@@ -11,6 +11,7 @@ members = [
     "crates/scylla-engine",
     "crates/scylla-cli",
     "crates/scylla-wasm",
+    "crates/scylla-serve",
 ]
 
 [workspace.package]

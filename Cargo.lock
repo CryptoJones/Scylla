@@ -779,6 +779,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "scylla-serve"
+version = "0.1.0"
+
+[[package]]
 name = "scylla-wasm"
 version = "0.1.0"
 dependencies = [

@@ -34,15 +34,19 @@ A **string result** is returned as a `(ptr<<32 | len)` u64 (a BigInt in JS); the
 out of linear memory and then `scylla_free`s it. Buffers are exact-size `Box<[u8]>` so the
 `(ptr,len)` free matches the allocation layout.
 
-## Build + run
+## Run
+
+The turnkey way — the native single-binary head [`scylla-serve`](../scylla-serve) embeds this WASM
+head and serves it + your artifact (no JVM, no toolchain):
 
 ```bash
-./build.sh                      # cargo build --target wasm32 --release + stage web/ + sample artifact
-cd web && python3 -m http.server # then open http://localhost:8000  (file:// can't fetch wasm)
+cargo run -p scylla-serve -- crates/scylla-wasm/web/mathlib.scylla   # → http://127.0.0.1:8000/
+cargo run -p scylla-serve -- my_program.scylla                       # navigate your own artifact
 ```
 
-Prebuilt `web/scylla_wasm.wasm` + `web/mathlib.scylla` are committed so the demo is turnkey;
-`build.sh` regenerates them.
+Or serve `web/` with anything (`cd web && python3 -m http.server` — `file://` can't fetch wasm).
+Prebuilt `web/scylla_wasm.wasm` + `web/mathlib.scylla` are committed so it's turnkey; `./build.sh`
+rebuilds them (then rebuild `scylla-serve`, which embeds the wasm).
 
 ## Verify (headless — no browser needed)
 

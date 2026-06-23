@@ -1,0 +1,12 @@
+[package]
+name = "scylla-serve"
+description = "Native single-binary head (DD-028): serves the embedded WASM head + a .scylla artifact over HTTP. No JVM, no deps."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# Zero dependencies — std only. A single self-contained binary: `scylla-serve <artifact> [port]`
+# embeds the WASM head (index.html + scylla_wasm.wasm) and serves it + the artifact, so a browser
+# navigates the model with no server runtime, no JVM, no toolchain (Sprint 8 / DD-028 / DD-016).
+[dependencies]

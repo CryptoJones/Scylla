@@ -61,7 +61,9 @@ the browser demo works.
 
 **Navigate + annotate + export + merge**, all in the browser:
 
-- list/zoom/navigate the call graph;
+- list/zoom/navigate the call graph — the demo renders it as an **actual directed graph** (callers
+  → focus → callees, arrowheads in call direction, click any node to re-centre), with **live search**
+  over function names + summaries (`/` to focus);
 - rename/retype/comment (durable user facts, DD-005) and download the modified `.scylla` (DD-026)
   — re-load it and the renames survive;
 - **merge a re-analysis** — re-anchor your annotations onto a rebuilt binary by *structural

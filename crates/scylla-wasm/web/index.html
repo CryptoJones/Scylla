@@ -15,7 +15,7 @@
     margin: 0; background: var(--bg); color: var(--fg);
     font: 20px/1.45 Menlo, "DejaVu Sans Mono", Consolas, monospace;
   }
-  header { padding: 18px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }
   h1 { margin: 0; font-size: 26px; color: var(--cyan); text-shadow: 0 0 8px rgba(39,212,255,.55); letter-spacing: .5px; }
   .sub { color: var(--dim); font-size: 16px; margin-top: 4px; }
   #info { color: var(--green); font-size: 16px; margin-top: 8px; }
@@ -28,11 +28,22 @@
   main { display: grid; grid-template-columns: 360px 1fr; gap: 0; height: calc(100vh - 150px); }
   #list { overflow: auto; border-right: 1px solid var(--line); }
   #detail { overflow: auto; padding: 20px 24px; }
+  /* search */
+  .search { margin-top: 12px; position: relative; max-width: 520px; }
+  #q {
+    font: inherit; font-size: 15px; width: 100%; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 5px; padding: 6px 30px 6px 30px; outline: none;
+  }
+  #q:focus { border-color: var(--cyan); box-shadow: 0 0 6px rgba(39,212,255,.3); }
+  .search .mag { position: absolute; left: 9px; top: 6px; color: var(--dim); pointer-events: none; }
+  .search .slash { position: absolute; right: 9px; top: 7px; color: var(--dim); font-size: 13px; pointer-events: none; }
+  .listhead { padding: 8px 24px; color: var(--dim); font-size: 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); }
   .fn { padding: 9px 24px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .fn:hover { background: var(--panel); }
   .fn.sel { background: var(--panel); border-left: 3px solid var(--cyan); }
   .fn .n { color: var(--cyan); }
   .fn .s { color: var(--dim); font-size: 15px; }
+  mark { background: rgba(85,255,153,.18); color: var(--green); border-radius: 2px; padding: 0 1px; }
   #detail h2 { color: var(--cyan); margin: 0 0 4px; font-size: 22px; text-shadow: 0 0 6px rgba(39,212,255,.4); }
   .kv { margin: 14px 0; }
   .kv b { color: var(--dim); font-weight: normal; display: inline-block; min-width: 130px; }
@@ -44,6 +55,21 @@
   .empty { color: var(--dim); }
   .err { color: var(--red); padding: 24px; }
   a { color: var(--cyan); }
+  /* call graph */
+  .graphwrap { margin-top: 20px; border: 1px solid var(--line); border-radius: 6px; background:
+    radial-gradient(circle at 50% 40%, rgba(39,212,255,.04), transparent 70%), var(--panel); overflow: auto; }
+  .graphwrap .cap { color: var(--dim); font-size: 14px; padding: 8px 12px 0; }
+  svg.graph { display: block; }
+  .gedge { fill: none; stroke: var(--line); stroke-width: 1.6; }
+  .gnode { cursor: default; }
+  .gnode[data-go] { cursor: pointer; }
+  .gnode rect { fill: #0a0e17; stroke: var(--line); stroke-width: 1.4; }
+  .gnode text { fill: var(--fg); font: 14px Menlo, monospace; }
+  .gnode[data-go]:hover rect { stroke: var(--green); }
+  .gnode[data-go]:hover text { fill: var(--green); }
+  .gnode.focus rect { stroke: var(--cyan); stroke-width: 2; filter: drop-shadow(0 0 6px rgba(39,212,255,.5)); }
+  .gnode.focus text { fill: var(--cyan); }
+  .glabel { fill: var(--dim); font: 13px Menlo, monospace; }
 </style>
 </head>
 <body>
@@ -58,6 +84,11 @@
     &nbsp;&nbsp;<button id="dl" title="export the annotated artifact">⤓ download .scylla</button>
     <label class="zbtn" title="re-anchor your annotations onto a re-analyzed .scylla">⟳ merge re-analysis<input type="file" id="mg" accept=".scylla" hidden></label>
   </div>
+  <div class="search">
+    <span class="mag">⌕</span>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="search functions by name or summary…">
+    <span class="slash">/</span>
+  </div>
 </header>
 <main>
   <div id="list"></div>
@@ -66,7 +97,7 @@
 
 <script>
 const dec = new TextDecoder(), enc = new TextEncoder();
-let X, mem, info = null, zoom = 1, fns = [], sel = null;
+let X, mem, info = null, zoom = 1, fns = [], sel = null, query = '';
 
 // A returned (ptr<<32 | len) handle (BigInt) -> copy the bytes out of linear memory, then free.
 function readBytes(packed) {
@@ -126,16 +157,86 @@ function flash(msg) {
 
 function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+// Escape, then wrap the first case-insensitive occurrence of `q` in <mark>.
+function hl(s, q) {
+  if (!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(s);
+  return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length));
+}
+const matches = (f, q) => f.name.toLowerCase().includes(q) || (f.summary || '').toLowerCase().includes(q);
 
 function renderList() {
   const list = document.getElementById('list');
+  const q = query.trim().toLowerCase();
+  const shown = q ? fns.filter(f => matches(f, q)) : fns;
   list.innerHTML = '';
-  for (const f of fns) {
-    const row = el(`<div class="fn" data-id="${f.id}"><div class="n">${esc(f.name)}</div><div class="s">${esc(f.summary)}</div></div>`);
+  const head = el(`<div class="listhead">${q ? `${shown.length}/${fns.length} match “${esc(q)}”` : `${fns.length} functions`}</div>`);
+  list.appendChild(head);
+  if (!shown.length) { list.appendChild(el('<div class="fn empty">no functions match</div>')); return; }
+  for (const f of shown) {
+    const row = el(`<div class="fn" data-id="${f.id}"><div class="n">${hl(f.name, q)}</div><div class="s">${hl(f.summary, q)}</div></div>`);
     if (sel === f.id) row.classList.add('sel');
     row.onclick = () => select(f.id);
     list.appendChild(row);
   }
+}
+
+// Render the 1-hop call neighbourhood of `id` as an actual directed graph: callers (left) → focus
+// (centre) → callees (right), arrowheads in call direction, every node click-navigates (re-centres).
+function renderGraph(id, v, callees, callerIds, idByName) {
+  const callers = callerIds.map(cid => ({ id: cid, name: J(X.scylla_view(BigInt(cid), 0)).name }));
+  const out = callees.map(name => ({ id: idByName[name] ?? null, name }));
+  const CW = 8.6, PAD = 22, H = 30, GAPY = 48, EDGE = 110, M = 14, TOP = 26;
+  const w = (s) => Math.max(56, Math.round(s.length * CW + PAD));
+  const fW = w(v.name);
+  const lW = callers.length ? Math.max(...callers.map(c => w(c.name))) : 0;
+  const rW = out.length ? Math.max(...out.map(c => w(c.name))) : 0;
+  const lCx = M + lW / 2;
+  const fCx = (callers.length ? lCx + lW / 2 + EDGE : M) + fW / 2;
+  const rCx = fCx + fW / 2 + EDGE + rW / 2;
+  const rows = Math.max(callers.length, out.length, 1);
+  const height = rows * GAPY + TOP + 24;
+  const cy = TOP + (height - TOP) / 2;
+  const colY = (n, i) => cy + (i - (n - 1) / 2) * GAPY;
+  const totalW = Math.round((out.length ? rCx + rW / 2 : fCx + fW / 2) + M);
+
+  const node = (cx, ny, label, wd, cls, go) =>
+    `<g class="gnode ${cls}"${go != null ? ` data-go="${go}"` : ''}>` +
+    `<rect x="${(cx - wd / 2).toFixed(1)}" y="${ny - H / 2}" width="${wd}" height="${H}" rx="6"/>` +
+    `<text x="${cx.toFixed(1)}" y="${ny + 5}" text-anchor="middle">${esc(label)}</text></g>`;
+  // S-curve from the right edge of A to the left edge of B; arrow sits at B (call target).
+  const edge = (ax, ay, bx, by) => {
+    const mx = (ax + bx) / 2;
+    return `<path class="gedge" d="M ${ax.toFixed(1)} ${ay.toFixed(1)} C ${mx.toFixed(1)} ${ay.toFixed(1)} ${mx.toFixed(1)} ${by.toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)}" marker-end="url(#arr)"/>`;
+  };
+
+  let edges = '', nodes = '', labels = '';
+  callers.forEach((c, i) => {
+    const ny = colY(callers.length, i), cw = w(c.name);
+    edges += edge(lCx + cw / 2, ny, fCx - fW / 2, cy);
+    nodes += node(lCx, ny, c.name, cw, '', c.id);
+  });
+  out.forEach((c, i) => {
+    const ny = colY(out.length, i), cw = w(c.name);
+    edges += edge(fCx + fW / 2, cy, rCx - cw / 2, ny);
+    nodes += node(rCx, ny, c.name, cw, '', c.id);
+  });
+  nodes += node(fCx, cy, v.name, fW, 'focus', null);
+  if (callers.length) labels += `<text class="glabel" x="${lCx.toFixed(1)}" y="16" text-anchor="middle">callers →</text>`;
+  if (out.length) labels += `<text class="glabel" x="${rCx.toFixed(1)}" y="16" text-anchor="middle">→ callees</text>`;
+
+  const wrap = el(`<div class="graphwrap"></div>`);
+  wrap.appendChild(el(`<div class="cap">call graph · 1-hop neighbourhood (click a node to re-centre)</div>`));
+  if (!callers.length && !out.length) wrap.appendChild(el('<div class="cap" style="padding-bottom:8px">no call relationships at this zoom</div>'));
+  const svg = el(
+    `<svg class="graph" width="${totalW}" height="${height}" viewBox="0 0 ${totalW} ${height}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">` +
+    `<path d="M0 0 L10 5 L0 10 z" fill="#5a6678"/></marker></defs>` +
+    labels + edges + nodes + `</svg>`);
+  svg.querySelectorAll('[data-go]').forEach(g => { g.onclick = () => select(+g.dataset.go); });
+  wrap.appendChild(svg);
+  return wrap;
 }
 
 function select(id) {
@@ -155,25 +256,8 @@ function select(id) {
   if (v.addr != null) d.appendChild(el(`<div class="kv"><b>address</b> 0x${(v.addr>>>0).toString(16)}</div>`));
   if (v.bbCount != null) d.appendChild(el(`<div class="kv"><b>basic blocks</b> ${v.bbCount}</div>`));
   if (v.size != null) d.appendChild(el(`<div class="kv"><b>size</b> ${v.size} bytes</div>`));
-  // callees (navigate down)
-  const ce = el(`<div class="kv"><b>calls →</b> <span></span></div>`);
-  const ceSpan = ce.querySelector('span');
-  if (callees.length) for (const name of callees) {
-    const chip = el(`<span class="chip">${esc(name)}</span>`);
-    if (idByName[name] != null) chip.onclick = () => select(idByName[name]);
-    ceSpan.appendChild(chip);
-  } else ceSpan.appendChild(el('<span class="empty">none</span>'));
-  d.appendChild(ce);
-  // callers (navigate up) — resolved from stable ids over the port
-  const cr = el(`<div class="kv"><b>← called by</b> <span></span></div>`);
-  const crSpan = cr.querySelector('span');
-  if (callerIds.length) for (const cid of callerIds) {
-    const cv = J(X.scylla_view(BigInt(cid), 0));
-    const chip = el(`<span class="chip">${esc(cv.name)}</span>`);
-    chip.onclick = () => select(cid);
-    crSpan.appendChild(chip);
-  } else crSpan.appendChild(el('<span class="empty">none (top-level)</span>'));
-  d.appendChild(cr);
+  // The call graph, rendered as an actual directed graph (callers → focus → callees).
+  d.appendChild(renderGraph(id, v, callees, callerIds, idByName));
 }
 
 function refresh() {
@@ -189,6 +273,13 @@ document.querySelectorAll('.zoom button[data-z]').forEach(b => b.onclick = () =>
 });
 document.getElementById('dl').onclick = exportArtifact;
 document.getElementById('mg').onchange = (e) => { if (e.target.files[0]) mergeFile(e.target.files[0]); e.target.value = ''; };
+// Live search over the function list; '/' focuses it from anywhere.
+const qInput = document.getElementById('q');
+qInput.oninput = () => { query = qInput.value; renderList(); };
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== qInput) { e.preventDefault(); qInput.focus(); }
+  else if (e.key === 'Escape' && document.activeElement === qInput) { qInput.value = ''; query = ''; renderList(); qInput.blur(); }
+});
 
 async function boot() {
   try {

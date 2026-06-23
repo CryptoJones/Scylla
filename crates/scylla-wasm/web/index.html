@@ -99,6 +99,7 @@
     <button data-z="2">detail</button>
     &nbsp;&nbsp;<button id="dl" title="export the annotated artifact">⤓ download .scylla</button>
     <label class="zbtn" title="re-anchor your annotations onto a re-analyzed .scylla">⟳ merge re-analysis<input type="file" id="mg" accept=".scylla" hidden></label>
+    <label class="zbtn" title="structurally diff against another .scylla (read-only)">⇄ diff<input type="file" id="df" accept=".scylla" hidden></label>
     &nbsp;&nbsp;<button id="ov" title="whole-program call graph, layered by call depth">⊞ graph</button>
   </div>
   <div class="search">
@@ -179,6 +180,40 @@ function flash(msg) {
   const i = document.getElementById('info'), prev = i.textContent;
   i.textContent = msg;
   setTimeout(() => { i.textContent = prev; }, 4000);
+}
+// Structurally diff the loaded model against another .scylla (DD-017 `diff`, read-only — the
+// session is untouched), then render the report in the detail pane.
+async function diffFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const p = X.scylla_alloc(bytes.length);
+  new Uint8Array(mem.buffer, p, bytes.length).set(bytes);
+  const rep = J(X.scylla_diff(p, bytes.length));
+  X.scylla_free(p, bytes.length);
+  if (rep.error) { alert('diff failed: ' + rep.error); return; }
+  renderDiff(rep, file.name);
+}
+function renderDiff(rep, fname) {
+  sel = null; renderList();
+  const idByName = Object.fromEntries(fns.map(f => [f.name, f.id]));
+  const renames = rep.matched.filter(([a, b]) => a !== b);
+  const d = document.getElementById('detail');
+  d.innerHTML = '';
+  d.appendChild(el(`<h2>⇄ structural diff</h2>`));
+  d.appendChild(el(`<div class="kv"><b>against</b> ${esc(fname)}</div>`));
+  d.appendChild(el(`<div class="kv"><b>summary</b> ${rep.matched.length} matched · ${renames.length} renamed · ${rep.onlyHere.length} only here · ${rep.onlyThere.length} only there</div>`));
+  d.appendChild(el(`<div class="kv" style="color:var(--dim);font-size:15px">matched by address-independent structural identity — a local rename shows through (DD-005/DD-017)</div>`));
+  // navigable chip (matched/here functions exist in the current session); plain chip otherwise
+  const navChip = (name) => { const c = el(`<span class="chip">${esc(name)}</span>`); if (idByName[name] != null) c.onclick = () => select(idByName[name]); else { c.style.cursor = 'default'; c.style.color = 'var(--dim)'; } return c; };
+  const row = (label, build) => { const r = el(`<div class="kv"><b>${label}</b> <span></span></div>`); d.appendChild(r); return [r.querySelector('span'), build]; };
+  // the headline: identity-matched functions whose name differs across the build
+  { const [s] = row('renamed');
+    if (renames.length) for (const [a, b] of renames) { const c = el(`<span class="chip" title="this build → other build">${esc(a)} → ${esc(b)}</span>`); if (idByName[a] != null) c.onclick = () => select(idByName[a]); s.appendChild(c); }
+    else s.appendChild(el('<span class="empty">none — names agree on every matched function</span>')); }
+  { const [s] = row('only in this');
+    if (rep.onlyHere.length) rep.onlyHere.forEach(n => s.appendChild(navChip(n))); else s.appendChild(el('<span class="empty">none</span>')); }
+  { const [s] = row('only in other');
+    if (rep.onlyThere.length) rep.onlyThere.forEach(n => { const c = el(`<span class="chip" style="color:var(--dim);cursor:default">${esc(n)}</span>`); s.appendChild(c); }); else s.appendChild(el('<span class="empty">none</span>')); }
+  flash(`diff: ${rep.matched.length} matched · ${renames.length} renamed · ${rep.onlyHere.length}/${rep.onlyThere.length} unique`);
 }
 
 function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
@@ -397,6 +432,7 @@ document.querySelectorAll('.zoom button[data-z]').forEach(b => b.onclick = () =>
 });
 document.getElementById('dl').onclick = exportArtifact;
 document.getElementById('mg').onchange = (e) => { if (e.target.files[0]) mergeFile(e.target.files[0]); e.target.value = ''; };
+document.getElementById('df').onchange = (e) => { if (e.target.files[0]) diffFile(e.target.files[0]); e.target.value = ''; };
 // Live search over the function list; '/' focuses it from anywhere.
 const qInput = document.getElementById('q');
 const overlayOpen = () => !document.getElementById('overlay').hidden;

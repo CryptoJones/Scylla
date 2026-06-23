@@ -28,6 +28,7 @@ toolchain beyond the `wasm32-unknown-unknown` target. The module is self-contain
 | `scylla_comment(id, ptr, len) -> 0/-1` | comment a function (may be empty) |
 | `scylla_export() -> handle` | the (annotated) `.scylla` artifact bytes, to download |
 | `scylla_merge(ptr, len) -> handle` | re-anchor the current annotations onto a re-analysis (DD-005); `{merged, flagged}` |
+| `scylla_diff(ptr, len) -> handle` | structurally diff against another artifact (DD-017, read-only); `{matched, onlyHere, onlyThere}` |
 | `scylla_free(ptr, len)` | release a buffer |
 
 A **string result** is returned as a `(ptr<<32 | len)` u64 (a BigInt in JS); the caller copies it
@@ -59,19 +60,22 @@ the browser demo works.
 
 ## Scope
 
-**Navigate + annotate + export + merge**, all in the browser:
+**Navigate + annotate + export + merge + diff** — the port's full client surface, all in the browser:
 
 - list/zoom/navigate the call graph — the demo renders it as an **actual directed graph** (callers
-  → focus → callees, arrowheads in call direction, click any node to re-centre), with **live search**
-  over function names + summaries (`/` to focus);
+  → focus → callees, arrowheads in call direction, click any node to re-centre), a **whole-program
+  overview** (⊞ graph, layered by call depth), and **live search** over names + summaries (`/`);
 - rename/retype/comment (durable user facts, DD-005) and download the modified `.scylla` (DD-026)
   — re-load it and the renames survive;
 - **merge a re-analysis** — re-anchor your annotations onto a rebuilt binary by *structural
   identity*, so a rename follows its function across an address shift / fresh ids (DD-005,
   fail-closed: a near-tie never anchors). **git-for-RE, client-side.**
+- **diff against another artifact** (DD-017, read-only) — pair functions by the same
+  address-independent structural identity, reporting matched/renamed/unique across two builds; a
+  local rename shows through (`euclid_gcd → gcd`). Diff two `.scylla` builds with no server.
 
-End-to-end verified by `verify.mjs`: a rename → export → reload → **merge** round-trip (the rename
-re-anchors onto a fresh-id rebuild).
+End-to-end verified by `verify.mjs`: a rename → export → reload → **diff → merge** round-trip (the
+diff pairs the rename across a fresh-id rebuild, then the merge re-anchors it).
 
 Still future: engine verbs (`decompile`, which needs the JVM engine — not available client-side).
 A *live* browser head over a serving core would use the Cap'n Proto RPC surface (DD-002, deferred —

@@ -63,10 +63,22 @@ X.scylla_free(rp, exported.length);
 const renamed = J(X.scylla_view(BigInt(gcd.id), 1)).name;
 console.log("after rename → export → reload, gcd is now:", renamed, `(${exported.length}-byte artifact)`);
 
-// Merge round-trip: re-anchor the rename onto a RE-ANALYSIS (same binary, fresh stable ids).
+const rebuilt = readFileSync(join(dir, "mathlib_rebuilt.scylla"));
+
+// Diff round-trip (read-only, BEFORE merge mutates the session): structurally diff the renamed
+// session against the RE-ANALYSIS (same binary, fresh ids, ORIGINAL names). The identity matcher
+// pairs every function across the rebuild — gcd's function pairs as (euclid_gcd → gcd), so the local
+// rename shows through — with nothing unique to either side. DD-017 `diff` verb, in the browser.
+const dp = X.scylla_alloc(rebuilt.length);
+new Uint8Array(mem.buffer, dp, rebuilt.length).set(rebuilt);
+const diff = J(X.scylla_diff(dp, rebuilt.length));
+X.scylla_free(dp, rebuilt.length);
+const gcdPaired = diff.matched.some(([a, b]) => a === "euclid_gcd" && b === "gcd");
+console.log(`diff: ${diff.matched.length} matched, ${diff.onlyHere.length} only-here, ${diff.onlyThere.length} only-there | gcd pairs euclid_gcd→gcd? ${gcdPaired}`);
+
+// Merge round-trip: re-anchor the rename onto the RE-ANALYSIS (same binary, fresh stable ids).
 // merge_into matches functions by structural identity (not id), so the euclid_gcd rename should
 // follow gcd across the rebuild — DD-005 identity-anchored merge, in the browser.
-const rebuilt = readFileSync(join(dir, "mathlib_rebuilt.scylla"));
 const mp = X.scylla_alloc(rebuilt.length);
 new Uint8Array(mem.buffer, mp, rebuilt.length).set(rebuilt);
 const report = J(X.scylla_merge(mp, rebuilt.length));
@@ -79,7 +91,11 @@ const ok =
   callers.includes("main") &&
   rc === 0 &&
   renamed === "euclid_gcd" &&
+  diff.matched.length === fns.length &&
+  diff.onlyHere.length === 0 &&
+  diff.onlyThere.length === 0 &&
+  gcdPaired &&
   report.merged >= 1 &&
   reanchored;
-console.log(ok ? "PASS — navigate + annotate + export + merge round-trip in WASM" : "FAIL");
+console.log(ok ? "PASS — navigate + annotate + export + diff + merge round-trip in WASM" : "FAIL");
 process.exit(ok ? 0 : 1);

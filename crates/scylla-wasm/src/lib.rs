@@ -7,8 +7,9 @@
 //! **Raw wasm32 C-ABI — no wasm-bindgen.** The browser instantiates the module and marshals over
 //! linear memory: `scylla_alloc` for the artifact bytes in, and string results returned as a
 //! `(ptr<<32 | len)` u64 the JS unpacks and then `scylla_free`s. Single loaded session, single
-//! thread (a `thread_local`), read-only for v1 — a viewer over a persisted artifact. Annotation/
-//! merge (which the in-core port supports) and engine verbs (decompile) are future work.
+//! thread (a `thread_local`). It navigates, annotates (rename/retype/comment), exports, merges a
+//! re-analysis, and structurally diffs against another artifact — the port's full client surface,
+//! client-side. Only engine verbs (decompile) remain server/JVM-only.
 
 use std::cell::RefCell;
 
@@ -223,6 +224,39 @@ pub unsafe extern "C" fn scylla_merge(ptr: *const u8, len: usize) -> u64 {
         let result = json!({ "merged": report.merged, "flagged": report.flagged }).to_string();
         *opt = Some(Session::open(new));
         ret_string(result)
+    })
+}
+
+/// Structurally diff the current session against ANOTHER `.scylla` from `(ptr, len)` (DD-017 `diff`):
+/// pair functions by address-independent structural identity, reporting matched pairs plus the
+/// functions unique to each side, by display name. READ-ONLY — the loaded session is untouched (the
+/// other artifact is only compared, never adopted; that is what [`scylla_merge`] is for). Returns
+/// `{matched: [[here, there], ...], onlyHere: [...], onlyThere: [...]}`, or `{error}`. The browser
+/// payoff: load build A, diff against build B, and see what the recompile changed — no server, and
+/// a rename here shows through because the matcher is identity-based, not address-based.
+///
+/// # Safety
+/// `(ptr, len)` must describe a valid byte buffer in linear memory.
+#[no_mangle]
+pub unsafe extern "C" fn scylla_diff(ptr: *const u8, len: usize) -> u64 {
+    let bytes = std::slice::from_raw_parts(ptr, len);
+    SESSION.with_borrow(|opt| {
+        let Some(here) = opt.as_ref() else {
+            return ret_string(json!({ "error": "no session loaded" }).to_string());
+        };
+        let there = match Session::from_artifact(bytes) {
+            Ok(s) => s,
+            Err(e) => return ret_string(json!({ "error": e.to_string() }).to_string()),
+        };
+        let d = here.diff(&there);
+        ret_string(
+            json!({
+                "matched": d.matched,
+                "onlyHere": d.only_here,
+                "onlyThere": d.only_there,
+            })
+            .to_string(),
+        )
     })
 }
 

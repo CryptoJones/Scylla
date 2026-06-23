@@ -116,3 +116,59 @@ fn http_gateway_serves_the_model_as_json() {
         "unknown id should 404"
     );
 }
+
+#[test]
+fn http_gateway_token_gates_access() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let base = format!("http://{addr}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
+            .args([ARTIFACT, &addr])
+            .env("SCYLLA_HTTP_TOKEN", "s3cret") // gate access (DD-035)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-http"),
+    );
+
+    // Ready when the RIGHT token is accepted.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if ureq::get(&format!("{base}/api/info"))
+            .set("Authorization", "Bearer s3cret")
+            .call()
+            .is_ok()
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "token-gated gateway never came up"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // No token / wrong token → 401 (and no data).
+    let no_tok = ureq::get(&format!("{base}/api/info")).call();
+    assert!(
+        matches!(no_tok, Err(ureq::Error::Status(401, _))),
+        "no token must be 401"
+    );
+    let wrong = ureq::get(&format!("{base}/api/info"))
+        .set("Authorization", "Bearer nope")
+        .call();
+    assert!(
+        matches!(wrong, Err(ureq::Error::Status(401, _))),
+        "wrong token must be 401"
+    );
+
+    // Right token works.
+    let info = ureq::get(&format!("{base}/api/info"))
+        .set("Authorization", "Bearer s3cret")
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(info.contains("\"functions\":13"), "authed info: {info}");
+}

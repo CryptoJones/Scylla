@@ -47,6 +47,13 @@ fn main() -> ExitCode {
         }
     };
 
+    // Access is gated by SCYLLA_HTTP_TOKEN (DD-035): every request must carry
+    // `Authorization: Bearer <token>`. Unset = OPEN (anyone can query) — fine for a loopback dev
+    // gateway, announced loudly otherwise.
+    let token = std::env::var("SCYLLA_HTTP_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty());
+
     let server = match Server::http(&addr) {
         Ok(s) => s,
         Err(e) => {
@@ -54,10 +61,24 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    eprintln!("scylla-http: {artifact} on http://{addr}/  (DD-017 JSON gateway; Ctrl-C to stop)");
+    let auth = if token.is_some() {
+        "token-gated"
+    } else {
+        "OPEN (set SCYLLA_HTTP_TOKEN to gate)"
+    };
+    eprintln!(
+        "scylla-http: {artifact} on http://{addr}/  — {auth} (DD-017 JSON gateway; Ctrl-C to stop)"
+    );
 
     for mut request in server.incoming_requests() {
-        let (status, body) = handle(&session, &mut request);
+        let (status, body) = if authorized(&request, &token) {
+            handle(&session, &mut request)
+        } else {
+            (
+                401,
+                json!({"error": "unauthorized — send Authorization: Bearer <token>"}).to_string(),
+            )
+        };
         let header = Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap();
         let resp = Response::from_string(body)
             .with_status_code(status)
@@ -65,6 +86,18 @@ fn main() -> ExitCode {
         let _ = request.respond(resp);
     }
     ExitCode::SUCCESS
+}
+
+/// True if the request is allowed: the server is open (`token` is `None`) or the request carries a
+/// matching `Authorization: Bearer <token>` header.
+fn authorized(req: &Request, token: &Option<String>) -> bool {
+    let Some(t) = token else {
+        return true;
+    };
+    let want = format!("Bearer {t}");
+    req.headers()
+        .iter()
+        .any(|h| h.field.equiv("Authorization") && h.value.as_str() == want)
 }
 
 fn zoom_of(q: Option<&str>) -> Zoom {

@@ -198,6 +198,12 @@ fn rpc_head_conforms_to_the_port() {
         out.lines().any(|l| l.starts_with("matched by:")),
         "remote diff reports a confidence breakdown: {out}"
     );
+    // …and each modified line is annotated with its per-pair rung + confidence %.
+    assert!(
+        out.lines()
+            .any(|l| l.starts_with("modified:") && l.contains("%)")),
+        "remote modified lines carry per-pair confidence: {out}"
+    );
 
     // export — the connect binary pulls the served model down to a .scylla that reloads with the
     // same functions as the port (the new `export` verb, end-to-end over the wire).

@@ -31,6 +31,13 @@ struct MethodCount {
   count  @1 :UInt32;
 }
 
+# Per-pair match confidence: HOW (rung) and how strongly (0..=100 %) one function paired.
+struct PairConfidence {
+  name       @0 :Text;
+  method     @1 :Text;    # exact | propagation | anchor | bsim | fuzzy
+  confidence @2 :UInt8;   # 0..=100
+}
+
 interface Session {
   # Artifact metadata (name / language / function count).
   info @0 () -> (name :Text, language :Text, functions :UInt32);
@@ -40,8 +47,9 @@ interface Session {
   function @2 (id :UInt64) -> (fn :Function);
   # Structurally diff the served model against another .scylla (sent as bytes) — DD-017, read-only.
   # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names;
-  # `methods` is the match-confidence breakdown by ladder rung (exact/propagation/anchor/bsim/fuzzy).
-  diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text), methods :List(MethodCount));
+  # `methods` is the match-confidence breakdown by ladder rung (exact/propagation/anchor/bsim/fuzzy);
+  # `confidence` is the per-pair rung + score % (one entry per matched/changed pair).
+  diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text), methods :List(MethodCount), confidence :List(PairConfidence));
   # Serialize the served model — INCLUDING annotations made this session (renames/retypes/comments)
   # — back to a .scylla (DD-026), so a remote analyst can pull their work down. The wire counterpart
   # of the HTTP head's GET /api/export and the MCP head's `export`.

@@ -197,21 +197,30 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
                 if !parts.is_empty() {
                     println!("matched by: {}", parts.join(", "));
                 }
+                // Per-pair confidence: name -> " (method N%)", to annotate the lines below.
+                let conf = d.get_confidence()?;
+                let mut label: std::collections::HashMap<String, String> =
+                    std::collections::HashMap::new();
+                for i in 0..conf.len() {
+                    let c = conf.get(i);
+                    label.insert(
+                        c.get_name()?.to_str()?.to_string(),
+                        format!(" ({} {}%)", c.get_method()?.to_str()?, c.get_confidence()),
+                    );
+                }
+                let tag = |name: &str| label.get(name).cloned().unwrap_or_default();
                 for i in 0..renamed.len() {
                     let p = renamed.get(i);
-                    println!(
-                        "renamed: {} -> {}",
-                        p.get_here()?.to_str()?,
-                        p.get_there()?.to_str()?
-                    );
+                    let h = p.get_here()?.to_str()?;
+                    println!("renamed: {h} -> {}{}", p.get_there()?.to_str()?, tag(h));
                 }
                 for i in 0..modified.len() {
                     let p = modified.get(i);
                     let (h, t) = (p.get_here()?.to_str()?, p.get_there()?.to_str()?);
                     if h == t {
-                        println!("modified: {h}");
+                        println!("modified: {h}{}", tag(h));
                     } else {
-                        println!("modified: {h} -> {t}");
+                        println!("modified: {h} -> {t}{}", tag(h));
                     }
                 }
                 for i in 0..added.len() {

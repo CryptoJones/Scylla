@@ -221,6 +221,16 @@ impl session::Server for SessionImpl {
                     mc.set_count(*count);
                 }
             }
+            {
+                // Per-pair confidence: HOW + how strongly each function paired (DD-017).
+                let mut list = r.reborrow().init_confidence(d.provenance.len() as u32);
+                for (i, (name, info)) in d.provenance.iter().enumerate() {
+                    let mut pc = list.reborrow().get(i as u32);
+                    pc.set_name(name.as_str());
+                    pc.set_method(info.method.as_str());
+                    pc.set_confidence(info.confidence);
+                }
+            }
             Ok(())
         }
     }

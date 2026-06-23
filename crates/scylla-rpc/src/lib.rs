@@ -61,12 +61,19 @@ pub fn session_server(session: SharedSession) -> session::Client {
 /// match (a wrong token is a `capnp::Error`, never a `Session`). Capability-based auth (DD-035): no
 /// authority leaks until authentication.
 pub fn auth_server(session: SharedSession, token: Option<String>) -> authenticator::Client {
-    capnp_rpc::new_client(AuthImpl { session, token })
+    capnp_rpc::new_client(AuthImpl {
+        session,
+        token,
+        authed: None,
+    })
 }
 
 struct AuthImpl {
     session: SharedSession,
     token: Option<String>,
+    /// Set `true` on a successful login — [`serve_with_timeout`] uses it to drop connections that
+    /// never authenticate (a slow-loris bound).
+    authed: Option<Rc<std::cell::Cell<bool>>>,
 }
 
 impl authenticator::Server for AuthImpl {
@@ -75,16 +82,22 @@ impl authenticator::Server for AuthImpl {
         params: authenticator::LoginParams,
         mut results: authenticator::LoginResults,
     ) -> impl Future<Output = Result<(), capnp::Error>> + 'static {
-        let (session, expected) = (self.session.clone(), self.token.clone());
+        let (session, expected, authed) = (
+            self.session.clone(),
+            self.token.clone(),
+            self.authed.clone(),
+        );
         async move {
             let presented = params.get()?.get_token()?.to_str()?;
-            match expected {
-                Some(t) if presented != t => {
+            if let Some(t) = &expected {
+                if presented != t.as_str() {
                     return Err(capnp::Error::failed(
                         "authentication failed: bad token".into(),
                     ));
                 }
-                _ => {}
+            }
+            if let Some(flag) = &authed {
+                flag.set(true);
             }
             results.get().set_session(session_server(session));
             Ok(())
@@ -312,6 +325,47 @@ where
     );
     let auth = auth_server(session, token);
     RpcSystem::new(Box::new(net), Some(auth.client))
+}
+
+/// Serve one connection but DROP it if the client hasn't authenticated within `handshake` — a
+/// slow-loris bound, so a silent connection can't hold a slot forever (which would defeat the
+/// `serve` binary's connection cap). On a timely login the session runs to completion as usual.
+/// Run on a `LocalSet`. The caller's per-connection slot frees when this returns (either path).
+pub async fn serve_with_timeout<T>(
+    session: SharedSession,
+    token: Option<String>,
+    handshake: std::time::Duration,
+    io: T,
+) where
+    T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + 'static,
+{
+    let authed = Rc::new(std::cell::Cell::new(false));
+    let (r, w) = tokio::io::split(io);
+    let net = twoparty::VatNetwork::new(
+        r.compat(),
+        w.compat_write(),
+        rpc_twoparty_capnp::Side::Server,
+        Default::default(),
+    );
+    let auth: authenticator::Client = capnp_rpc::new_client(AuthImpl {
+        session,
+        token,
+        authed: Some(authed.clone()),
+    });
+    let rpc = RpcSystem::new(Box::new(net), Some(auth.client));
+    let task = tokio::task::spawn_local(rpc);
+    // A watchdog aborts the connection iff it hasn't authenticated by the deadline. The connection's
+    // OWN completion (a clean session end, a disconnect, an error) frees the slot promptly — we await
+    // the task directly rather than always sleeping the full window.
+    let abort = task.abort_handle();
+    let watchdog = tokio::task::spawn_local(async move {
+        tokio::time::sleep(handshake).await;
+        if !authed.get() {
+            abort.abort();
+        }
+    });
+    let _ = task.await;
+    watchdog.abort();
 }
 
 /// Connect to a served endpoint over one byte stream. Returns the bootstrapped `Authenticator`

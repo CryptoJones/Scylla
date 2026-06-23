@@ -214,3 +214,46 @@ fn connection_cap_refuses_the_surplus_connection() {
         std::thread::sleep(Duration::from_millis(50));
     }
 }
+
+#[test]
+fn handshake_timeout_frees_a_slot_from_a_silent_connection() {
+    use std::net::TcpStream;
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
+            .args([ARTIFACT, &addr])
+            .env("SCYLLA_RPC_MAX_CONN", "1") // a single slot…
+            .env("SCYLLA_RPC_HANDSHAKE_SEC", "1") // …dropped if not authed within 1s
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-rpc-serve"),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if connect(&addr, &["info"]).0 == 0 {
+            break;
+        }
+        assert!(Instant::now() < deadline, "server never came up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // A silent connection grabs the only slot but never logs in. WITHOUT a handshake timeout it would
+    // squat the slot forever; WITH it, the server drops the silent connection after ~1s and a real
+    // client succeeds — even though the test still holds the hog socket open.
+    let _hog = TcpStream::connect(&addr).expect("raw connect occupies the slot");
+    let deadline = Instant::now() + Duration::from_secs(8);
+    let mut worked = false;
+    while Instant::now() < deadline {
+        if connect(&addr, &["info"]).0 == 0 {
+            worked = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert!(
+        worked,
+        "the silent connection must time out, freeing the slot for a real client"
+    );
+}

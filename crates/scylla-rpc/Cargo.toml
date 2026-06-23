@@ -12,7 +12,7 @@ authors.workspace = true
 capnp = "0.26"
 capnp-rpc = "0.26"
 futures = "0.3"
-tokio = { version = "1", features = ["rt", "macros", "io-util", "net"] }
+tokio = { version = "1", features = ["rt", "macros", "io-util", "net", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 # A REMOTE consumer of the client port (DD-017) — server impls drive `scylla_port::Session`.
 scylla-model = { path = "../scylla-model" }

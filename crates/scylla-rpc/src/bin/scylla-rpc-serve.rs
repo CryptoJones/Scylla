@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 use scylla_port::Session;
-use scylla_rpc::{serve_connection, SharedSession};
+use scylla_rpc::{serve_with_timeout, SharedSession};
 
 const USAGE: &str =
     "usage: scylla-rpc-serve <artifact.scylla> [host:port]   (default 127.0.0.1:9000)";
@@ -53,6 +53,14 @@ fn main() -> ExitCode {
         .and_then(|v| v.parse().ok())
         .unwrap_or(64)
         .max(1);
+    // A connection that doesn't authenticate within this window is dropped (a slow-loris bound, so a
+    // silent connection can't squat a slot — otherwise the cap above is trivially defeated).
+    let handshake = std::time::Duration::from_secs(
+        std::env::var("SCYLLA_RPC_HANDSHAKE_SEC")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(10),
+    );
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -81,9 +89,9 @@ fn main() -> ExitCode {
             let _ = stream.set_nodelay(true);
             active.set(active.get() + 1);
             let counter = active.clone();
-            let rpc = serve_connection(shared.clone(), token.clone(), stream);
+            let (sess, tok) = (shared.clone(), token.clone());
             tokio::task::spawn_local(async move {
-                let _ = rpc.await;
+                serve_with_timeout(sess, tok, handshake, stream).await;
                 counter.set(counter.get() - 1);
             });
         }

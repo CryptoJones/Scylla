@@ -206,6 +206,21 @@ impl Session {
             .collect()
     }
 
+    /// Find functions whose **display name** contains `query` (case-insensitive), at a zoom altitude,
+    /// sorted by name. The navigation verb for a large program: where `functions` lists everything,
+    /// `search` narrows to a substring. Matches on the displayed name, so a user rename (DD-005) is
+    /// searchable; an empty query matches everything (degrades to `functions`, name-sorted).
+    pub fn search(&self, query: &str, zoom: Zoom) -> Vec<FunctionView> {
+        let needle = query.to_lowercase();
+        let mut hits: Vec<FunctionView> = self
+            .functions(zoom)
+            .into_iter()
+            .filter(|v| v.name.to_lowercase().contains(&needle))
+            .collect();
+        hits.sort_by(|a, b| a.name.cmp(&b.name));
+        hits
+    }
+
     pub fn rename(&mut self, id: StableId, name: impl Into<String>) -> Result<(), PortError> {
         let name = name.into();
         non_blank(&name, "a function name cannot be empty")?;
@@ -316,6 +331,43 @@ mod tests {
         let main = id_of(&s, "main");
         let view = s.view(main, Zoom::Domain).unwrap();
         assert!(view.callees.unwrap().contains(&"gcd".to_string()));
+    }
+
+    #[test]
+    fn search_finds_functions_by_name_substring() {
+        let s = session();
+        // case-insensitive substring; sorted by name.
+        let hits: Vec<String> = s
+            .search("GC", Zoom::Domain)
+            .into_iter()
+            .map(|v| v.name)
+            .collect();
+        assert_eq!(
+            hits,
+            vec!["gcd".to_string()],
+            "matches gcd, case-insensitive"
+        );
+        // a miss is empty, not an error.
+        assert!(s.search("n/a-zzz", Zoom::Domain).is_empty());
+        // an empty query degrades to all functions (name-sorted).
+        assert_eq!(
+            s.search("", Zoom::Domain).len(),
+            s.functions(Zoom::Domain).len()
+        );
+        // a rename is searchable by the NEW name (DD-005).
+        let mut s2 = session();
+        let gcd = id_of(&s2, "gcd");
+        s2.rename(gcd, "euclid_gcd").unwrap();
+        let hits: Vec<String> = s2
+            .search("euclid", Zoom::Domain)
+            .into_iter()
+            .map(|v| v.name)
+            .collect();
+        assert_eq!(
+            hits,
+            vec!["euclid_gcd".to_string()],
+            "search reflects the rename"
+        );
     }
 
     #[test]

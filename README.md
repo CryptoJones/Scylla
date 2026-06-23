@@ -77,10 +77,10 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   browser head and serves it + an artifact over HTTP. `scylla-serve old.scylla new.scylla` opens
   straight onto *what the rebuild changed*.
 - **Terminal** — `crates/scylla-cli` (`scylla`): `materialize` a binary via the engine, then
-  `diff` / `info` / `functions` / `view` / `callers` an artifact offline. `scylla diff` carries
-  `git diff --exit-code` semantics for CI.
+  `diff` / `info` / `functions` / `search` / `view` / `callers` an artifact offline. `scylla diff`
+  carries `git diff --exit-code` semantics for CI.
 - **AI agents (MCP)** — `crates/scylla-mcp`: an MCP server exposing the port 1:1 as tools
-  (list_functions / get_function / callers / rename / retype / comment / diff / merge / export),
+  (list_functions / search / get_function / callers / rename / retype / comment / diff / merge / export),
   so an agent reverse-engineers a binary directly. Binary-derived text is wrapped untrusted (DD-035).
 - **Remote (Cap'n Proto RPC)** — `crates/scylla-rpc`: `scylla-rpc-serve` serves the model over TCP
   and `scylla-rpc-connect` drives it from off-box, navigating by **promise-pipelining**
@@ -88,7 +88,7 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   for, DD-002), annotating (rename/retype/comment) and pulling the result back down (`export`).
   Auth-gated, connection-capped, slow-loris-bounded, TLS-capable.
 - **HTTP/JSON gateway** — `crates/scylla-http`: `scylla-http` serves the model as a plain
-  HTTP/JSON API (`GET /api/info` / `/api/functions` / `/api/functions/<id>` / `…/callers`,
+  HTTP/JSON API (`GET /api/info` / `/api/functions` / `/api/search?q=` / `/api/functions/<id>` / `…/callers`,
   `POST /api/diff`) and lets any client *annotate* it (`POST …/rename` / `…/retype` / `…/comment`)
   then pull the annotated model back as a `.scylla` (`GET /api/export`), so any language, dashboard,
   or `curl` drives the full verb set — including persistence — with no special client.

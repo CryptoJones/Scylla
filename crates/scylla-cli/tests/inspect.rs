@@ -137,3 +137,16 @@ fn view_json_emits_an_object() {
     assert!(out.contains("\"name\": \"gcd\""), "names gcd: {out}");
     assert!(out.contains("\"callers\""), "has a callers field: {out}");
 }
+
+#[test]
+fn search_finds_functions_by_substring() {
+    // case-insensitive substring; tab-separated like `functions`.
+    let (code, out) = run(&["search", BASE, "GC"]);
+    assert_eq!(code, 0, "search exit 0");
+    let names: Vec<&str> = out.lines().filter_map(|l| l.split('\t').nth(1)).collect();
+    assert_eq!(names, vec!["gcd"], "case-insensitive gcd: {out}");
+    // a miss is empty output, exit 0 (not an error).
+    let (code, out) = run(&["search", BASE, "no-such-fn"]);
+    assert_eq!(code, 0, "a miss is exit 0");
+    assert!(out.trim().is_empty(), "a miss is empty: {out:?}");
+}

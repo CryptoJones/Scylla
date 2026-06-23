@@ -172,3 +172,27 @@ fn mcp_diff_matches_the_port() {
         assert!(entry["confidence"].is_u64(), "each entry has a confidence %");
     }
 }
+
+#[test]
+fn mcp_search_matches_the_port() {
+    let p = port(ARTIFACT);
+    let mut head = port(ARTIFACT);
+    let mut expected: Vec<String> = p
+        .search("gc", Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
+    expected.sort();
+
+    let resp = call(&mut head, "search", json!({"query": "gc"}));
+    let mut got: Vec<String> = payload(&resp)
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|f| f["name"].as_str().expect("name").to_string())
+        .collect();
+    got.sort();
+
+    assert_eq!(got, expected, "the search tool == the port's search");
+    assert_eq!(got, vec!["gcd".to_string()], "narrows to gcd (case-insensitive)");
+}

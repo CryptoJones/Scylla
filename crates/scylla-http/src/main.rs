@@ -7,6 +7,7 @@
 //!   GET  /                         — this endpoint list
 //!   GET  /api/info                 — {name, language, functions}
 //!   GET  /api/functions[?zoom=]    — [{id, name, summary}] (sorted by name)
+//!   GET  /api/search?q=<query>     — functions whose name contains <query> (case-insensitive)
 //!   GET  /api/functions/<id>[?zoom=] — one function's view {id,name,summary,addr,bb_count,size,callees,callers,comment,type}
 //!   GET  /api/functions/<id>/callers — [{id, name}]
 //!   POST /api/functions/<id>/rename  — body {"name": "…"}   (DD-005 durable user fact)
@@ -223,6 +224,10 @@ fn handle(session: &mut Session, req: &mut Request) -> Reply {
         (Method::Get, []) => Reply::Json(200, help()),
         (Method::Get, ["api", "info"]) => Reply::Json(200, info(session)),
         (Method::Get, ["api", "functions"]) => Reply::Json(200, functions(session, zoom)),
+        (Method::Get, ["api", "search"]) => Reply::Json(
+            200,
+            search(session, query_param(query, "q").unwrap_or(""), zoom),
+        ),
         (Method::Get, ["api", "functions", id]) => view(session, id, zoom).into(),
         (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id).into(),
         // The resident model — with any annotations made this session — as a downloadable .scylla
@@ -243,6 +248,7 @@ fn help() -> String {
         "endpoints": [
             "GET /api/info",
             "GET /api/functions?zoom=intent|domain|detail",
+            "GET /api/search?q=<query>&zoom=…",
             "GET /api/functions/<id>?zoom=…",
             "GET /api/functions/<id>/callers",
             "POST /api/functions/<id>/rename (body: {\"name\": \"…\"})",
@@ -264,6 +270,17 @@ fn functions(session: &Session, zoom: Zoom) -> String {
     let mut fns = session.functions(zoom);
     fns.sort_by(|a, b| a.name.cmp(&b.name));
     let arr: Vec<Value> = fns
+        .iter()
+        .map(|f| json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
+        .collect();
+    Value::Array(arr).to_string()
+}
+
+/// `GET /api/search?q=<query>[&zoom=]` — functions whose display name contains `q`
+/// (case-insensitive), sorted by name; same `{id, name, summary}` shape as `functions`.
+fn search(session: &Session, q: &str, zoom: Zoom) -> String {
+    let arr: Vec<Value> = session
+        .search(q, zoom)
         .iter()
         .map(|f| json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
         .collect();

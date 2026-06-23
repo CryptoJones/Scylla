@@ -66,6 +66,21 @@ fn http_gateway_serves_the_model_as_json() {
         .unwrap();
     assert!(info.contains("\"functions\":13"), "info: {info}");
 
+    // search → case-insensitive substring narrows to gcd
+    let hits = ureq::get(&format!("{base}/api/search?q=GC"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(
+        hits.contains("\"name\":\"gcd\""),
+        "search finds gcd: {hits}"
+    );
+    assert!(
+        !hits.contains("\"name\":\"main\""),
+        "search excludes non-matches: {hits}"
+    );
+
     // functions → find gcd's id
     let fns_body = ureq::get(&format!("{base}/api/functions"))
         .call()

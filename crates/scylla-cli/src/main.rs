@@ -32,6 +32,9 @@ async fn main() -> ExitCode {
         Some("functions") if args.len() == 3 || args.len() == 4 => {
             functions(&args[2], args.get(3).map(String::as_str), json)
         }
+        Some("search") if args.len() == 4 || args.len() == 5 => {
+            search(&args[2], &args[3], args.get(4).map(String::as_str), json)
+        }
         Some("view") if args.len() == 4 || args.len() == 5 => {
             view(&args[2], &args[3], args.get(4).map(String::as_str), json)
         }
@@ -43,6 +46,7 @@ async fn main() -> ExitCode {
                  {prog} diff [--json] <a.scylla> <b.scylla>\n       \
                  {prog} info [--json] <artifact.scylla>\n       \
                  {prog} functions [--json] <artifact.scylla> [intent|domain|detail]\n       \
+                 {prog} search [--json] <artifact.scylla> <query> [intent|domain|detail]\n       \
                  {prog} view [--json] <artifact.scylla> <id> [intent|domain|detail]\n       \
                  {prog} callers <artifact.scylla> <id>\n       \
                  {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
@@ -50,6 +54,7 @@ async fn main() -> ExitCode {
                  diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
                  info        — artifact metadata (name / language / function count)\n  \
                  functions   — list functions at a zoom altitude (default domain)\n  \
+                 search      — functions whose name contains <query> (case-insensitive)\n  \
                  view        — one function by stable id at a zoom altitude\n  \
                  callers     — the functions that call a given function (call-graph navigation)\n  \
                  merge       — re-anchor the annotations from one artifact onto a re-analysis (DD-005)",
@@ -137,6 +142,33 @@ fn functions(path: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
         println!("{}", serde_json::to_string_pretty(&arr).unwrap());
     } else {
         for f in &fns {
+            println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+/// `scylla search [--json] <artifact> <query> [zoom]` — functions whose display name contains
+/// `<query>` (case-insensitive), sorted by name. Same output shape as `functions`: text is
+/// `<id>\t<name>\t<summary>`, `--json` an array of `{id, name, summary}`.
+fn search(path: &str, query: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
+    let zoom = match parse_zoom(zoom_arg) {
+        Ok(z) => z,
+        Err(code) => return code,
+    };
+    let session = match load_session(path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let hits = session.search(query, zoom);
+    if json {
+        let arr: Vec<serde_json::Value> = hits
+            .iter()
+            .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+    } else {
+        for f in &hits {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
         }
     }

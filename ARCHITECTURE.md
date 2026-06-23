@@ -26,14 +26,14 @@ arch test in `scylla-mcp`).
 | `scylla-schema` | the canonical Cap'n Proto artifact + the **total loader** (explicit caps, validate, quarantine) | DD-002 / 026 / 036 |
 | `scylla-engine` | the **engine port** (gRPC client to the sandboxed JVM engine-as-service) — the primary producer | DD-009 / 040 |
 | `scylla-ingest` | the offline producer — a GayHydra headless snapshot JSON → model (dev / corpus, no running service) | DD-009 |
-| `scylla-cli`    | the `scylla` CLI head — `materialize` (engine port) + `diff` / `merge` / `info` / `functions` / `view` / `callers` (offline, over the client port) | DD-009 / 040 / 017 |
+| `scylla-cli`    | the `scylla` CLI head — `materialize` (engine port) + `diff` / `merge` / `info` / `functions` / `search` / `view` / `callers` (offline, over the client port) | DD-009 / 040 / 017 |
 | `scylla-merge`  | identity-anchored re-anchoring + collaboration merge + the **structural diff** (the binary-differ behind DD-017's `diff`) — `WRONG = 0` is the contract | DD-005 / 017 / 027 |
 | `scylla-port`   | the client port — model-primary navigation, semantic zoom, annotation, **diff / merge**, typed errors | DD-017 / 019 / 020 / 021 |
 | `scylla-mcp`    | the MCP head — projects the port 1:1 as agent tools; **no domain logic** | DD-022 / 024 / 025 |
 | `scylla-wasm`   | the **browser head** — the client port compiled to wasm32; navigate/annotate/diff/merge a `.scylla` client-side (a pure port consumer) | DD-028 |
 | `scylla-serve`  | the **native single-binary head** — a zero-dep binary that bakes in the WASM head and serves it + an artifact (auto-diffs two builds), no JVM | DD-028 |
 | `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client: info/functions/view/callers/diff + rename/retype/comment + export; auth + cap + handshake + TLS) | DD-002 |
-| `scylla-http`   | the **HTTP/JSON gateway head** — query *and annotate* the model over plain HTTP (info/functions/view/callers/diff + rename/retype/comment + export) from any language; token-gated, TLS-capable | DD-017 |
+| `scylla-http`   | the **HTTP/JSON gateway head** — query *and annotate* the model over plain HTTP (info/functions/search/view/callers/diff + rename/retype/comment + export) from any language; token-gated, TLS-capable | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 
 The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the

@@ -1,0 +1,36 @@
+[package]
+name = "scylla-graphql"
+description = "A GraphQL head — query AND annotate a .scylla model as one typed graph (info/functions/search/function/callers/diff/export + rename/retype/comment) from any GraphQL client, in one round-trip."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "scylla-graphql"
+path = "src/main.rs"
+
+[dependencies]
+# The same small, sync HTTP/1.1 server + optional rustls TLS as the scylla-http head; `ssl-rustls`
+# pulls ring, so it needs a C compiler (like the RPC/HTTP heads).
+tiny_http = { version = "0.12", features = ["ssl-rustls"] }
+# A SYNC-first GraphQL engine: `execute_sync` runs a query on the calling thread with no async
+# runtime, which is exactly what tiny_http's one-request-at-a-time loop wants (async-graphql would
+# force a runtime + block_on for no benefit — the port is wholly synchronous).
+juniper = "0.16"
+serde_json = "1"
+# A `.scylla` artifact is binary; GraphQL is JSON. Artifacts cross the boundary base64-encoded
+# (the `diff` input and the `export` output).
+base64 = "0.22"
+# A read+write head, consuming the client port (DD-017) — never the model internals.
+scylla-port = { path = "../scylla-port" }
+scylla-model = { path = "../scylla-model" }
+
+[dev-dependencies]
+# A tiny blocking HTTP client for the integration tests (POST GraphQL over plaintext).
+ureq = { version = "2", default-features = false }
+# Encode the diff-input fixture for the conformance test (base64 isn't visible to the test crate
+# as a normal dependency, so it's repeated here).
+base64 = "0.22"
+# Generate a self-signed cert for the TLS smoke test — no committed key material.
+rcgen = "0.13"

@@ -9,7 +9,17 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`scylla-graphql` — the seventh head: a GraphQL gateway (DD-017).** The client port projected as
+  one typed graph — `query` (info / functions / search / function / callers / diff / export) +
+  `mutation` (rename / retype / comment) — so a client fetches exactly the function / caller / diff
+  shape it wants in a single round-trip, with schema introspection and a GraphiQL console at
+  `GET /graphql`. A thin projection of `scylla_port::Session` like every head (conformance-tested
+  against the port, verb-for-verb); binary `.scylla` artifacts cross the JSON boundary base64-encoded
+  (the `diff` input and the `export` output). Token-gated (`SCYLLA_GRAPHQL_TOKEN`) and TLS-capable
+  (`SCYLLA_GRAPHQL_TLS_CERT` / `_KEY`), mirroring the HTTP head. Synchronous `juniper` execution on
+  the same `tiny_http` server — no async runtime.
 
 ## [0.2.0] — 2026-06-23
 

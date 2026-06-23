@@ -13,6 +13,7 @@ members = [
     "crates/scylla-wasm",
     "crates/scylla-serve",
     "crates/scylla-rpc",
+    "crates/scylla-http",
 ]
 
 [workspace.package]

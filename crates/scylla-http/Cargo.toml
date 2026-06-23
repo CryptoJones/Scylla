@@ -1,0 +1,23 @@
+[package]
+name = "scylla-http"
+description = "An HTTP/JSON gateway head — query a .scylla model over plain HTTP (info/functions/view/callers/diff) from any language."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "scylla-http"
+path = "src/main.rs"
+
+[dependencies]
+# A small, sync, pure-Rust HTTP/1.1 server (handles parsing + bodies) — no async runtime, no C.
+tiny_http = "0.12"
+serde_json = "1"
+# A REMOTE-ish read head, consuming the client port (DD-017) over HTTP/JSON.
+scylla-port = { path = "../scylla-port" }
+scylla-model = { path = "../scylla-model" }
+
+[dev-dependencies]
+# A tiny blocking HTTP client for the integration test (HTTP-only — no TLS/ring/C toolchain).
+ureq = { version = "2", default-features = false }

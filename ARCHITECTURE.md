@@ -32,7 +32,8 @@ arch test in `scylla-mcp`).
 | `scylla-mcp`    | the MCP head — projects the port 1:1 as agent tools; **no domain logic** | DD-022 / 024 / 025 |
 | `scylla-wasm`   | the **browser head** — the client port compiled to wasm32; navigate/annotate/diff/merge a `.scylla` client-side (a pure port consumer) | DD-028 |
 | `scylla-serve`  | the **native single-binary head** — a zero-dep binary that bakes in the WASM head and serves it + an artifact (auto-diffs two builds), no JVM | DD-028 |
-| `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client) | DD-002 |
+| `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client; auth + cap + handshake + TLS) | DD-002 |
+| `scylla-http`   | the **HTTP/JSON gateway head** — query the model over plain HTTP (info/functions/view/callers/diff) from any language | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 
 The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the
@@ -59,11 +60,12 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
    (strings/imports) → BSim feature vector → fuzzy mnemonic-cosine — the *same* matcher the merge
    uses, fail-closed (`WRONG=0`).
 
-The client port is driven by **five heads** today, each projecting the same verbs: `scylla-mcp`
+The client port is driven by **six heads** today, each projecting the same verbs: `scylla-mcp`
 (agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`
 (the browser, client-side), `scylla-serve` (the native binary serving it), `scylla-cli` (the
-terminal), and `scylla-rpc` (a remote consumer over Cap'n Proto promise-pipelining RPC, DD-002).
-Lop one off, grow another; the body never notices.
+terminal), `scylla-rpc` (a remote consumer over Cap'n Proto promise-pipelining RPC, DD-002), and
+`scylla-http` (a plain HTTP/JSON gateway for any language). Lop one off, grow another; the body
+never notices.
 
 ## Driving it
 
@@ -79,6 +81,7 @@ cargo run -p scylla-serve -- a.scylla b.scylla  # serve the browser head; auto-d
 node crates/scylla-wasm/web/verify.mjs          # headless check of the browser head
 scylla-rpc-serve a.scylla 127.0.0.1:9000        # DD-002: serve the model over Cap'n Proto RPC
 scylla-rpc-connect 127.0.0.1:9000 callers <id>  # the remote head: navigate over the wire (pipelined)
+scylla-http a.scylla 127.0.0.1:8800             # the HTTP/JSON gateway: curl http://…/api/functions
 ```
 
 ## Not built yet (on purpose)

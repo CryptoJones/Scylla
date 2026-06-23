@@ -23,9 +23,10 @@
 //!    leftover function re-identified by its unique neighbourhood of already-matched callers/callees
 //!    is recovered — as `matched` if its body is unchanged (signature-ambiguous twin), or as
 //!    `changed` if its body differs (the "modified" class). Iterated to a fixpoint, fail-closed.
-//! 3. **FUZZY** — cosine over the stored mnemonic histogram + structural closeness, accepted only
-//!    above a confidence threshold AND with a runner-up margin. Lifts both edit classes to 100% and
-//!    recovers some recompile.
+//! 3. **FUZZY** — cosine over the stored mnemonic histogram AND its ordered trigrams (the latter
+//!    captures the local instruction order the histogram drops) + structural closeness, accepted
+//!    only above a confidence threshold AND with a runner-up margin. Lifts both edit classes to
+//!    100% and recovers some recompile.
 //!
 //! Zero-wrong holds throughout — exact is unique-match, anchor and fuzzy are threshold+margin over a
 //! unique best ("never guess a near-tie").

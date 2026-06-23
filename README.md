@@ -96,8 +96,8 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
 
 The **diff** is a real binary-differ: it pairs functions across two builds by structural identity
 (address-independent), then climbs the BinDiff-style ladder — call-graph propagation, unique
-strings/imports, BSim feature vectors, mnemonic cosine — to report functions matched / renamed /
-**modified** / added / removed. Fail-closed throughout: a near-tie is never guessed.
+strings/imports, BSim feature vectors, mnemonic + ordered-trigram cosine — to report functions
+matched / renamed / **modified** / added / removed. Fail-closed throughout: a near-tie is never guessed.
 
 ## Status
 

@@ -57,8 +57,8 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
 6. **Diff** two builds → `scylla-port::Session::diff` (the structural binary-differ in `scylla-merge`):
    functions matched / renamed / **modified** / added / removed by structural identity,
    address-independent, climbing the BinDiff-style ladder EXACT → call-graph propagation → anchor
-   (strings/imports) → BSim feature vector → fuzzy mnemonic-cosine — the *same* matcher the merge
-   uses, fail-closed (`WRONG=0`).
+   (strings/imports) → BSim feature vector → fuzzy mnemonic + ordered-trigram cosine — the *same*
+   matcher the merge uses, fail-closed (`WRONG=0`).
 
 The client port is driven by **six heads** today, each projecting the same verbs: `scylla-mcp`
 (agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`

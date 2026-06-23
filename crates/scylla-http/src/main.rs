@@ -1,19 +1,22 @@
-//! `scylla-http <artifact.scylla> [host:port]` — an HTTP/JSON gateway head (DD-017): query a loaded
-//! `.scylla` model over plain HTTP, so ANY language / dashboard / `curl` can read it without the
-//! WASM head or the capnp RPC client. Read-only over one resident session (annotations aren't
-//! exposed — this is the query/diff surface). Default `127.0.0.1:8800`.
+//! `scylla-http <artifact.scylla> [host:port]` — an HTTP/JSON gateway head (DD-017): query AND
+//! annotate a loaded `.scylla` model over plain HTTP, so ANY language / dashboard / `curl` can drive
+//! it without the WASM head or the capnp RPC client. One resident session; annotations (the same
+//! verbs the RPC head carries) mutate it in place and are reflected on subsequent reads — write
+//! routes are gated by the same token as reads. Default `127.0.0.1:8800`.
 //!
 //!   GET  /                         — this endpoint list
 //!   GET  /api/info                 — {name, language, functions}
 //!   GET  /api/functions[?zoom=]    — [{id, name, summary}] (sorted by name)
-//!   GET  /api/functions/<id>[?zoom=] — one function's view {id,name,summary,addr,bb_count,size,callees,callers}
+//!   GET  /api/functions/<id>[?zoom=] — one function's view {id,name,summary,addr,bb_count,size,callees,callers,comment,type}
 //!   GET  /api/functions/<id>/callers — [{id, name}]
+//!   POST /api/functions/<id>/rename  — body {"name": "…"}   (DD-005 durable user fact)
+//!   POST /api/functions/<id>/retype  — body {"type": "…"}
+//!   POST /api/functions/<id>/comment — body {"text": "…"}   (may be empty — clears it)
 //!   POST /api/diff                 — body = a .scylla; → {matched, renamed, modified, added, removed}
 
 use std::process::ExitCode;
-use std::sync::Arc;
 
-use scylla_model::StableId;
+use scylla_model::{FactKind, Program, StableId};
 use scylla_port::{Session, Zoom};
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
@@ -39,8 +42,10 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let session = match Session::from_artifact(&bytes) {
-        Ok(s) => Arc::new(s),
+    // One resident session, mutated in place by the annotation routes (the loop is single-threaded —
+    // tiny_http hands us one request at a time — so an owned `&mut` is sufficient; no lock needed).
+    let mut session = match Session::from_artifact(&bytes) {
+        Ok(s) => s,
         Err(e) => {
             eprintln!("scylla-http: cannot load {artifact}: {e}");
             return ExitCode::FAILURE;
@@ -104,7 +109,7 @@ fn main() -> ExitCode {
 
     for mut request in server.incoming_requests() {
         let (status, body) = if authorized(&request, &token) {
-            handle(&session, &mut request)
+            handle(&mut session, &mut request)
         } else {
             (
                 401,
@@ -147,8 +152,49 @@ fn query_param<'a>(query: &'a str, key: &str) -> Option<&'a str> {
         .find_map(|kv| kv.strip_prefix(&format!("{key}="))?.into())
 }
 
-/// Route one request to `(status, json_body)`. Read-only except it consumes a POSTed diff artifact.
-fn handle(session: &Session, req: &mut Request) -> (u16, String) {
+/// Parse a path id segment to a `StableId`, or a `400` on non-integer input.
+fn parse_id(id: &str) -> Result<StableId, (u16, String)> {
+    id.parse::<u64>()
+        .map(StableId)
+        .map_err(|_| (400, json!({"error": "id must be an integer"}).to_string()))
+}
+
+/// Read a POST body and parse it as JSON, or a `400` on an unreadable / malformed body.
+fn json_body(req: &mut Request) -> Result<Value, (u16, String)> {
+    let mut buf = Vec::new();
+    if req.as_reader().read_to_end(&mut buf).is_err() {
+        return Err((
+            400,
+            json!({"error": "could not read the request body"}).to_string(),
+        ));
+    }
+    serde_json::from_slice(&buf).map_err(|e| {
+        (
+            400,
+            json!({"error": format!("invalid JSON body: {e}")}).to_string(),
+        )
+    })
+}
+
+/// The user comment attached to `id` (DD-005 durable fact), if any.
+fn comment_of(prog: &Program, id: StableId) -> Option<String> {
+    prog.facts.iter().find_map(|f| match &f.kind {
+        FactKind::Comment(c) if f.target == id => Some(c.clone()),
+        _ => None,
+    })
+}
+
+/// The user-assigned type for `id`, if any.
+fn type_of(prog: &Program, id: StableId) -> Option<String> {
+    prog.facts.iter().find_map(|f| match &f.kind {
+        FactKind::Retype(t) if f.target == id => Some(t.clone()),
+        _ => None,
+    })
+}
+
+/// Route one request to `(status, json_body)`. GETs read; the POST annotation routes mutate the
+/// resident session in place (hence `&mut`); `/api/diff` consumes a POSTed artifact without mutating.
+fn handle(session: &mut Session, req: &mut Request) -> (u16, String) {
     let method = req.method().clone();
     let url = req.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((url.as_str(), ""));
@@ -161,6 +207,9 @@ fn handle(session: &Session, req: &mut Request) -> (u16, String) {
         (Method::Get, ["api", "functions"]) => (200, functions(session, zoom)),
         (Method::Get, ["api", "functions", id]) => view(session, id, zoom),
         (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id),
+        (Method::Post, ["api", "functions", id, "rename"]) => rename(session, id, req),
+        (Method::Post, ["api", "functions", id, "retype"]) => retype(session, id, req),
+        (Method::Post, ["api", "functions", id, "comment"]) => comment(session, id, req),
         (Method::Post, ["api", "diff"]) => diff(session, req),
         _ => (404, json!({"error": "not found"}).to_string()),
     }
@@ -174,6 +223,9 @@ fn help() -> String {
             "GET /api/functions?zoom=intent|domain|detail",
             "GET /api/functions/<id>?zoom=…",
             "GET /api/functions/<id>/callers",
+            "POST /api/functions/<id>/rename (body: {\"name\": \"…\"})",
+            "POST /api/functions/<id>/retype (body: {\"type\": \"…\"})",
+            "POST /api/functions/<id>/comment (body: {\"text\": \"…\"})",
             "POST /api/diff (body: a .scylla artifact)",
         ],
     })
@@ -196,18 +248,23 @@ fn functions(session: &Session, zoom: Zoom) -> String {
 }
 
 fn view(session: &Session, id: &str, zoom: Zoom) -> (u16, String) {
-    let Ok(id) = id.parse::<u64>() else {
-        return (400, json!({"error": "id must be an integer"}).to_string());
+    let sid = match parse_id(id) {
+        Ok(s) => s,
+        Err(e) => return e,
     };
-    match session.view(StableId(id), zoom) {
-        Ok(v) => (
-            200,
-            json!({
-                "id": v.id.0, "name": v.name, "summary": v.summary, "addr": v.addr,
-                "bb_count": v.bb_count, "size": v.size, "callees": v.callees, "callers": v.callers,
-            })
-            .to_string(),
-        ),
+    match session.view(sid, zoom) {
+        Ok(v) => {
+            let prog = session.program();
+            (
+                200,
+                json!({
+                    "id": v.id.0, "name": v.name, "summary": v.summary, "addr": v.addr,
+                    "bb_count": v.bb_count, "size": v.size, "callees": v.callees, "callers": v.callers,
+                    "comment": comment_of(prog, sid), "type": type_of(prog, sid),
+                })
+                .to_string(),
+            )
+        }
         Err(e) => (404, json!({"error": e.to_string()}).to_string()),
     }
 }
@@ -265,4 +322,52 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
         })
         .to_string(),
     )
+}
+
+/// Shared spine of the three annotation routes: resolve the id (404 if unknown), read a JSON body,
+/// pull the string `field`, and apply the port verb — mapping a port error to `400`. The mutation
+/// lands on the resident session and shows up on the next read (DD-005 durable user fact).
+fn annotate(
+    session: &mut Session,
+    id: &str,
+    req: &mut Request,
+    field: &str,
+    apply: impl FnOnce(&mut Session, StableId, String) -> Result<(), scylla_port::PortError>,
+) -> (u16, String) {
+    let sid = match parse_id(id) {
+        Ok(s) => s,
+        Err(e) => return e,
+    };
+    if !session.program().functions.iter().any(|f| f.id == sid) {
+        return (
+            404,
+            json!({"error": format!("no function with id {}", sid.0)}).to_string(),
+        );
+    }
+    let body = match json_body(req) {
+        Ok(b) => b,
+        Err(e) => return e,
+    };
+    let Some(val) = body.get(field).and_then(|v| v.as_str()) else {
+        return (
+            400,
+            json!({"error": format!("expected a string field `{field}`")}).to_string(),
+        );
+    };
+    match apply(session, sid, val.to_string()) {
+        Ok(()) => (200, json!({"ok": true, "id": sid.0}).to_string()),
+        Err(e) => (400, json!({"error": e.to_string()}).to_string()),
+    }
+}
+
+fn rename(session: &mut Session, id: &str, req: &mut Request) -> (u16, String) {
+    annotate(session, id, req, "name", |s, i, v| s.rename(i, v))
+}
+
+fn retype(session: &mut Session, id: &str, req: &mut Request) -> (u16, String) {
+    annotate(session, id, req, "type", |s, i, v| s.retype(i, v))
+}
+
+fn comment(session: &mut Session, id: &str, req: &mut Request) -> (u16, String) {
+    annotate(session, id, req, "text", |s, i, v| s.comment(i, v))
 }

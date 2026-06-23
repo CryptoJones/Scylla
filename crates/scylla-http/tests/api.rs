@@ -118,6 +118,95 @@ fn http_gateway_serves_the_model_as_json() {
 }
 
 #[test]
+fn http_gateway_annotates_the_resident_session() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let base = format!("http://{addr}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
+            .args([ARTIFACT, &addr])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-http"),
+    );
+
+    // Wait until it's serving.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if ureq::get(&format!("{base}/api/info")).call().is_ok() {
+            break;
+        }
+        assert!(Instant::now() < deadline, "scylla-http never came up");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // Find gcd's id.
+    let fns_body = ureq::get(&format!("{base}/api/functions"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    let fns: serde_json::Value = serde_json::from_str(&fns_body).unwrap();
+    let gid = fns
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "gcd")
+        .expect("gcd listed")["id"]
+        .as_u64()
+        .unwrap();
+
+    // rename — POST mutates the resident session; the next read reflects it (DD-005).
+    let resp = ureq::post(&format!("{base}/api/functions/{gid}/rename"))
+        .send_string(r#"{"name": "euclid_gcd"}"#)
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(resp.contains("\"ok\":true"), "rename ok: {resp}");
+    let v = ureq::get(&format!("{base}/api/functions/{gid}?zoom=detail"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(v.contains("\"name\":\"euclid_gcd\""), "renamed view: {v}");
+
+    // comment + retype show up in the view (read straight off the facts).
+    ureq::post(&format!("{base}/api/functions/{gid}/comment"))
+        .send_string(r#"{"text": "Euclid's algorithm"}"#)
+        .unwrap();
+    ureq::post(&format!("{base}/api/functions/{gid}/retype"))
+        .send_string(r#"{"type": "u64(u64,u64)"}"#)
+        .unwrap();
+    let v = ureq::get(&format!("{base}/api/functions/{gid}?zoom=detail"))
+        .call()
+        .unwrap()
+        .into_string()
+        .unwrap();
+    assert!(
+        v.contains("\"comment\":\"Euclid's algorithm\""),
+        "comment in view: {v}"
+    );
+    assert!(v.contains("\"type\":\"u64(u64,u64)\""), "type in view: {v}");
+
+    // A blank rename is rejected (port invariant) → 400, and the name is unchanged.
+    let blank =
+        ureq::post(&format!("{base}/api/functions/{gid}/rename")).send_string(r#"{"name": ""}"#);
+    assert!(
+        matches!(blank, Err(ureq::Error::Status(400, _))),
+        "blank rename must be 400"
+    );
+
+    // Annotating an unknown id → 404.
+    let missing =
+        ureq::post(&format!("{base}/api/functions/999999/rename")).send_string(r#"{"name": "x"}"#);
+    assert!(
+        matches!(missing, Err(ureq::Error::Status(404, _))),
+        "unknown id must be 404"
+    );
+}
+
+#[test]
 fn http_gateway_token_gates_access() {
     let port = free_port();
     let addr = format!("127.0.0.1:{port}");

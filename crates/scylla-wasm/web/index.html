@@ -193,17 +193,20 @@ function flash(msg) {
 }
 // Structurally diff the loaded model against another .scylla (DD-017 `diff`, read-only — the
 // session is untouched), then render the report in the detail pane.
-async function diffFile(file) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+function runDiff(bytes, label) {
   const p = X.scylla_alloc(bytes.length);
   new Uint8Array(mem.buffer, p, bytes.length).set(bytes);
   const rep = J(X.scylla_diff(p, bytes.length));
   X.scylla_free(p, bytes.length);
-  if (rep.error) { alert('diff failed: ' + rep.error); return; }
-  lastDiff = { rep, fname: file.name };
-  renderDiff(rep, file.name);
+  if (rep.error) { alert('diff failed: ' + rep.error); return null; }
+  lastDiff = { rep, fname: label };
+  renderDiff(rep, label);
   if (overlayOpen()) renderOverview(); // recolour the program graph live
-  flash(`diff: ${rep.matched.length} matched · open ⊞ graph to see it on the call graph`);
+  return rep;
+}
+async function diffFile(file) {
+  const rep = runDiff(new Uint8Array(await file.arrayBuffer()), file.name);
+  if (rep) flash(`diff: ${rep.matched.length} matched · open ⊞ graph to see it on the call graph`);
 }
 // Map each here-side function name to its diff status (renamed / added); unchanged → absent.
 function diffStatusByName(rep) {
@@ -490,6 +493,15 @@ async function boot() {
     document.getElementById('info').textContent =
       `${info.name}  ·  ${info.language}  ·  ${info.functions} functions  ·  navigated in WASM`;
     refresh();
+    // If scylla-serve was given a second build (`scylla-serve <base> <compare>`), it serves it at
+    // /compare.scylla — auto-diff against it so a two-build comparison is turnkey from one command.
+    try {
+      const cr = await fetch('compare.scylla');
+      if (cr.ok) {
+        const rep = runDiff(new Uint8Array(await cr.arrayBuffer()), 'served compare build');
+        if (rep) flash(`auto-diff vs served compare build · ${rep.matched.length} matched · ${rep.onlyHere.length}/${rep.onlyThere.length} unique · open ⊞ graph`);
+      }
+    } catch (_) { /* no compare served (e.g. plain static hosting) — fine */ }
   } catch (e) {
     document.body.innerHTML = `<div class="err">WASM head failed: ${esc(e.message || e)}<br><br>Serve over HTTP (e.g. <code>python3 -m http.server</code>) — file:// can't fetch wasm.</div>`;
   }

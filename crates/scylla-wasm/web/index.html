@@ -70,6 +70,22 @@
   .gnode.focus rect { stroke: var(--cyan); stroke-width: 2; filter: drop-shadow(0 0 6px rgba(39,212,255,.5)); }
   .gnode.focus text { fill: var(--cyan); }
   .glabel { fill: var(--dim); font: 13px Menlo, monospace; }
+  /* whole-program overview (overlay) */
+  #overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    background: rgba(7,9,15,.975); backdrop-filter: blur(2px); }
+  #overlay[hidden] { display: none; }
+  .ovbar { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .ovtitle { color: var(--cyan); text-shadow: 0 0 8px rgba(39,212,255,.5); font-size: 18px; }
+  .ovhint { color: var(--dim); font-size: 14px; }
+  #ovx { margin-left: auto; font: inherit; font-size: 15px; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+  #ovx:hover { border-color: var(--red); color: var(--red); }
+  #ovbody { flex: 1; overflow: auto; padding: 18px;
+    background: radial-gradient(circle at 50% 35%, rgba(39,212,255,.05), transparent 70%); }
+  .gedge.gback { stroke: var(--dim); stroke-dasharray: 4 4; opacity: .85; }
+  .gnode.match rect { stroke: var(--green); stroke-width: 2; filter: drop-shadow(0 0 5px rgba(85,255,153,.5)); }
+  .gnode.match text { fill: var(--green); }
+  .gnode.dim { opacity: .26; }
 </style>
 </head>
 <body>
@@ -83,6 +99,7 @@
     <button data-z="2">detail</button>
     &nbsp;&nbsp;<button id="dl" title="export the annotated artifact">⤓ download .scylla</button>
     <label class="zbtn" title="re-anchor your annotations onto a re-analyzed .scylla">⟳ merge re-analysis<input type="file" id="mg" accept=".scylla" hidden></label>
+    &nbsp;&nbsp;<button id="ov" title="whole-program call graph, layered by call depth">⊞ graph</button>
   </div>
   <div class="search">
     <span class="mag">⌕</span>
@@ -94,6 +111,15 @@
   <div id="list"></div>
   <div id="detail"><div class="empty">← pick a function</div></div>
 </main>
+
+<div id="overlay" hidden>
+  <div class="ovbar">
+    <span class="ovtitle">⊞ whole-program call graph</span>
+    <span class="ovhint">layered left→right by call depth · click a node to open it · type to highlight · Esc to close</span>
+    <button id="ovx">✕ close</button>
+  </div>
+  <div id="ovbody"></div>
+</div>
 
 <script>
 const dec = new TextDecoder(), enc = new TextEncoder();
@@ -239,6 +265,104 @@ function renderGraph(id, v, callees, callerIds, idByName) {
   return wrap;
 }
 
+// ---- whole-program call-graph overview ------------------------------------------------------
+// Build the full call graph at the current zoom: nodes = all functions, edges = caller→callee.
+function buildProgramGraph() {
+  const idByName = Object.fromEntries(fns.map(f => [f.name, f.id]));
+  const nodes = fns.map(f => ({ id: f.id, name: f.name }));
+  const edges = [];
+  for (const f of fns) {
+    const v = J(X.scylla_view(BigInt(f.id), zoom));
+    for (const name of (v.callees || [])) { const to = idByName[name]; if (to != null) edges.push({ from: f.id, to }); }
+  }
+  return { nodes, edges };
+}
+// Deterministic layered layout: longest-path layering left→right by call depth, cycle-safe
+// (DFS classifies back-edges; self-loops + back-edges don't advance depth). No external lib.
+function layoutProgram(nodes, edges) {
+  const CW = 8.6, PAD = 22, H = 30, ROWGAP = 46, M = 22, TOP = 16, HGAP = 92;
+  const w = (s) => Math.max(56, Math.round(s.length * CW + PAD));
+  const wById = new Map(nodes.map(n => [n.id, w(n.name)]));
+  const maxW = Math.max(56, ...nodes.map(n => wById.get(n.id)));
+  const order = [...nodes].sort((a, b) => (a.name < b.name ? -1 : 1)).map(n => n.id);
+  const adj = new Map(nodes.map(n => [n.id, []]));
+  for (const e of edges) if (adj.has(e.from)) adj.get(e.from).push(e.to);
+  // DFS edge classification → back-edges (target grey/on-stack), so the remainder is a DAG.
+  const color = new Map(), back = new Set();
+  const dfs = (u) => {
+    color.set(u, 1);
+    for (const v of adj.get(u)) { const c = color.get(v); if (c === 1) back.add(u + '>' + v); else if (c === undefined) dfs(v); }
+    color.set(u, 2);
+  };
+  for (const id of order) if (color.get(id) === undefined) dfs(id);
+  // forward predecessors (exclude self-loops + back-edges) → longest-path depth on the DAG.
+  const preds = new Map(nodes.map(n => [n.id, []]));
+  for (const e of edges) { if (e.from === e.to || back.has(e.from + '>' + e.to)) continue; if (preds.has(e.to)) preds.get(e.to).push(e.from); }
+  const layer = new Map(), visiting = new Set();
+  const lp = (u) => {
+    if (layer.has(u)) return layer.get(u);
+    if (visiting.has(u)) return 0; // DAG guard (back-edges already removed; belt-and-braces)
+    visiting.add(u);
+    let m = 0; for (const p of preds.get(u)) m = Math.max(m, lp(p) + 1);
+    visiting.delete(u); layer.set(u, m); return m;
+  };
+  for (const id of order) lp(id);
+  const byLayer = new Map();
+  for (const id of order) { const L = layer.get(id); (byLayer.get(L) || byLayer.set(L, []).get(L)).push(id); }
+  const maxLayer = Math.max(0, ...layer.values());
+  const maxRows = Math.max(1, ...[...byLayer.values()].map(a => a.length));
+  const height = Math.max(220, TOP + maxRows * ROWGAP + M);
+  const midY = TOP + (height - TOP) / 2, colW = maxW + HGAP;
+  const pos = new Map();
+  for (const [L, ids] of byLayer) {
+    const k = ids.length;
+    ids.forEach((id, i) => pos.set(id, { x: M + maxW / 2 + L * colW, y: midY + (i - (k - 1) / 2) * ROWGAP }));
+  }
+  const width = Math.round(M + maxW + maxLayer * colW + M);
+  return { pos, wById, layer, maxLayer, height, width, H };
+}
+function renderOverview() {
+  const { nodes, edges } = buildProgramGraph();
+  const L = layoutProgram(nodes, edges);
+  let e = '', g = '';
+  for (const ed of edges) {
+    const a = L.pos.get(ed.from), b = L.pos.get(ed.to);
+    if (!a || !b) continue;
+    if (ed.from === ed.to) { // self-recursion → a little loop above the node
+      const cx = a.x, top = a.y - L.H / 2;
+      e += `<path class="gedge gback" d="M ${(cx - 9).toFixed(1)} ${top} C ${(cx - 34).toFixed(1)} ${top - 30} ${(cx + 34).toFixed(1)} ${top - 30} ${(cx + 9).toFixed(1)} ${top}" marker-end="url(#arr2)"/>`;
+      continue;
+    }
+    const wf = L.wById.get(ed.from), wt = L.wById.get(ed.to);
+    const forward = L.layer.get(ed.to) > L.layer.get(ed.from);
+    const ax = a.x + wf / 2, ay = a.y, bx = b.x - wt / 2, by = b.y, mx = (ax + bx) / 2;
+    e += `<path class="gedge${forward ? '' : ' gback'}" d="M ${ax.toFixed(1)} ${ay.toFixed(1)} C ${mx.toFixed(1)} ${ay.toFixed(1)} ${mx.toFixed(1)} ${by.toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)}" marker-end="url(#arr2)"/>`;
+  }
+  for (const n of nodes) {
+    const p = L.pos.get(n.id), wd = L.wById.get(n.id);
+    g += `<g class="gnode" data-go="${n.id}"><rect x="${(p.x - wd / 2).toFixed(1)}" y="${p.y - L.H / 2}" width="${wd}" height="${L.H}" rx="6"/>` +
+      `<text x="${p.x.toFixed(1)}" y="${p.y + 5}" text-anchor="middle">${esc(n.name)}</text></g>`;
+  }
+  const body = document.getElementById('ovbody');
+  body.innerHTML =
+    `<svg class="graph" width="${L.width}" height="${L.height}" viewBox="0 0 ${L.width} ${L.height}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">` +
+    `<path d="M0 0 L10 5 L0 10 z" fill="#5a6678"/></marker></defs>${e}${g}</svg>`;
+  body.querySelectorAll('[data-go]').forEach(el => { el.onclick = () => { select(+el.dataset.go); closeOverview(); }; });
+  highlightOverview();
+}
+// Live-highlight nodes matching the search query while the overview is open.
+function highlightOverview() {
+  const q = query.trim().toLowerCase(), byId = Object.fromEntries(fns.map(f => [f.id, f]));
+  document.querySelectorAll('#ovbody .gnode[data-go]').forEach(gn => {
+    const f = byId[+gn.dataset.go], on = q ? matches(f, q) : false;
+    gn.classList.toggle('match', on);
+    gn.classList.toggle('dim', !!q && !on);
+  });
+}
+function openOverview() { document.getElementById('overlay').hidden = false; renderOverview(); }
+function closeOverview() { document.getElementById('overlay').hidden = true; }
+
 function select(id) {
   sel = id;
   renderList();
@@ -275,8 +399,12 @@ document.getElementById('dl').onclick = exportArtifact;
 document.getElementById('mg').onchange = (e) => { if (e.target.files[0]) mergeFile(e.target.files[0]); e.target.value = ''; };
 // Live search over the function list; '/' focuses it from anywhere.
 const qInput = document.getElementById('q');
-qInput.oninput = () => { query = qInput.value; renderList(); };
+const overlayOpen = () => !document.getElementById('overlay').hidden;
+qInput.oninput = () => { query = qInput.value; renderList(); if (overlayOpen()) highlightOverview(); };
+document.getElementById('ov').onclick = () => (overlayOpen() ? closeOverview() : openOverview());
+document.getElementById('ovx').onclick = closeOverview;
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && overlayOpen()) { closeOverview(); return; }
   if (e.key === '/' && document.activeElement !== qInput) { e.preventDefault(); qInput.focus(); }
   else if (e.key === 'Escape' && document.activeElement === qInput) { qInput.value = ''; query = ''; renderList(); qInput.blur(); }
 });

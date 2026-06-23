@@ -6,12 +6,15 @@
 //!   scylla diff <a.scylla> <b.scylla>      # structural diff of two model artifacts (DD-017)
 //!   scylla info <artifact.scylla>          # name / language / function count
 //!   scylla functions <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
+//!   scylla view <artifact.scylla> <id> [zoom]   # one function's detail + call graph
+//!   scylla callers <artifact.scylla> <id>       # functions that call <id>
 //!
 //! The offline GayHydra-headless snapshot path still lives in `scylla-ingest`, for dev / corpus
 //! work without a running engine-service — but the engine port is the one the product ships on.
 
 use std::process::ExitCode;
 
+use scylla_model::StableId;
 use scylla_port::{Session, Zoom};
 
 #[tokio::main]
@@ -24,16 +27,24 @@ async fn main() -> ExitCode {
         Some("functions") if args.len() == 3 || args.len() == 4 => {
             functions(&args[2], args.get(3).map(String::as_str))
         }
+        Some("view") if args.len() == 4 || args.len() == 5 => {
+            view(&args[2], &args[3], args.get(4).map(String::as_str))
+        }
+        Some("callers") if args.len() == 4 => callers(&args[2], &args[3]),
         _ => {
             eprintln!(
                 "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
                  {prog} diff <a.scylla> <b.scylla>\n       \
                  {prog} info <artifact.scylla>\n       \
-                 {prog} functions <artifact.scylla> [intent|domain|detail]\n\n  \
+                 {prog} functions <artifact.scylla> [intent|domain|detail]\n       \
+                 {prog} view <artifact.scylla> <id> [intent|domain|detail]\n       \
+                 {prog} callers <artifact.scylla> <id>\n\n  \
                  materialize — the engine port (DD-009/040): GayHydra over gRPC -> canonical artifact\n  \
                  diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
                  info        — artifact metadata (name / language / function count)\n  \
-                 functions   — list functions at a zoom altitude (default domain)",
+                 functions   — list functions at a zoom altitude (default domain)\n  \
+                 view        — one function by stable id at a zoom altitude\n  \
+                 callers     — the functions that call a given function (call-graph navigation)",
                 prog = args.first().map(String::as_str).unwrap_or("scylla"),
             );
             ExitCode::from(2)
@@ -66,17 +77,33 @@ fn info(path: &str) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Parse a zoom-altitude argument (DD-020), defaulting to domain; `Err` (exit 2) on a bad value.
+fn parse_zoom(arg: Option<&str>) -> Result<Zoom, ExitCode> {
+    match arg {
+        None | Some("domain") => Ok(Zoom::Domain),
+        Some("intent") => Ok(Zoom::Intent),
+        Some("detail") => Ok(Zoom::Detail),
+        Some(other) => {
+            eprintln!("error: unknown zoom {other:?} (want intent|domain|detail)");
+            Err(ExitCode::from(2))
+        }
+    }
+}
+
+/// Parse a stable id, or print the error + exit 2.
+fn parse_id(s: &str) -> Result<StableId, ExitCode> {
+    s.parse::<u64>().map(StableId).map_err(|_| {
+        eprintln!("error: id must be an integer, got {s:?}");
+        ExitCode::from(2)
+    })
+}
+
 /// `scylla functions <artifact> [zoom]` — list every function at a zoom altitude (DD-020), one per
 /// line as `<id>\t<name>\t<summary>`, sorted by name for a stable, greppable, diff-friendly listing.
 fn functions(path: &str, zoom_arg: Option<&str>) -> ExitCode {
-    let zoom = match zoom_arg {
-        None | Some("domain") => Zoom::Domain,
-        Some("intent") => Zoom::Intent,
-        Some("detail") => Zoom::Detail,
-        Some(other) => {
-            eprintln!("error: unknown zoom {other:?} (want intent|domain|detail)");
-            return ExitCode::from(2);
-        }
+    let zoom = match parse_zoom(zoom_arg) {
+        Ok(z) => z,
+        Err(code) => return code,
     };
     let session = match load_session(path) {
         Ok(s) => s,
@@ -86,6 +113,83 @@ fn functions(path: &str, zoom_arg: Option<&str>) -> ExitCode {
     fns.sort_by(|a, b| a.name.cmp(&b.name));
     for f in &fns {
         println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
+    }
+    ExitCode::SUCCESS
+}
+
+/// `scylla view <artifact> <id> [zoom]` — one function by stable id at a zoom altitude (DD-020).
+fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>) -> ExitCode {
+    let zoom = match parse_zoom(zoom_arg) {
+        Ok(z) => z,
+        Err(code) => return code,
+    };
+    let id = match parse_id(id_arg) {
+        Ok(i) => i,
+        Err(code) => return code,
+    };
+    let session = match load_session(path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let v = match session.view(id, zoom) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let list = |xs: &[String]| {
+        if xs.is_empty() {
+            "(none)".to_string()
+        } else {
+            xs.join(", ")
+        }
+    };
+    println!("name:    {}", v.name);
+    println!("summary: {}", v.summary);
+    if let Some(a) = v.addr {
+        println!("address: 0x{a:x}");
+    }
+    if let Some(b) = v.bb_count {
+        println!("blocks:  {b}");
+    }
+    if let Some(s) = v.size {
+        println!("size:    {s} bytes");
+    }
+    if let Some(c) = &v.callees {
+        println!("calls:   {}", list(c));
+    }
+    if let Some(c) = &v.callers {
+        println!("callers: {}", list(c));
+    }
+    ExitCode::SUCCESS
+}
+
+/// `scylla callers <artifact> <id>` — the functions that call `id` (call-graph navigation), one per
+/// line as `<id>\t<name>`, sorted by name. An unknown id is trouble (exit 2), distinct from a known
+/// id with no callers (exit 0, empty output).
+fn callers(path: &str, id_arg: &str) -> ExitCode {
+    let id = match parse_id(id_arg) {
+        Ok(i) => i,
+        Err(code) => return code,
+    };
+    let session = match load_session(path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let prog = session.program();
+    if !prog.functions.iter().any(|f| f.id == id) {
+        eprintln!("error: no function with id {}", id.0);
+        return ExitCode::from(2);
+    }
+    let mut callers: Vec<(u64, String)> = session
+        .callers(id)
+        .into_iter()
+        .map(|c| (c.0, prog.display_name(c).unwrap_or_default()))
+        .collect();
+    callers.sort_by(|a, b| a.1.cmp(&b.1));
+    for (cid, cname) in &callers {
+        println!("{cid}\t{cname}");
     }
     ExitCode::SUCCESS
 }

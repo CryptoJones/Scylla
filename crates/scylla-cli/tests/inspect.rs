@@ -63,3 +63,50 @@ fn info_of_a_missing_file_is_trouble_exit_2() {
     let (code, _out) = run(&["info", "/no/such/artifact.scylla"]);
     assert_eq!(code, 2, "unreadable input -> exit 2");
 }
+
+/// gcd's stable id in the committed sample, looked up via `functions` (robust to re-mint).
+fn gcd_id() -> String {
+    let (_, out) = run(&["functions", BASE]);
+    out.lines()
+        .find(|l| l.split('\t').nth(1) == Some("gcd"))
+        .and_then(|l| l.split('\t').next())
+        .expect("gcd is in the sample")
+        .to_string()
+}
+
+#[test]
+fn view_shows_one_function_at_detail() {
+    let (code, out) = run(&["view", BASE, &gcd_id(), "detail"]);
+    assert_eq!(code, 0, "view exit 0");
+    assert!(
+        out.contains("name:") && out.contains("gcd"),
+        "names gcd: {out}"
+    );
+    assert!(
+        out.contains("address:"),
+        "detail zoom shows the address: {out}"
+    );
+    assert!(
+        out.contains("callers: main"),
+        "gcd is called by main: {out}"
+    );
+}
+
+#[test]
+fn callers_lists_the_calling_functions() {
+    let (code, out) = run(&["callers", BASE, &gcd_id()]);
+    assert_eq!(code, 0, "callers exit 0");
+    assert!(out.contains("main"), "gcd's caller is main: {out}");
+}
+
+#[test]
+fn view_of_an_unknown_id_is_trouble_exit_2() {
+    let (code, _out) = run(&["view", BASE, "999999"]);
+    assert_eq!(code, 2, "unknown id -> exit 2");
+}
+
+#[test]
+fn callers_of_a_non_integer_id_is_trouble_exit_2() {
+    let (code, _out) = run(&["callers", BASE, "abc"]);
+    assert_eq!(code, 2, "non-integer id -> exit 2");
+}

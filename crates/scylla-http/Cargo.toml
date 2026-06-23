@@ -11,13 +11,16 @@ name = "scylla-http"
 path = "src/main.rs"
 
 [dependencies]
-# A small, sync, pure-Rust HTTP/1.1 server (handles parsing + bodies) — no async runtime, no C.
-tiny_http = "0.12"
+# A small, sync HTTP/1.1 server (handles parsing + bodies) — no async runtime. `ssl-rustls` adds
+# optional TLS (rustls/ring — needs a C compiler, like the RPC head).
+tiny_http = { version = "0.12", features = ["ssl-rustls"] }
 serde_json = "1"
 # A REMOTE-ish read head, consuming the client port (DD-017) over HTTP/JSON.
 scylla-port = { path = "../scylla-port" }
 scylla-model = { path = "../scylla-model" }
 
 [dev-dependencies]
-# A tiny blocking HTTP client for the integration test (HTTP-only — no TLS/ring/C toolchain).
+# A tiny blocking HTTP client for the integration tests (plaintext paths).
 ureq = { version = "2", default-features = false }
+# Generate a self-signed cert for the TLS integration test (no committed key material).
+rcgen = "0.13"

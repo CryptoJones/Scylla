@@ -54,7 +54,39 @@ fn main() -> ExitCode {
         .ok()
         .filter(|t| !t.is_empty());
 
-    let server = match Server::http(&addr) {
+    // Optional TLS (DD-035): with SCYLLA_HTTP_TLS_CERT + SCYLLA_HTTP_TLS_KEY (PEM), serve HTTPS so
+    // the token + the model don't cross the wire in the clear. (Many deployments TLS-terminate at a
+    // reverse proxy instead — this is the self-contained option, mirroring the RPC head.)
+    let tls = match (
+        std::env::var("SCYLLA_HTTP_TLS_CERT").ok(),
+        std::env::var("SCYLLA_HTTP_TLS_KEY").ok(),
+    ) {
+        (Some(cert_path), Some(key_path)) => {
+            let cert = std::fs::read(&cert_path).unwrap_or_else(|e| {
+                eprintln!("scylla-http: cannot read TLS cert {cert_path}: {e}");
+                std::process::exit(1);
+            });
+            let key = std::fs::read(&key_path).unwrap_or_else(|e| {
+                eprintln!("scylla-http: cannot read TLS key {key_path}: {e}");
+                std::process::exit(1);
+            });
+            Some((cert, key))
+        }
+        _ => None,
+    };
+
+    let scheme = if tls.is_some() { "https" } else { "http" };
+    let server = match tls {
+        Some((certificate, private_key)) => Server::https(
+            &addr,
+            tiny_http::SslConfig {
+                certificate,
+                private_key,
+            },
+        ),
+        None => Server::http(&addr),
+    };
+    let server = match server {
         Ok(s) => s,
         Err(e) => {
             eprintln!("scylla-http: cannot bind {addr}: {e}");
@@ -67,7 +99,7 @@ fn main() -> ExitCode {
         "OPEN (set SCYLLA_HTTP_TOKEN to gate)"
     };
     eprintln!(
-        "scylla-http: {artifact} on http://{addr}/  — {auth} (DD-017 JSON gateway; Ctrl-C to stop)"
+        "scylla-http: {artifact} on {scheme}://{addr}/  — {auth} (DD-017 JSON gateway; Ctrl-C to stop)"
     );
 
     for mut request in server.incoming_requests() {

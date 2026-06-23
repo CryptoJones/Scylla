@@ -90,6 +90,12 @@ const gcdModified =
   !pdiff.onlyThere.includes("gcd");
 console.log(`patched-diff: ${pdiff.matched.length} matched, ${pdiff.changed.length} changed, ${pdiff.onlyHere.length}/${pdiff.onlyThere.length} unique | gcd modified (euclid_gcd→gcd)? ${gcdModified}`);
 
+// Match-confidence breakdown (DD-017 provenance) rides the WASM diff too: every matched/changed
+// pair is accounted for by a ladder rung, and the unchanged functions are `exact`.
+const methodTotal = Object.values(pdiff.methods).reduce((a, b) => a + b, 0);
+const methodsOk = pdiff.methods.exact >= 1 && methodTotal === pdiff.matched.length + pdiff.changed.length;
+console.log("diff methods:", pdiff.methods, "| every pair accounted?", methodsOk);
+
 // Merge round-trip: re-anchor the rename onto the RE-ANALYSIS (same binary, fresh stable ids).
 // merge_into matches functions by structural identity (not id), so the euclid_gcd rename should
 // follow gcd across the rebuild — DD-005 identity-anchored merge, in the browser.
@@ -111,7 +117,8 @@ const ok =
   gcdPaired &&
   pdiff.changed.length === 1 &&
   gcdModified &&
+  methodsOk &&
   report.merged >= 1 &&
   reanchored;
-console.log(ok ? "PASS — navigate + annotate + export + diff + modified + merge round-trip in WASM" : "FAIL");
+console.log(ok ? "PASS — navigate + annotate + export + diff + modified + provenance + merge round-trip in WASM" : "FAIL");
 process.exit(ok ? 0 : 1);

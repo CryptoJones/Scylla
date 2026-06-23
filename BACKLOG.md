@@ -11,12 +11,14 @@ Tracked "later / someday" items that aren't on the current sprint path
 
 ## Ports
 
-- [~] **Cap'n Proto promise-pipelining RPC surface for the client port (DD-002).** **Server side
-  BUILT (2026-06-23, authorized — the deferral is lifted): `crates/scylla-rpc`** — the production
-  `interface` (`Session` info/functions/function, `Function` view/callers/rename/retype/comment) +
-  `capnp-rpc` server impls over `scylla_port::Session`, in-process-verified (pipelined navigation,
-  rename round-trip, DD-021 blank-name rejection). **Next:** the network transport (TCP) + a remote
-  client head that consumes it. Original deferral note (now historical):  Today the
+- [x] **Cap'n Proto promise-pipelining RPC surface for the client port (DD-002) — BUILT & SHIPPED
+  (2026-06-23, authorized — the deferral lifted): `crates/scylla-rpc`.** The production `interface`
+  (`Session` info/functions/function, `Function` view/callers/rename/retype/comment) + `capnp-rpc`
+  server impls over `scylla_port::Session`, the network transport (`scylla-rpc-serve` over TCP), and
+  the **remote head** (`scylla-rpc-connect`) — a consumer not co-located with the core, navigating by
+  promise-pipelining. Verified end-to-end cross-process over real TCP (`tests/remote.rs`), in-process
+  two-party (lib tests: pipelined navigation, rename round-trip, DD-021 blank-name rejection). The
+  port needed ZERO changes. Original deferral note (now historical):  Today the
   client port is served **in-process** — the heads drive `scylla_port::Session` directly (the MCP
   head marshals JSON-RPC ↔ port; the non-MCP client calls `Session` straight), and the only Cap'n
   Proto in the tree is the model-artifact *persistence* schema (`model.capnp` — data `struct`s, no

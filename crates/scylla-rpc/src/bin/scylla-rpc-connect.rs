@@ -10,7 +10,8 @@
 
 use std::process::ExitCode;
 
-use scylla_rpc::{connect, login};
+use scylla_rpc::{connect, login, tls_connector};
+use tokio_rustls::rustls::pki_types::ServerName;
 
 const USAGE: &str = "usage: scylla-rpc-connect <host:port> \
      <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla>>";
@@ -49,15 +50,51 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
             })
     };
 
-    let stream = match tokio::net::TcpStream::connect(addr).await {
+    let tcp = match tokio::net::TcpStream::connect(addr).await {
         Ok(s) => s,
         Err(e) => {
             eprintln!("error: connecting to {addr}: {e}");
             return ExitCode::FAILURE;
         }
     };
-    let _ = stream.set_nodelay(true);
-    let (auth, rpc) = connect(stream);
+    let _ = tcp.set_nodelay(true);
+    // Optional TLS: SCYLLA_RPC_TLS_CA points to the server's cert/CA to trust; SCYLLA_RPC_TLS_SNI is
+    // the name to verify it against (default "localhost"). Unset = plaintext.
+    let (auth, rpc) = match std::env::var("SCYLLA_RPC_TLS_CA").ok() {
+        Some(ca_path) => {
+            let ca = match std::fs::read(&ca_path) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("error: reading TLS CA {ca_path}: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let connector = match tls_connector(&ca) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("error: TLS config: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let sni =
+                std::env::var("SCYLLA_RPC_TLS_SNI").unwrap_or_else(|_| "localhost".to_string());
+            let server_name = match ServerName::try_from(sni) {
+                Ok(n) => n,
+                Err(e) => {
+                    eprintln!("error: bad TLS server name: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            match connector.connect(server_name, tcp).await {
+                Ok(tls) => connect(tls),
+                Err(e) => {
+                    eprintln!("error: TLS handshake: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        None => connect(tcp),
+    };
     tokio::task::spawn_local(async move {
         let _ = rpc.await;
     });

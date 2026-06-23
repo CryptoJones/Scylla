@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 use scylla_port::Session;
-use scylla_rpc::{serve_with_timeout, SharedSession};
+use scylla_rpc::{serve_with_timeout, tls_acceptor, SharedSession};
 
 const USAGE: &str =
     "usage: scylla-rpc-serve <artifact.scylla> [host:port]   (default 127.0.0.1:9000)";
@@ -61,6 +61,28 @@ fn main() -> ExitCode {
             .and_then(|v| v.parse().ok())
             .unwrap_or(10),
     );
+    // Optional TLS (DD-035): with SCYLLA_RPC_TLS_CERT + SCYLLA_RPC_TLS_KEY (PEM), the wire is
+    // encrypted so the token + the model never cross the network in the clear. Unset = plaintext.
+    let acceptor = match (
+        std::env::var("SCYLLA_RPC_TLS_CERT").ok(),
+        std::env::var("SCYLLA_RPC_TLS_KEY").ok(),
+    ) {
+        (Some(cert_path), Some(key_path)) => {
+            let cert = std::fs::read(&cert_path).unwrap_or_else(|e| {
+                eprintln!("scylla-rpc-serve: cannot read TLS cert {cert_path}: {e}");
+                std::process::exit(1);
+            });
+            let key = std::fs::read(&key_path).unwrap_or_else(|e| {
+                eprintln!("scylla-rpc-serve: cannot read TLS key {key_path}: {e}");
+                std::process::exit(1);
+            });
+            Some(tls_acceptor(&cert, &key).unwrap_or_else(|e| {
+                eprintln!("scylla-rpc-serve: TLS config: {e}");
+                std::process::exit(1);
+            }))
+        }
+        _ => None,
+    };
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -76,8 +98,9 @@ fn main() -> ExitCode {
         } else {
             "OPEN (set SCYLLA_RPC_TOKEN to gate)"
         };
+        let wire = if acceptor.is_some() { "TLS" } else { "plaintext" };
         eprintln!(
-            "scylla-rpc-serve: {artifact} on {} — {auth}, max {max_conn} conns (DD-002 capnp RPC; Ctrl-C to stop)",
+            "scylla-rpc-serve: {artifact} on {} — {auth}, {wire}, max {max_conn} conns (DD-002 capnp RPC; Ctrl-C to stop)",
             listener.local_addr()?
         );
         loop {
@@ -89,9 +112,18 @@ fn main() -> ExitCode {
             let _ = stream.set_nodelay(true);
             active.set(active.get() + 1);
             let counter = active.clone();
-            let (sess, tok) = (shared.clone(), token.clone());
+            let (sess, tok, acc) = (shared.clone(), token.clone(), acceptor.clone());
             tokio::task::spawn_local(async move {
-                serve_with_timeout(sess, tok, handshake, stream).await;
+                match acc {
+                    // Wrap the connection in TLS before the RPC handshake; a failed TLS handshake
+                    // just drops the connection.
+                    Some(a) => {
+                        if let Ok(tls) = a.accept(stream).await {
+                            serve_with_timeout(sess, tok, handshake, tls).await;
+                        }
+                    }
+                    None => serve_with_timeout(sess, tok, handshake, stream).await,
+                }
                 counter.set(counter.get() - 1);
             });
         }

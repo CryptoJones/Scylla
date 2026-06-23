@@ -14,6 +14,10 @@ capnp-rpc = "0.26"
 futures = "0.3"
 tokio = { version = "1", features = ["rt", "macros", "io-util", "net", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }
+# Optional encrypted transport (DD-035): the auth token + the model shouldn't cross the wire in the
+# clear. `ring` provider — no C toolchain (cmake/aws-lc) needed for a reproducible build.
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+rustls-pemfile = "2"
 # A REMOTE consumer of the client port (DD-017) — server impls drive `scylla_port::Session`.
 scylla-model = { path = "../scylla-model" }
 scylla-port = { path = "../scylla-port" }
@@ -23,3 +27,5 @@ capnpc = "0.26"
 
 [dev-dependencies]
 scylla-ingest = { path = "../scylla-ingest" }
+# Generate a self-signed cert in the TLS integration test (no committed key material).
+rcgen = "0.13"

@@ -387,6 +387,49 @@ where
     (auth, rpc)
 }
 
+/// Build a TLS acceptor (server side) from PEM cert + key bytes — so the auth token and the model
+/// don't cross the wire in the clear (DD-035). `ring` crypto provider. Errors describe the problem.
+pub fn tls_acceptor(cert_pem: &[u8], key_pem: &[u8]) -> Result<tokio_rustls::TlsAcceptor, String> {
+    use std::sync::Arc;
+    use tokio_rustls::rustls;
+    let certs = rustls_pemfile::certs(&mut &cert_pem[..])
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("reading cert: {e}"))?;
+    if certs.is_empty() {
+        return Err("no certificate in the cert PEM".into());
+    }
+    let key = rustls_pemfile::private_key(&mut &key_pem[..])
+        .map_err(|e| format!("reading key: {e}"))?
+        .ok_or("no private key in the key PEM")?;
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let config = rustls::ServerConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|e| e.to_string())?
+        .with_no_client_auth()
+        .with_single_cert(certs, key)
+        .map_err(|e| e.to_string())?;
+    Ok(tokio_rustls::TlsAcceptor::from(Arc::new(config)))
+}
+
+/// Build a TLS connector (client side) trusting the CA / self-signed cert in `ca_pem`.
+pub fn tls_connector(ca_pem: &[u8]) -> Result<tokio_rustls::TlsConnector, String> {
+    use std::sync::Arc;
+    use tokio_rustls::rustls;
+    let mut roots = rustls::RootCertStore::empty();
+    for cert in rustls_pemfile::certs(&mut &ca_pem[..]) {
+        roots
+            .add(cert.map_err(|e| format!("reading CA: {e}"))?)
+            .map_err(|e| e.to_string())?;
+    }
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let config = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|e| e.to_string())?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    Ok(tokio_rustls::TlsConnector::from(Arc::new(config)))
+}
+
 /// Authenticate to obtain the `Session` capability. A wrong token comes back as a `capnp::Error`.
 pub async fn login(auth: &authenticator::Client, token: &str) -> capnp::Result<session::Client> {
     let mut req = auth.login_request();

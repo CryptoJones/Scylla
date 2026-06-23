@@ -63,3 +63,29 @@ fn bad_usage_exits_2() {
     let (code, _out) = run(&["diff", BASE]); // missing second arg
     assert_eq!(code, 2, "wrong arg count -> usage, exit 2");
 }
+
+#[test]
+fn diff_json_emits_structured_output() {
+    let (code, out) = run(&["diff", "--json", BASE, PATCHED]);
+    assert_eq!(code, 1, "differing -> exit 1 even in json mode");
+    assert!(
+        out.contains("\"differs\": true"),
+        "json differs flag: {out}"
+    );
+    assert!(
+        out.contains("\"modified\""),
+        "json has a modified array: {out}"
+    );
+    assert!(out.contains("gcd"), "names gcd: {out}");
+    assert!(out.contains("\"unchanged\": 12"), "12 unchanged: {out}");
+}
+
+#[test]
+fn diff_json_of_identical_is_not_differing_exit_0() {
+    let (code, out) = run(&["diff", "--json", BASE, BASE]);
+    assert_eq!(code, 0, "identical -> exit 0 in json mode");
+    assert!(
+        out.contains("\"differs\": false"),
+        "json differs=false: {out}"
+    );
+}

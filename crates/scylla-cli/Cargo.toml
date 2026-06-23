@@ -20,4 +20,6 @@ scylla-schema = { path = "../scylla-schema" }
 scylla-port = { path = "../scylla-port" }
 # The model, for naming stable ids (`view`/`callers` take a StableId).
 scylla-model = { path = "../scylla-model" }
+# Machine-readable output (`--json`) for CI / automation.
+serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

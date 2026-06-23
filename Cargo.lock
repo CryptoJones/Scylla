@@ -712,6 +712,7 @@ dependencies = [
  "scylla-model",
  "scylla-port",
  "scylla-schema",
+ "serde_json",
  "tokio",
 ]
 

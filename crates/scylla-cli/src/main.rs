@@ -3,7 +3,7 @@
 //! Proto artifact. No intermediate snapshot file, no `materialize.sh`, no second path.
 //!
 //!   scylla materialize <engine-endpoint> <binary> <out.scylla>
-//!   scylla diff <a.scylla> <b.scylla>      # structural diff of two model artifacts (DD-017)
+//!   scylla diff [--json] <a.scylla> <b.scylla>   # structural diff of two model artifacts (DD-017)
 //!   scylla info <artifact.scylla>          # name / language / function count
 //!   scylla functions <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
 //!   scylla view <artifact.scylla> <id> [zoom]   # one function's detail + call graph
@@ -22,7 +22,7 @@ async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("materialize") if args.len() == 5 => materialize(&args[2], &args[3], &args[4]).await,
-        Some("diff") if args.len() == 4 => diff(&args[2], &args[3]),
+        Some("diff") => diff_cmd(&args[2..]),
         Some("info") if args.len() == 3 => info(&args[2]),
         Some("functions") if args.len() == 3 || args.len() == 4 => {
             functions(&args[2], args.get(3).map(String::as_str))
@@ -34,7 +34,7 @@ async fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
-                 {prog} diff <a.scylla> <b.scylla>\n       \
+                 {prog} diff [--json] <a.scylla> <b.scylla>\n       \
                  {prog} info <artifact.scylla>\n       \
                  {prog} functions <artifact.scylla> [intent|domain|detail]\n       \
                  {prog} view <artifact.scylla> <id> [intent|domain|detail]\n       \
@@ -194,12 +194,28 @@ fn callers(path: &str, id_arg: &str) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// `scylla diff <a> <b>` — the offline `diff` verb (DD-017): load two model artifacts and report,
-/// by display name, the functions matched / renamed / modified / added / removed across them. No
-/// engine: structural identity pairs them, address-independent (a recompile re-pairs cleanly), and
+/// Parse `diff [--json] <a> <b>` and dispatch (the flag may sit anywhere among the args).
+fn diff_cmd(rest: &[String]) -> ExitCode {
+    let json = rest.iter().any(|a| a == "--json");
+    let paths: Vec<&str> = rest
+        .iter()
+        .map(String::as_str)
+        .filter(|a| *a != "--json")
+        .collect();
+    if paths.len() != 2 {
+        eprintln!("usage: scylla diff [--json] <a.scylla> <b.scylla>");
+        return ExitCode::from(2);
+    }
+    diff(paths[0], paths[1], json)
+}
+
+/// `scylla diff [--json] <a> <b>` — the offline `diff` verb (DD-017): load two model artifacts and
+/// report, by display name, the functions matched / renamed / modified / added / removed across them.
+/// No engine: structural identity pairs them, address-independent (a recompile re-pairs cleanly), and
 /// a body change is re-identified by call-graph propagation rather than reported as remove+add.
-/// `git diff --exit-code` semantics: 0 if structurally identical, 1 if they differ, 2 on trouble.
-fn diff(a_path: &str, b_path: &str) -> ExitCode {
+/// `--json` emits a machine-readable object for CI / automation. `git diff --exit-code` semantics:
+/// 0 if structurally identical, 1 if they differ, 2 on trouble.
+fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
     let load = |p: &str| -> Result<Session, String> {
         let bytes = std::fs::read(p).map_err(|e| format!("reading {p}: {e}"))?;
         Session::from_artifact(&bytes).map_err(|e| format!("loading {p}: {e}"))
@@ -212,54 +228,71 @@ fn diff(a_path: &str, b_path: &str) -> ExitCode {
         }
     };
     let d = a.diff(&b);
-    let renamed: Vec<&(String, String)> = d.matched.iter().filter(|(x, y)| x != y).collect();
+    let renamed: Vec<(String, String)> =
+        d.matched.iter().filter(|(x, y)| x != y).cloned().collect();
     let unchanged = d.matched.len() - renamed.len();
-
-    println!("scylla diff: {a_path}  vs  {b_path}");
-    println!(
-        "  {unchanged} unchanged · {} renamed · {} modified · {} added · {} removed",
-        renamed.len(),
-        d.changed.len(),
-        d.only_there.len(),
-        d.only_here.len(),
-    );
-    let section = |title: &str, lines: &[String]| {
-        if !lines.is_empty() {
-            println!("\n{title}:");
-            for l in lines {
-                println!("  {l}");
-            }
-        }
-    };
-    section(
-        "renamed",
-        &renamed
-            .iter()
-            .map(|(x, y)| format!("{x} -> {y}"))
-            .collect::<Vec<_>>(),
-    );
-    section(
-        "modified",
-        &d.changed
-            .iter()
-            .map(|(x, y)| {
-                if x == y {
-                    x.clone()
-                } else {
-                    format!("{x} -> {y}")
-                }
-            })
-            .collect::<Vec<_>>(),
-    );
-    section(&format!("added (only in {b_path})"), &d.only_there);
-    section(&format!("removed (only in {a_path})"), &d.only_here);
-
     let differs = !renamed.is_empty()
         || !d.changed.is_empty()
         || !d.only_here.is_empty()
         || !d.only_there.is_empty();
-    if !differs {
-        println!("\nno differences");
+
+    if json {
+        let pairs = |v: &[(String, String)]| -> Vec<serde_json::Value> {
+            v.iter().map(|(x, y)| serde_json::json!([x, y])).collect()
+        };
+        let out = serde_json::json!({
+            "a": a_path,
+            "b": b_path,
+            "differs": differs,
+            "unchanged": unchanged,
+            "renamed": pairs(&renamed),
+            "modified": pairs(&d.changed),
+            "added": d.only_there,
+            "removed": d.only_here,
+        });
+        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    } else {
+        println!("scylla diff: {a_path}  vs  {b_path}");
+        println!(
+            "  {unchanged} unchanged · {} renamed · {} modified · {} added · {} removed",
+            renamed.len(),
+            d.changed.len(),
+            d.only_there.len(),
+            d.only_here.len(),
+        );
+        let section = |title: &str, lines: &[String]| {
+            if !lines.is_empty() {
+                println!("\n{title}:");
+                for l in lines {
+                    println!("  {l}");
+                }
+            }
+        };
+        section(
+            "renamed",
+            &renamed
+                .iter()
+                .map(|(x, y)| format!("{x} -> {y}"))
+                .collect::<Vec<_>>(),
+        );
+        section(
+            "modified",
+            &d.changed
+                .iter()
+                .map(|(x, y)| {
+                    if x == y {
+                        x.clone()
+                    } else {
+                        format!("{x} -> {y}")
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
+        section(&format!("added (only in {b_path})"), &d.only_there);
+        section(&format!("removed (only in {a_path})"), &d.only_here);
+        if !differs {
+            println!("\nno differences");
+        }
     }
     // git diff --exit-code semantics: 0 = identical, 1 = differs.
     if differs {

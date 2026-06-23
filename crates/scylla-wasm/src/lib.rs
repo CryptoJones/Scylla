@@ -231,7 +231,8 @@ pub unsafe extern "C" fn scylla_merge(ptr: *const u8, len: usize) -> u64 {
 /// pair functions by address-independent structural identity, reporting matched pairs plus the
 /// functions unique to each side, by display name. READ-ONLY — the loaded session is untouched (the
 /// other artifact is only compared, never adopted; that is what [`scylla_merge`] is for). Returns
-/// `{matched: [[here, there], ...], onlyHere: [...], onlyThere: [...]}`, or `{error}`. The browser
+/// `{matched, changed, onlyHere, onlyThere}` — `changed` being functions whose body was modified
+/// but re-identified by call-graph propagation (DD-017), each as `[here, there]` — or `{error}`. The browser
 /// payoff: load build A, diff against build B, and see what the recompile changed — no server, and
 /// a rename here shows through because the matcher is identity-based, not address-based.
 ///
@@ -252,6 +253,7 @@ pub unsafe extern "C" fn scylla_diff(ptr: *const u8, len: usize) -> u64 {
         ret_string(
             json!({
                 "matched": d.matched,
+                "changed": d.changed,
                 "onlyHere": d.only_here,
                 "onlyThere": d.only_there,
             })

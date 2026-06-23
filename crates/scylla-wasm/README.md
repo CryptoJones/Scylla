@@ -28,7 +28,7 @@ toolchain beyond the `wasm32-unknown-unknown` target. The module is self-contain
 | `scylla_comment(id, ptr, len) -> 0/-1` | comment a function (may be empty) |
 | `scylla_export() -> handle` | the (annotated) `.scylla` artifact bytes, to download |
 | `scylla_merge(ptr, len) -> handle` | re-anchor the current annotations onto a re-analysis (DD-005); `{merged, flagged}` |
-| `scylla_diff(ptr, len) -> handle` | structurally diff against another artifact (DD-017, read-only); `{matched, onlyHere, onlyThere}` |
+| `scylla_diff(ptr, len) -> handle` | structurally diff against another artifact (DD-017, read-only); `{matched, changed, onlyHere, onlyThere}` (`changed` = modified bodies, call-graph re-identified) |
 | `scylla_free(ptr, len)` | release a buffer |
 
 A **string result** is returned as a `(ptr<<32 | len)` u64 (a BigInt in JS); the caller copies it
@@ -71,11 +71,15 @@ the browser demo works.
   identity*, so a rename follows its function across an address shift / fresh ids (DD-005,
   fail-closed: a near-tie never anchors). **git-for-RE, client-side.**
 - **diff against another artifact** (DD-017, read-only) — pair functions by the same
-  address-independent structural identity, reporting matched/renamed/unique across two builds; a
-  local rename shows through (`euclid_gcd → gcd`). Diff two `.scylla` builds with no server.
+  address-independent structural identity, reporting matched / renamed / **modified** / unique across
+  two builds. A **modified** function (body changed → signature shifted) is re-identified by
+  **call-graph propagation** and shown as such, not as a spurious remove+add; a local rename shows
+  through (`euclid_gcd → gcd`). The whole-program overview paints it (cyan renamed, amber modified,
+  green added). Diff two `.scylla` builds with no server.
 
-End-to-end verified by `verify.mjs`: a rename → export → reload → **diff → merge** round-trip (the
-diff pairs the rename across a fresh-id rebuild, then the merge re-anchors it).
+End-to-end verified by `verify.mjs`: a rename → export → reload → **diff → modified-diff → merge**
+round-trip (the diff pairs the rename across a fresh-id rebuild; the modified-diff reports an edited
+`gcd` body as `changed`; then the merge re-anchors the rename).
 
 Still future: engine verbs (`decompile`, which needs the JVM engine — not available client-side).
 A *live* browser head over a serving core would use the Cap'n Proto RPC surface (DD-002, deferred —

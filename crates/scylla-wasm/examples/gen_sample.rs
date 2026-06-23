@@ -29,4 +29,14 @@ fn main() {
         "mathlib_rebuilt.scylla",
         scylla_ingest::snapshot_to_program(SNAPSHOT).unwrap(),
     );
+    // A "patched" build: the same binary with ONE function's body edited (gcd) — its structural
+    // signature shifts but its call edges are intact, so the diff reports it as MODIFIED (`changed`),
+    // not removed+added. Exercises DD-017 call-graph propagation end-to-end in the browser.
+    let mut patched = scylla_ingest::snapshot_to_program(SNAPSHOT).unwrap();
+    if let Some(g) = patched.functions.iter_mut().find(|f| f.name == "gcd") {
+        g.bb_count += 3;
+        g.size += 64;
+        g.fingerprint ^= 0xA5A5;
+    }
+    write("mathlib_patched.scylla", patched);
 }

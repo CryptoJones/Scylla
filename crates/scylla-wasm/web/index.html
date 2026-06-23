@@ -8,7 +8,7 @@
   /* Cyberdeck theme — near-black bg, neon-cyan headings, terminal-green accents. */
   :root {
     --bg: #07090f; --panel: #0d111b; --line: #1c2333;
-    --fg: #c6d0e0; --dim: #5a6678; --cyan: #27d4ff; --green: #55ff99; --red: #ff4f4f;
+    --fg: #c6d0e0; --dim: #5a6678; --cyan: #27d4ff; --green: #55ff99; --red: #ff4f4f; --amber: #ffb454;
   }
   * { box-sizing: border-box; }
   body {
@@ -91,9 +91,11 @@
   .gnode.d-added text { fill: var(--green); }
   .gnode.d-renamed rect { stroke: var(--cyan); stroke-width: 2; }
   .gnode.d-renamed text { fill: var(--cyan); }
+  .gnode.d-changed rect { stroke: var(--amber); stroke-width: 2; }
+  .gnode.d-changed text { fill: var(--amber); }
   .dlegend { display: flex; gap: 16px; align-items: center; color: var(--dim); font-size: 14px; }
   .dlegend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 2px solid; margin-right: 5px; vertical-align: -1px; }
-  .dlegend .ren { border-color: var(--cyan); } .dlegend .add { border-color: var(--green); } .dlegend .rem { border-color: var(--dim); }
+  .dlegend .ren { border-color: var(--cyan); } .dlegend .chg { border-color: var(--amber); } .dlegend .add { border-color: var(--green); } .dlegend .rem { border-color: var(--dim); }
 </style>
 </head>
 <body>
@@ -208,10 +210,11 @@ async function diffFile(file) {
   const rep = runDiff(new Uint8Array(await file.arrayBuffer()), file.name);
   if (rep) flash(`diff: ${rep.matched.length} matched · open ⊞ graph to see it on the call graph`);
 }
-// Map each here-side function name to its diff status (renamed / added); unchanged → absent.
+// Map each here-side function name to its diff status (renamed / changed / added); unchanged → absent.
 function diffStatusByName(rep) {
   const m = new Map();
   for (const [a, b] of rep.matched) if (a !== b) m.set(a, 'renamed');
+  for (const [a] of (rep.changed || [])) m.set(a, 'changed');
   for (const n of rep.onlyHere) m.set(n, 'added');
   return m;
 }
@@ -219,12 +222,13 @@ function renderDiff(rep, fname) {
   sel = null; renderList();
   const idByName = Object.fromEntries(fns.map(f => [f.name, f.id]));
   const renames = rep.matched.filter(([a, b]) => a !== b);
+  const changed = rep.changed || [];
   const d = document.getElementById('detail');
   d.innerHTML = '';
   d.appendChild(el(`<h2>⇄ structural diff</h2>`));
   d.appendChild(el(`<div class="kv"><b>against</b> ${esc(fname)}</div>`));
-  d.appendChild(el(`<div class="kv"><b>summary</b> ${rep.matched.length} matched · ${renames.length} renamed · ${rep.onlyHere.length} only here · ${rep.onlyThere.length} only there</div>`));
-  d.appendChild(el(`<div class="kv" style="color:var(--dim);font-size:15px">matched by address-independent structural identity — a local rename shows through (DD-005/DD-017)</div>`));
+  d.appendChild(el(`<div class="kv"><b>summary</b> ${rep.matched.length} matched · ${renames.length} renamed · ${changed.length} modified · ${rep.onlyHere.length} only here · ${rep.onlyThere.length} only there</div>`));
+  d.appendChild(el(`<div class="kv" style="color:var(--dim);font-size:15px">matched by address-independent structural identity; a body change is re-identified by call-graph propagation, a local rename shows through (DD-005/DD-017)</div>`));
   // navigable chip (matched/here functions exist in the current session); plain chip otherwise
   const navChip = (name) => { const c = el(`<span class="chip">${esc(name)}</span>`); if (idByName[name] != null) c.onclick = () => select(idByName[name]); else { c.style.cursor = 'default'; c.style.color = 'var(--dim)'; } return c; };
   const row = (label, build) => { const r = el(`<div class="kv"><b>${label}</b> <span></span></div>`); d.appendChild(r); return [r.querySelector('span'), build]; };
@@ -232,6 +236,9 @@ function renderDiff(rep, fname) {
   { const [s] = row('renamed');
     if (renames.length) for (const [a, b] of renames) { const c = el(`<span class="chip" title="this build → other build">${esc(a)} → ${esc(b)}</span>`); if (idByName[a] != null) c.onclick = () => select(idByName[a]); s.appendChild(c); }
     else s.appendChild(el('<span class="empty">none — names agree on every matched function</span>')); }
+  { const [s] = row('modified');
+    if (changed.length) for (const [a, b] of changed) { const label = a === b ? esc(a) : `${esc(a)} → ${esc(b)}`; const c = el(`<span class="chip" style="border-color:var(--amber);color:var(--amber)" title="body changed — re-identified by call-graph propagation">${label}</span>`); if (idByName[a] != null) c.onclick = () => select(idByName[a]); s.appendChild(c); }
+    else s.appendChild(el('<span class="empty">none — no matched function changed body</span>')); }
   { const [s] = row('only in this');
     if (rep.onlyHere.length) rep.onlyHere.forEach(n => s.appendChild(navChip(n))); else s.appendChild(el('<span class="empty">none</span>')); }
   { const [s] = row('only in other');
@@ -414,6 +421,7 @@ function renderOverview() {
   if (lastDiff) {
     const renamed = lastDiff.rep.matched.filter(([a, b]) => a !== b).length;
     leg.innerHTML = `<span title="diff vs ${esc(lastDiff.fname)}"><span class="sw ren"></span>renamed ${renamed}</span>` +
+      `<span><span class="sw chg"></span>changed ${(lastDiff.rep.changed || []).length}</span>` +
       `<span><span class="sw add"></span>added ${lastDiff.rep.onlyHere.length}</span>` +
       `<span><span class="sw rem"></span>removed ${lastDiff.rep.onlyThere.length} (not shown)</span>`;
   } else leg.innerHTML = '';

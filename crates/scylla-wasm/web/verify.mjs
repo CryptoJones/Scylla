@@ -76,6 +76,20 @@ X.scylla_free(dp, rebuilt.length);
 const gcdPaired = diff.matched.some(([a, b]) => a === "euclid_gcd" && b === "gcd");
 console.log(`diff: ${diff.matched.length} matched, ${diff.onlyHere.length} only-here, ${diff.onlyThere.length} only-there | gcd pairs euclid_gcd→gcd? ${gcdPaired}`);
 
+// Modified-function diff (DD-017 call-graph propagation): diff against a PATCHED build where gcd's
+// body was edited (signature shifted, call edges intact). gcd is reported as CHANGED — re-identified
+// by its call-graph neighbourhood, not removed+added — and the local rename shows through.
+const patched = readFileSync(join(dir, "mathlib_patched.scylla"));
+const pp = X.scylla_alloc(patched.length);
+new Uint8Array(mem.buffer, pp, patched.length).set(patched);
+const pdiff = J(X.scylla_diff(pp, patched.length));
+X.scylla_free(pp, patched.length);
+const gcdModified =
+  pdiff.changed.some(([a, b]) => a === "euclid_gcd" && b === "gcd") &&
+  !pdiff.onlyHere.includes("euclid_gcd") &&
+  !pdiff.onlyThere.includes("gcd");
+console.log(`patched-diff: ${pdiff.matched.length} matched, ${pdiff.changed.length} changed, ${pdiff.onlyHere.length}/${pdiff.onlyThere.length} unique | gcd modified (euclid_gcd→gcd)? ${gcdModified}`);
+
 // Merge round-trip: re-anchor the rename onto the RE-ANALYSIS (same binary, fresh stable ids).
 // merge_into matches functions by structural identity (not id), so the euclid_gcd rename should
 // follow gcd across the rebuild — DD-005 identity-anchored merge, in the browser.
@@ -95,7 +109,9 @@ const ok =
   diff.onlyHere.length === 0 &&
   diff.onlyThere.length === 0 &&
   gcdPaired &&
+  pdiff.changed.length === 1 &&
+  gcdModified &&
   report.merged >= 1 &&
   reanchored;
-console.log(ok ? "PASS — navigate + annotate + export + diff + merge round-trip in WASM" : "FAIL");
+console.log(ok ? "PASS — navigate + annotate + export + diff + modified + merge round-trip in WASM" : "FAIL");
 process.exit(ok ? 0 : 1);

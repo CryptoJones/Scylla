@@ -35,6 +35,10 @@ interface Session {
   # Structurally diff the served model against another .scylla (sent as bytes) — DD-017, read-only.
   # `matched` is the unchanged count; renamed/modified are name pairs; added/removed are names.
   diff @3 (artifact :Data) -> (matched :UInt32, renamed :List(FnPair), modified :List(FnPair), added :List(Text), removed :List(Text));
+  # Serialize the served model — INCLUDING annotations made this session (renames/retypes/comments)
+  # — back to a .scylla (DD-026), so a remote analyst can pull their work down. The wire counterpart
+  # of the HTTP head's GET /api/export and the MCP head's `export`.
+  export @4 () -> (artifact :Data);
 }
 
 interface Function {

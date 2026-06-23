@@ -193,4 +193,22 @@ fn rpc_head_conforms_to_the_port() {
         d.only_here.len(),
         "removed"
     );
+
+    // export — the connect binary pulls the served model down to a .scylla that reloads with the
+    // same functions as the port (the new `export` verb, end-to-end over the wire).
+    let outp =
+        std::env::temp_dir().join(format!("scylla-rpc-export-{}.scylla", std::process::id()));
+    let (code, _) = connect(&addr, &["export", outp.to_str().unwrap()]);
+    assert_eq!(code, 0, "export exit 0");
+    let mut got: Vec<String> = port(outp.to_str().unwrap())
+        .functions(Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
+    got.sort();
+    assert_eq!(
+        got, expected,
+        "the exported artifact reloads with the port's functions"
+    );
+    let _ = std::fs::remove_file(&outp);
 }

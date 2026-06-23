@@ -85,7 +85,8 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
 - **Remote (Cap'n Proto RPC)** — `crates/scylla-rpc`: `scylla-rpc-serve` serves the model over TCP
   and `scylla-rpc-connect` drives it from off-box, navigating by **promise-pipelining**
   (`function(id).callers().view()` is one round-trip — the transport the artifact format was chosen
-  for, DD-002). Auth-gated, connection-capped, slow-loris-bounded, TLS-capable.
+  for, DD-002), annotating (rename/retype/comment) and pulling the result back down (`export`).
+  Auth-gated, connection-capped, slow-loris-bounded, TLS-capable.
 - **HTTP/JSON gateway** — `crates/scylla-http`: `scylla-http` serves the model as a plain
   HTTP/JSON API (`GET /api/info` / `/api/functions` / `/api/functions/<id>` / `…/callers`,
   `POST /api/diff`) and lets any client *annotate* it (`POST …/rename` / `…/retype` / `…/comment`)

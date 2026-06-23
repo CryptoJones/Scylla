@@ -32,7 +32,7 @@ arch test in `scylla-mcp`).
 | `scylla-mcp`    | the MCP head — projects the port 1:1 as agent tools; **no domain logic** | DD-022 / 024 / 025 |
 | `scylla-wasm`   | the **browser head** — the client port compiled to wasm32; navigate/annotate/diff/merge a `.scylla` client-side (a pure port consumer) | DD-028 |
 | `scylla-serve`  | the **native single-binary head** — a zero-dep binary that bakes in the WASM head and serves it + an artifact (auto-diffs two builds), no JVM | DD-028 |
-| `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client; auth + cap + handshake + TLS) | DD-002 |
+| `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client: info/functions/view/callers/diff + rename/retype/comment + export; auth + cap + handshake + TLS) | DD-002 |
 | `scylla-http`   | the **HTTP/JSON gateway head** — query *and annotate* the model over plain HTTP (info/functions/view/callers/diff + rename/retype/comment + export) from any language; token-gated, TLS-capable | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 

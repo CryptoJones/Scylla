@@ -14,7 +14,7 @@ use scylla_rpc::{connect, login, tls_connector};
 use tokio_rustls::rustls::pki_types::ServerName;
 
 const USAGE: &str = "usage: scylla-rpc-connect <host:port> \
-     <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla>>";
+     <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla> | export <out.scylla>>";
 
 fn zoom_byte(arg: Option<&String>) -> u8 {
     match arg.map(String::as_str) {
@@ -210,6 +210,18 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
                 for i in 0..removed.len() {
                     println!("removed: {}", removed.get(i)?.to_str()?);
                 }
+            }
+            "export" => {
+                let Some(out) = args.get(2) else {
+                    eprintln!("error: export needs <out.scylla>\n{USAGE}");
+                    return Err(capnp::Error::failed("usage".into()));
+                };
+                // Pull the served model (annotations included) down to a local .scylla (DD-026).
+                let resp = session.export_request().send().promise.await?;
+                let bytes = resp.get()?.get_artifact()?;
+                std::fs::write(out, bytes)
+                    .map_err(|e| capnp::Error::failed(format!("writing {out}: {e}")))?;
+                println!("exported {} bytes -> {out}", bytes.len());
             }
             other => {
                 eprintln!("error: unknown command {other:?}\n{USAGE}");

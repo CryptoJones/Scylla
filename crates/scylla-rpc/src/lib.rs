@@ -210,6 +210,20 @@ impl session::Server for SessionImpl {
             Ok(())
         }
     }
+
+    fn export(
+        self: capnp::capability::Rc<Self>,
+        _params: session::ExportParams,
+        mut results: session::ExportResults,
+    ) -> impl Future<Output = Result<(), capnp::Error>> + 'static {
+        let session = self.session.clone();
+        async move {
+            // Serialize the served model — annotations included — and ship the bytes (DD-026).
+            let bytes = session.borrow().to_artifact();
+            results.get().set_artifact(&bytes);
+            Ok(())
+        }
+    }
 }
 
 /// Server impl of `Function` — a stable id + a handle to the in-process port.
@@ -606,6 +620,33 @@ mod tests {
         assert!(
             blank_rejected,
             "a blank name maps to a capnp::Error (DD-021)"
+        );
+    }
+
+    #[test]
+    fn export_over_the_wire_round_trips_annotations() {
+        // Rename gcd over the wire, then `export` the served model — the bytes reload into a Session
+        // with the rename intact (DD-026), so a remote analyst can pull their work down.
+        let prog = program();
+        let gcd = id_of(&prog, "gcd");
+        let bytes = with_rpc(prog, move |session| async move {
+            let mut req = session.function_request();
+            req.get().set_id(gcd.0);
+            let func = req.send().pipeline.get_fn();
+            let mut rn = func.rename_request();
+            rn.get().set_name("euclid_gcd");
+            rn.send().promise.await.unwrap();
+
+            let resp = session.export_request().send().promise.await.unwrap();
+            resp.get().unwrap().get_artifact().unwrap().to_vec()
+        });
+        let reloaded = Session::from_artifact(&bytes).expect("exported bytes are a valid .scylla");
+        assert!(
+            reloaded
+                .functions(scylla_port::Zoom::Domain)
+                .iter()
+                .any(|f| f.name == "euclid_gcd"),
+            "the rename survived export → reload over the wire"
         );
     }
 }

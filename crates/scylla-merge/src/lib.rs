@@ -576,6 +576,27 @@ impl MatchMethod {
     }
 }
 
+/// The recovery of one matched/changed pair: the ladder rung ([`MatchMethod`]) plus a **confidence**
+/// percentage (`0..=100`). EXACT and PROPAGATION are structural certainties (100); the feature rungs
+/// (ANCHOR / BSIM / FUZZY) carry the actual score that cleared their threshold — so a consumer can
+/// report not just HOW a pair matched but how *strongly*. (A percentage, not the raw `f64`, so the
+/// diff stays `Eq`/`Hash`-derivable and round-trips exactly.)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MatchInfo {
+    pub method: MatchMethod,
+    pub confidence: u8,
+}
+
+impl MatchInfo {
+    /// Build from a rung + a `0.0..=1.0` score, scaling the score to a `0..=100` percentage.
+    fn new(method: MatchMethod, score: f64) -> Self {
+        MatchInfo {
+            method,
+            confidence: (score.clamp(0.0, 1.0) * 100.0).round() as u8,
+        }
+    }
+}
+
 /// A structural diff of two programs (the engine behind DD-017's `diff` verb): which functions are
 /// matched across them and which live on only one side.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -592,10 +613,10 @@ pub struct ProgramDiff {
     pub only_a: Vec<StableId>,
     /// Stable ids present only in `b` (added / only-there).
     pub only_b: Vec<StableId>,
-    /// How each matched/changed pair was recovered, keyed by the `a`-side id — the ladder rung that
-    /// placed it ([`MatchMethod`]). Every pair in `matched`+`changed` has exactly one entry; `only_*`
-    /// have none. Lets a consumer report diff **confidence** without re-running the match.
-    pub provenance: Vec<(StableId, MatchMethod)>,
+    /// How each matched/changed pair was recovered, keyed by the `a`-side id — the ladder rung and a
+    /// confidence percentage ([`MatchInfo`]). Every pair in `matched`+`changed` has exactly one entry;
+    /// `only_*` have none. Lets a consumer report diff **confidence** without re-running the match.
+    pub provenance: Vec<(StableId, MatchInfo)>,
 }
 
 /// A function's anchored call-graph neighbourhood: the EXACT-matched callees it calls and callers
@@ -626,13 +647,14 @@ fn record_pair(
     aid: StableId,
     bid: StableId,
     method: MatchMethod,
+    score: f64,
 ) {
     if signature(a_fn[&aid]) == signature(b_fn[&bid]) {
         diff.matched.push((aid, bid));
     } else {
         diff.changed.push((aid, bid));
     }
-    diff.provenance.push((aid, method));
+    diff.provenance.push((aid, MatchInfo::new(method, score)));
 }
 
 /// The candidate maximising `score`, accepted ONLY if it clears `threshold` AND beats the runner-up
@@ -713,7 +735,8 @@ fn propagate_round(
         if ua != *id || paired_b.contains(&ub) {
             continue;
         }
-        record_pair(diff, a_fn, b_fn, *id, ub, MatchMethod::Propagation);
+        // Propagation is a structural certainty (a unique reciprocal neighbourhood), like exact → 100%.
+        record_pair(diff, a_fn, b_fn, *id, ub, MatchMethod::Propagation, 1.0);
         paired_a.insert(*id);
         paired_b.insert(ub);
     }
@@ -760,7 +783,7 @@ fn feature_round(
         if recip != Some(aid) {
             continue;
         }
-        record_pair(diff, a_fn, b_fn, aid, bid, method);
+        record_pair(diff, a_fn, b_fn, aid, bid, method, score(a_fn[&aid], b_fn[&bid]));
         paired_a.insert(aid);
         paired_b.insert(bid);
     }
@@ -800,7 +823,7 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
         match b_by_sig.get(&sig) {
             Some(ids) if a_unique && ids.len() == 1 => {
                 diff.matched.push((f.id, ids[0]));
-                diff.provenance.push((f.id, MatchMethod::Exact));
+                diff.provenance.push((f.id, MatchInfo::new(MatchMethod::Exact, 1.0)));
                 claimed_b.insert(ids[0]);
             }
             _ => left_a.push(f.id),
@@ -1413,15 +1436,30 @@ mod tests {
             d.matched.len() + d.changed.len(),
             "exactly one method per matched/changed pair"
         );
-        let method_of = |fn_name: &str| -> Option<MatchMethod> {
-            d.provenance.iter().find(|(aid, _)| name(&v1, *aid) == fn_name).map(|(_, m)| *m)
+        let info_of = |fn_name: &str| -> Option<MatchInfo> {
+            d.provenance.iter().find(|(aid, _)| name(&v1, *aid) == fn_name).map(|(_, i)| *i)
         };
-        // gcd's body changed but its call edges held -> recovered by call-graph propagation.
-        assert_eq!(method_of("gcd"), Some(MatchMethod::Propagation), "gcd via propagation");
+        // gcd's body changed but its call edges held -> recovered by call-graph propagation (a
+        // structural certainty, so 100% confidence).
+        assert_eq!(info_of("gcd").map(|i| i.method), Some(MatchMethod::Propagation), "gcd via propagation");
+        assert_eq!(info_of("gcd").map(|i| i.confidence), Some(100), "propagation is certain");
         // the untouched functions matched on their exact signature.
         for n in ["main", "fib", "factorial", "sum_to"] {
-            assert_eq!(method_of(n), Some(MatchMethod::Exact), "{n} via exact");
+            assert_eq!(info_of(n).map(|i| i.method), Some(MatchMethod::Exact), "{n} via exact");
+            assert_eq!(info_of(n).map(|i| i.confidence), Some(100), "exact is certain");
         }
+    }
+
+    #[test]
+    fn match_info_scales_a_score_to_a_confidence_percentage() {
+        // The feature-rung score (0.0..=1.0) becomes a 0..=100 percentage; certainties are 100.
+        assert_eq!(MatchInfo::new(MatchMethod::Exact, 1.0).confidence, 100);
+        assert_eq!(MatchInfo::new(MatchMethod::Fuzzy, 0.87).confidence, 87);
+        assert_eq!(MatchInfo::new(MatchMethod::Bsim, 0.755).confidence, 76, "rounds");
+        assert_eq!(MatchInfo::new(MatchMethod::Anchor, 0.0).confidence, 0);
+        // out-of-range scores clamp into 0..=100 (never a panicking cast).
+        assert_eq!(MatchInfo::new(MatchMethod::Fuzzy, 1.5).confidence, 100);
+        assert_eq!(MatchInfo::new(MatchMethod::Fuzzy, -0.2).confidence, 0);
     }
 
     /// Multi-round propagation: when a changed function's sole anchor ALSO changed, round 1 recovers

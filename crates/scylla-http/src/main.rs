@@ -337,7 +337,7 @@ fn diff(session: &Session, req: &mut Request) -> (u16, String) {
     // Match-confidence breakdown by ladder rung (DD-017): exact is certain, fuzzy a best-guess.
     let mut methods = serde_json::Map::new();
     for (_, m) in &d.provenance {
-        let e = methods.entry(m.as_str()).or_insert(json!(0));
+        let e = methods.entry(m.method.as_str()).or_insert(json!(0));
         *e = json!(e.as_u64().unwrap_or(0) + 1);
     }
     (

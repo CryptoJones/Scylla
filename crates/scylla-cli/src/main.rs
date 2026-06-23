@@ -296,8 +296,20 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
     // (DD-017): exact is certain, fuzzy is a threshold-cleared best-guess.
     let mut by_method: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
     for (_, m) in &d.provenance {
-        *by_method.entry(m.as_str()).or_default() += 1;
+        *by_method.entry(m.method.as_str()).or_default() += 1;
     }
+    // The rung + confidence % that recovered a given function (by this-side name).
+    let info_of = |name: &str| {
+        d.provenance
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, i)| *i)
+    };
+    let label = |name: &str| {
+        info_of(name)
+            .map(|i| format!(" ({} {}%)", i.method.as_str(), i.confidence))
+            .unwrap_or_default()
+    };
 
     if json {
         let pairs = |v: &[(String, String)]| -> Vec<serde_json::Value> {
@@ -313,6 +325,16 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
             "added": d.only_there,
             "removed": d.only_here,
             "methods": serde_json::to_value(&by_method).unwrap(),
+            "confidence": d
+                .provenance
+                .iter()
+                .map(|(n, i)| {
+                    (
+                        n.clone(),
+                        serde_json::json!({"method": i.method.as_str(), "confidence": i.confidence}),
+                    )
+                })
+                .collect::<serde_json::Map<String, serde_json::Value>>(),
         });
         println!("{}", serde_json::to_string_pretty(&out).unwrap());
     } else {
@@ -344,7 +366,7 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
             "renamed",
             &renamed
                 .iter()
-                .map(|(x, y)| format!("{x} -> {y}"))
+                .map(|(x, y)| format!("{x} -> {y}{}", label(x)))
                 .collect::<Vec<_>>(),
         );
         section(
@@ -353,9 +375,9 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
                 .iter()
                 .map(|(x, y)| {
                     if x == y {
-                        x.clone()
+                        format!("{x}{}", label(x))
                     } else {
-                        format!("{x} -> {y}")
+                        format!("{x} -> {y}{}", label(x))
                     }
                 })
                 .collect::<Vec<_>>(),

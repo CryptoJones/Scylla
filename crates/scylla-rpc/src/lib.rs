@@ -212,7 +212,7 @@ impl session::Server for SessionImpl {
                 let mut counts: std::collections::BTreeMap<&str, u32> =
                     std::collections::BTreeMap::new();
                 for (_, m) in &d.provenance {
-                    *counts.entry(m.as_str()).or_default() += 1;
+                    *counts.entry(m.method.as_str()).or_default() += 1;
                 }
                 let mut list = r.reborrow().init_methods(counts.len() as u32);
                 for (i, (method, count)) in counts.iter().enumerate() {

@@ -41,6 +41,12 @@ fn main() -> ExitCode {
         }
     };
 
+    // Access is gated by SCYLLA_RPC_TOKEN (DD-035): a client must present it to log in. Unset = OPEN
+    // (anyone who connects gets full access) — fine for a loopback dev server, loud otherwise.
+    let token = std::env::var("SCYLLA_RPC_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty());
+
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -49,14 +55,19 @@ fn main() -> ExitCode {
     let result: std::io::Result<()> = local.block_on(&rt, async move {
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         let shared: SharedSession = Rc::new(RefCell::new(session));
+        let auth = if token.is_some() {
+            "token-gated"
+        } else {
+            "OPEN (set SCYLLA_RPC_TOKEN to gate)"
+        };
         eprintln!(
-            "scylla-rpc-serve: {artifact} on {} (DD-002 capnp RPC; Ctrl-C to stop)",
+            "scylla-rpc-serve: {artifact} on {} — {auth} (DD-002 capnp RPC; Ctrl-C to stop)",
             listener.local_addr()?
         );
         loop {
             let (stream, _peer) = listener.accept().await?;
             let _ = stream.set_nodelay(true);
-            let rpc = serve_connection(shared.clone(), stream);
+            let rpc = serve_connection(shared.clone(), token.clone(), stream);
             tokio::task::spawn_local(async move {
                 let _ = rpc.await;
             });

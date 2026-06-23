@@ -10,7 +10,7 @@
 
 use std::process::ExitCode;
 
-use scylla_rpc::connect;
+use scylla_rpc::{connect, login};
 
 const USAGE: &str = "usage: scylla-rpc-connect <host:port> \
      <info | functions | view <id> [zoom] | callers <id> | diff <other.scylla>>";
@@ -57,10 +57,19 @@ async fn run(addr: &str, args: &[String]) -> ExitCode {
         }
     };
     let _ = stream.set_nodelay(true);
-    let (session, rpc) = connect(stream);
+    let (auth, rpc) = connect(stream);
     tokio::task::spawn_local(async move {
         let _ = rpc.await;
     });
+    // Authenticate (DD-035) — token from SCYLLA_RPC_TOKEN, empty for an open server.
+    let token = std::env::var("SCYLLA_RPC_TOKEN").unwrap_or_default();
+    let session = match login(&auth, &token).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: login failed ({e}) — set SCYLLA_RPC_TOKEN to the server's token");
+            return ExitCode::FAILURE;
+        }
+    };
 
     let result: capnp::Result<()> = async {
         match cmd {

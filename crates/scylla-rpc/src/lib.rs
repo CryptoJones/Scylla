@@ -29,7 +29,7 @@ use scylla_model::StableId;
 use scylla_port::{Session, Zoom};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use scylla_rpc_capnp::{function, session};
+use scylla_rpc_capnp::{authenticator, function, session};
 
 /// A loaded port session, shared between the RPC capabilities serving it. `!Send` (`Rc`) — the RPC
 /// runs on a `LocalSet`, matching capnp-rpc's single-threaded capability model.
@@ -51,9 +51,45 @@ fn function_client(session: &SharedSession, id: StableId) -> function::Client {
     })
 }
 
-/// Wrap a loaded session as the bootstrap `Session` capability a client connects to.
+/// Wrap a loaded session as a `Session` capability (no auth — for embedding / tests).
 pub fn session_server(session: SharedSession) -> session::Client {
     capnp_rpc::new_client(SessionImpl { session })
+}
+
+/// The bootstrap `Authenticator` capability: a client must `login(token)` to obtain the `Session`.
+/// `token = None` runs OPEN (any login succeeds) — the server warns; `Some(t)` requires an exact
+/// match (a wrong token is a `capnp::Error`, never a `Session`). Capability-based auth (DD-035): no
+/// authority leaks until authentication.
+pub fn auth_server(session: SharedSession, token: Option<String>) -> authenticator::Client {
+    capnp_rpc::new_client(AuthImpl { session, token })
+}
+
+struct AuthImpl {
+    session: SharedSession,
+    token: Option<String>,
+}
+
+impl authenticator::Server for AuthImpl {
+    fn login(
+        self: capnp::capability::Rc<Self>,
+        params: authenticator::LoginParams,
+        mut results: authenticator::LoginResults,
+    ) -> impl Future<Output = Result<(), capnp::Error>> + 'static {
+        let (session, expected) = (self.session.clone(), self.token.clone());
+        async move {
+            let presented = params.get()?.get_token()?.to_str()?;
+            match expected {
+                Some(t) if presented != t => {
+                    return Err(capnp::Error::failed(
+                        "authentication failed: bad token".into(),
+                    ));
+                }
+                _ => {}
+            }
+            results.get().set_session(session_server(session));
+            Ok(())
+        }
+    }
 }
 
 /// Server impl of `Session`, backed by the in-process client port.
@@ -255,10 +291,15 @@ impl function::Server for FunctionImpl {
     }
 }
 
-/// Serve a loaded `session` over one bidirectional byte stream (a TCP connection, a duplex pipe).
-/// Returns the server-side `RpcSystem` (a `Future`) — drive it with `.await` on a `LocalSet` (it
-/// resolves when the peer disconnects). One call per connection.
-pub fn serve_connection<T>(session: SharedSession, io: T) -> RpcSystem<rpc_twoparty_capnp::Side>
+/// Serve a loaded `session` over one bidirectional byte stream (a TCP connection, a duplex pipe),
+/// gated by `token` (`None` = open, with a server-side warning). The bootstrap is an `Authenticator`
+/// — a client must `login` before it gets the `Session`. Returns the server-side `RpcSystem` (a
+/// `Future`) — drive it with `.await` on a `LocalSet`; it resolves when the peer disconnects.
+pub fn serve_connection<T>(
+    session: SharedSession,
+    token: Option<String>,
+    io: T,
+) -> RpcSystem<rpc_twoparty_capnp::Side>
 where
     T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + 'static,
 {
@@ -269,14 +310,14 @@ where
         rpc_twoparty_capnp::Side::Server,
         Default::default(),
     );
-    let client = session_server(session);
-    RpcSystem::new(Box::new(net), Some(client.client))
+    let auth = auth_server(session, token);
+    RpcSystem::new(Box::new(net), Some(auth.client))
 }
 
-/// Connect a client to a served session over one byte stream. Returns the bootstrapped `Session`
+/// Connect to a served endpoint over one byte stream. Returns the bootstrapped `Authenticator`
 /// capability plus the client-side `RpcSystem` (a `Future`) — spawn the system on a `LocalSet`,
-/// then drive the port through the capability.
-pub fn connect<T>(io: T) -> (session::Client, RpcSystem<rpc_twoparty_capnp::Side>)
+/// then [`login`] to obtain the `Session`.
+pub fn connect<T>(io: T) -> (authenticator::Client, RpcSystem<rpc_twoparty_capnp::Side>)
 where
     T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + 'static,
 {
@@ -288,8 +329,16 @@ where
         Default::default(),
     );
     let mut rpc = RpcSystem::new(Box::new(net), None);
-    let client: session::Client = rpc.bootstrap(rpc_twoparty_capnp::Side::Server);
-    (client, rpc)
+    let auth: authenticator::Client = rpc.bootstrap(rpc_twoparty_capnp::Side::Server);
+    (auth, rpc)
+}
+
+/// Authenticate to obtain the `Session` capability. A wrong token comes back as a `capnp::Error`.
+pub async fn login(auth: &authenticator::Client, token: &str) -> capnp::Result<session::Client> {
+    let mut req = auth.login_request();
+    req.get().set_token(token);
+    let resp = req.send().promise.await?;
+    resp.get()?.get_session()
 }
 
 #[cfg(test)]
@@ -327,14 +376,15 @@ mod tests {
         local.block_on(&rt, async move {
             let (client_io, server_io) = tokio::io::duplex(64 * 1024);
             let session: SharedSession = Rc::new(RefCell::new(Session::open(prog)));
-            let server = serve_connection(session, server_io);
+            let server = serve_connection(session, None, server_io); // open mode for these tests
             tokio::task::spawn_local(async move {
                 let _ = server.await;
             });
-            let (client, client_rpc) = connect(client_io);
+            let (auth, client_rpc) = connect(client_io);
             tokio::task::spawn_local(async move {
                 let _ = client_rpc.await;
             });
+            let client = login(&auth, "").await.expect("login (open mode)");
             f(client).await
         })
     }
@@ -372,6 +422,42 @@ mod tests {
             vec!["main".to_string()],
             "gcd's callers, over the wire"
         );
+    }
+
+    #[test]
+    fn auth_gates_access_with_a_token() {
+        // A token-gated server hands out the Session only on the right token (DD-035): a wrong token
+        // is a capnp::Error (no authority leaks), the right one yields a working Session.
+        let prog = program();
+        let n = prog.functions.len() as u32;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let local = tokio::task::LocalSet::new();
+        let (wrong_denied, right_works) = local.block_on(&rt, async move {
+            let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+            let session: SharedSession = Rc::new(RefCell::new(Session::open(prog)));
+            let server = serve_connection(session, Some("s3cret".to_string()), server_io);
+            tokio::task::spawn_local(async move {
+                let _ = server.await;
+            });
+            let (auth, client_rpc) = connect(client_io);
+            tokio::task::spawn_local(async move {
+                let _ = client_rpc.await;
+            });
+            let wrong_denied = login(&auth, "nope").await.is_err();
+            let right_works = match login(&auth, "s3cret").await {
+                Ok(sess) => {
+                    let info = sess.info_request().send().promise.await.unwrap();
+                    info.get().unwrap().get_functions() == n
+                }
+                Err(_) => false,
+            };
+            (wrong_denied, right_works)
+        });
+        assert!(wrong_denied, "a wrong token must NOT yield a Session");
+        assert!(right_works, "the right token yields a working Session");
     }
 
     #[test]

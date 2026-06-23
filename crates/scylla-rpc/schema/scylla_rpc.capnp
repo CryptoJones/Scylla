@@ -12,6 +12,13 @@
 # Zoom is the DD-020 altitude as a u8 (0 = intent, 1 = domain, 2 = detail). Mutating verbs map a
 # rejected value (PortError::InvalidInput, DD-021) straight to a capnp::Error.
 
+# The bootstrap capability: you don't get a `Session` (any authority at all) until you authenticate
+# (DD-035). Capability-based auth — a wrong token yields a capnp::Error, not a Session. When the
+# server is started without a configured token it runs OPEN (login accepts anything, with a warning).
+interface Authenticator {
+  login @0 (token :Text) -> (session :Session);
+}
+
 # A function pairing across two builds, by display name (DD-017 diff).
 struct FnPair {
   here  @0 :Text;

@@ -32,18 +32,31 @@ impl Drop for Server {
     }
 }
 
-/// Run the remote client against `addr` with `args`, returning `(exit_code, stdout)`.
-fn connect(addr: &str, args: &[&str]) -> (i32, String) {
+/// Run the remote client against `addr` with `args` and an optional `SCYLLA_RPC_TOKEN`, returning
+/// `(exit_code, stdout)`.
+fn connect_with(addr: &str, args: &[&str], token: Option<&str>) -> (i32, String) {
     let mut full = vec![addr];
     full.extend_from_slice(args);
-    let out = Command::new(env!("CARGO_BIN_EXE_scylla-rpc-connect"))
-        .args(&full)
-        .output()
-        .expect("run scylla-rpc-connect");
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_scylla-rpc-connect"));
+    cmd.args(&full);
+    match token {
+        Some(t) => {
+            cmd.env("SCYLLA_RPC_TOKEN", t);
+        }
+        None => {
+            cmd.env_remove("SCYLLA_RPC_TOKEN");
+        }
+    }
+    let out = cmd.output().expect("run scylla-rpc-connect");
     (
         out.status.code().unwrap_or(-1),
         String::from_utf8_lossy(&out.stdout).into_owned(),
     )
+}
+
+/// Run the remote client with no token (the default; the server in the main test runs open).
+fn connect(addr: &str, args: &[&str]) -> (i32, String) {
+    connect_with(addr, args, None)
 }
 
 #[test]
@@ -107,4 +120,50 @@ fn remote_head_drives_the_port_over_tcp() {
     // a non-integer id is a clean failure, not a panic
     let (code, _out) = connect(&addr, &["view", "not-a-number"]);
     assert_ne!(code, 0, "a bad id fails cleanly");
+}
+
+#[test]
+fn token_gated_server_denies_without_the_token_over_tcp() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
+            .args([ARTIFACT, &addr])
+            .env("SCYLLA_RPC_TOKEN", "s3cret") // gate access (DD-035)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-rpc-serve"),
+    );
+
+    // Ready when the RIGHT token logs in.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if connect_with(&addr, &["info"], Some("s3cret")).0 == 0 {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "token-gated server never came up"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // No token / wrong token -> login denied (non-zero), and NO data leaks.
+    let (no_tok, out_none) = connect_with(&addr, &["info"], None);
+    assert_ne!(no_tok, 0, "no token must be denied");
+    assert!(
+        !out_none.contains("functions:"),
+        "denied login must not leak data: {out_none}"
+    );
+    assert_ne!(
+        connect_with(&addr, &["info"], Some("wrong")).0,
+        0,
+        "wrong token must be denied"
+    );
+
+    // The right token works.
+    let (ok, out) = connect_with(&addr, &["info"], Some("s3cret"));
+    assert_eq!(ok, 0, "the right token authenticates");
+    assert!(out.contains("functions: 13"), "authed info: {out}");
 }

@@ -119,6 +119,17 @@ Tracked "later / someday" items that aren't on the current sprint path
       completion (M4→M5):** full uplift merge needs the sample's own `.scylla` (ingest); a hostile
       sample needs the observer generalized to ptrace/QEMU-trace — both ride **M5** (the gated wall:
       real malware + isolated node + external pen-test). Report: harness-m4/M4-REPORT.md.
+    - [x] **M5.0 migrate the tier to Firecracker + re-red-team — PASS (2026-06-24): [harness-m5/](spike/dynamic-analysis/harness-m5/).**
+      M5's recommended tier (smaller VMM attack surface than full QEMU). Firecracker v1.16.0 (user-level),
+      uncompressed `vmlinux` extracted from the host kernel, the M1 busybox initramfs via `initrd_path`,
+      M1's knobs as Firecracker config (no net, no drives, 1 vcpu/256 MiB, `timeout` kill-switch).
+      **GATE PASS** — benign tier ran/no-net/ephemeral (`m5_0-firecracker.sh`), and the GAP-5/7 red team
+      (`m5_0-redteam.sh`) passed **every assertion** on a smaller surface than QEMU (notably **no PCI
+      bus**: escape blocked on net/FS/device/vsock; CPU+fork reaped by the kill-switch rc=124, host
+      responsive 0.31s; mem balloon contained, host RAM −100MB; ephemeral CLEAN/CLEAN). Hardening
+      deferred to M5.3: a minimal hardened guest kernel + the `jailer`. **M5.1–M5.2 are the next
+      no-malware steps; M5.3/M5.4 need the isolated node + corpus + external pen-test.** Reports:
+      harness-m5/M5_0-REPORT.md, HARNESS-M5-PLAN.md.
 
 ## Re-anchoring recovery
 

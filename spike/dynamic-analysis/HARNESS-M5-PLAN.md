@@ -44,6 +44,13 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   red team (`m1-redteam.sh` analogue) against it, still on **synthetic** attacks.
 - **Gate:** the Firecracker tier passes the same 16 assertions M1's QEMU tier did. **Autonomously
   de-riskable now** *without* malware: a Firecracker feasibility spike + a benign red-team re-run.
+- **DONE (2026-06-24):** `harness-m5/m5_0-firecracker.sh` (benign tier) + `harness-m5/m5_0-redteam.sh`
+  (the gate). Firecracker v1.16.0 (user-level), uncompressed `vmlinux` extracted from the host kernel,
+  the M1 busybox initramfs via `initrd_path`, M1's knobs as Firecracker config (no `network-interfaces`,
+  no `drives`, 1 vcpu / 256 MiB, `timeout` kill-switch). **GATE PASS** — benign tier ran/no-net/
+  ephemeral, and the GAP-5/7 red team passed every assertion *on a smaller attack surface than QEMU*
+  (notably **no PCI bus at all**). See `harness-m5/M5_0-REPORT.md`. Production hardening deferred to
+  M5.3: a *minimal hardened* guest kernel (not the host's) + the **`jailer`** in front of `firecracker`.
 
 ### M5.1 — generalize the observer for uncooperative samples (still benign)
 - **Build:** M3's observer recovers the IAT via `LD_DEBUG`, which needs a *cooperative* sample. Replace

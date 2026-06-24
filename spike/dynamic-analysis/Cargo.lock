@@ -67,18 +67,18 @@ dependencies = [
 
 [[package]]
 name = "scylla-merge"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "scylla-model",
 ]
 
 [[package]]
 name = "scylla-model"
-version = "0.3.0"
+version = "0.5.0"
 
 [[package]]
 name = "scylla-port"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "scylla-merge",
  "scylla-model",
@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-schema"
-version = "0.3.0"
+version = "0.5.0"
 dependencies = [
  "capnp",
  "capnpc",

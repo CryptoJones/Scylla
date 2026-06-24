@@ -51,6 +51,16 @@ Tracked "later / someday" items that aren't on the current sprint path
     DD-007 provenance + DD-027 coverage-aware collaborate; the **execution-containment harness stays
     DEFERRED** with its own threat model (do NOT weaken DD-034 to prepare for it). Full writeup +
     `run-spike.sh` in the spike dir.
+  - [x] **Harness DE-RISK — DONE (2026-06-24, design only): [spike/dynamic-analysis/HARNESS-THREAT-MODEL.md](spike/dynamic-analysis/HARNESS-THREAT-MODEL.md).**
+    The "own threat model" the eval required, written before any execution: the new seam **S6 — sample
+    → execution harness** (executing attacker code, categorically above the DD-034 *parser* sandbox),
+    the containment tier (VM-grade/microVM, ephemeral, hard no-egress, no host FS, resource+wall-clock
+    bounds, one-way untrusted observation channel), and the OPEN gaps that gate the build (GAP-5
+    sandbox escape, GAP-6 observation-channel injection, GAP-7 resource exhaustion, GAP-8 evasion,
+    GAP-9 contamination). A NON-EXECUTING prototype (`src/harness.rs`: a `DynamicHarness` trait +
+    `RecordedHarness` that replays a recorded trace) proves the producer interface + the
+    observe→DD-007-`dynamic`-provenance flow end-to-end, executing nothing. **The real `MicroVmHarness`
+    stays DEFERRED** until the containment tier is built + pen-tested against GAP-5..9. Still gated.
 
 ## Re-anchoring recovery
 

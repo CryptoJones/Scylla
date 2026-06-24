@@ -14,8 +14,12 @@
 //! that a real dynamic producer needs is explicitly OUT OF SCOPE — it gets its own threat model
 //! when/if the harness is ever built (the eval is emphatic: do not weaken DD-034 to "get ready").
 
+mod harness;
+
 use std::collections::BTreeSet;
 
+use harness::{DynamicHarness, RecordedHarness};
+use scylla_model::Provenance;
 use scylla_port::Session;
 use serde_json::Value;
 
@@ -85,6 +89,23 @@ fn main() {
     println!("[dyn] LEVERAGE: imports feed the DD-041 cross-arch ANCHOR. On a packed/stripped sample");
     println!("[dyn]   static imports trend to 0; a dynamic IAT rebuild restores them, so the dynamic");
     println!("[dyn]   producer doesn't just add data — it lifts re-anchoring where static is blind.");
+
+    // --- the EXECUTION HARNESS interface, NON-EXECUTING (the deferred half, de-risked at design) ---
+    let h = RecordedHarness::from_file(&iat_path);
+    let observed = h.observe("mathlib (a real harness would RUN this in the containment tier; here: replay)");
+    println!("[harness] === execution harness de-risk (see HARNESS-THREAT-MODEL.md) ===");
+    println!("[harness] containment: {}", h.containment());
+    println!("[harness] observed {} runtime edges — and EXECUTED NOTHING (recorded replay)", observed.len());
+    for e in observed.iter().take(3) {
+        let p = Provenance {
+            producer: "dynamic".into(),
+            confidence: e.confidence,
+        };
+        println!("[harness]   {} -> {}  ==> DD-007 {:?}", e.from, e.to, p);
+    }
+    println!("[harness] interface + provenance flow proven end-to-end; the real MicroVmHarness plugs in");
+    println!("[harness]   behind GAP-5..9 (sandbox escape, observation injection, …) — DEFERRED, not built.");
+
     let go = newly_resolved > 0 && unmatched_callsites == 0;
     println!(
         "[dyn] VERDICT: {}",

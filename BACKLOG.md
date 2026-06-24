@@ -70,6 +70,15 @@ Tracked "later / someday" items that aren't on the current sprint path
     (multi-week security engineering, not a feature); M2–M4 mechanical once M1 stands. **No hostile
     execution before M5; build only on an explicit go, one milestone at a time.** The plan exists so
     the work is schedulable; building it remains DEFERRED.
+    - [x] **M1 containment tier — FIRST CUT DONE (2026-06-24): [spike/dynamic-analysis/harness-m1/](spike/dynamic-analysis/harness-m1/).**
+      `m1-microvm.sh` stands up an EPHEMERAL, NO-EGRESS (`-nic none`), 256M-capped, kill-switched
+      (`timeout`) QEMU `microvm`+KVM sandbox that runs a BENIGN payload and is destroyed. Verified on
+      ronin28 (VT-x + `/dev/kvm`, user in `kvm` group → no sudo to run; QEMU installed): the guest
+      executed (`M1_GUEST_RAN ok`), had zero network interfaces, and powered off (qemu rc=0). Proves
+      execution + containment + ephemeral teardown on a cooperative guest. **GATE PENDING:** the
+      GAP-5/7 RED-TEAM (a HOSTILE guest can't escape/exhaust) is the next checkpoint before M2; M5
+      should migrate the tier to Firecracker (smaller attack surface). No hostile code run; no Scylla
+      integration yet. Report: harness-m1/M1-REPORT.md.
 
 ## Re-anchoring recovery
 

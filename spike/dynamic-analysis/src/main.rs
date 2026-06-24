@@ -19,7 +19,7 @@ mod harness;
 
 use std::collections::BTreeSet;
 
-use harness::{DynamicHarness, RecordedHarness};
+use harness::{DynamicHarness, MicroVmHarness, RecordedHarness};
 use scylla_model::Provenance;
 use scylla_port::Session;
 use serde_json::Value;
@@ -38,6 +38,41 @@ fn main() {
                 )
             );
             return;
+        }
+        // M4 — the producer END-TO-END on a benign sample against the REAL tier (needs KVM + $KERNEL).
+        Some("m4") => {
+            let manifest = env!("CARGO_MANIFEST_DIR");
+            let h = MicroVmHarness {
+                observer: format!("{manifest}/harness-m3/m3-observe.sh"),
+                kernel: std::env::var("KERNEL").ok(),
+            };
+            println!("[m4] containment: {}", h.containment());
+            let observed = h.observe("benign sample (M3 observer)");
+            println!(
+                "[m4] observed {} runtime edge(s) from a REAL contained run, via the validated M2 channel:",
+                observed.len()
+            );
+            for e in &observed {
+                // The seam (already proven): each observation is a SECOND producer's output, stamped
+                // DD-007 `producer="dynamic"` with PARTIAL-coverage confidence — never user/100 — so
+                // DD-027 collaborate down-ranks it and the WRONG=0 matcher is never fed ground truth.
+                let p = Provenance { producer: "dynamic".into(), confidence: e.confidence };
+                println!("[m4]   {} -> {}  ==> DD-007 {:?}", e.from, e.to, p);
+            }
+            let go = !observed.is_empty() && observed.iter().all(|e| e.confidence < 100);
+            println!(
+                "[m4] VERDICT: {}",
+                if go {
+                    "GO — the real MicroVmHarness ran a benign sample in the contained tier and its \
+                     resolved-IAT observations crossed the bounded, validated channel, each stamped \
+                     dynamic/partial-confidence (DD-007). So a dynamic producer feeds the one model as \
+                     a down-rankable second source (DD-027), with WRONG=0 intact. Merging into the \
+                     SAME sample's static model needs that sample's `.scylla` (ingest) — M4→M5."
+                } else {
+                    "INCONCLUSIVE — no validated observations (is KVM available and $KERNEL readable?)."
+                }
+            );
+            std::process::exit(if go { 0 } else { 1 });
         }
         _ => {}
     }

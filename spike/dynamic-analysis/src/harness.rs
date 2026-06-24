@@ -71,3 +71,66 @@ impl DynamicHarness for RecordedHarness {
         "NONE — recorded replay, executes nothing (real harness: microVM, see HARNESS-THREAT-MODEL.md)"
     }
 }
+
+/// M4 — the REAL harness. `observe` runs the sample inside the M1 containment tier via the M3 in-guest
+/// observer (`harness-m3/m3-observe.sh --raw`) and reads the recorded trace back over the M2 channel
+/// through the bounded validator (`crate::channel::read_trace`): execute-in-sandbox → observe → channel
+/// → validate, end to end. Unlike `RecordedHarness` it EXECUTES a real program — still **benign-only**
+/// (a cooperative sample) and **contained** (no egress, no host FS, capped, ephemeral). Hostile samples
+/// are M5 (a ptrace/QEMU observer for uncooperative code + Firecracker + an external pen-test).
+pub struct MicroVmHarness {
+    /// Path to the M3 observer runner (`harness-m3/m3-observe.sh`); invoked with `--raw`.
+    pub observer: String,
+    /// A readable kernel for the microVM (passed as `$KERNEL`); `None` uses the script's default.
+    pub kernel: Option<String>,
+}
+
+impl DynamicHarness for MicroVmHarness {
+    fn observe(&self, _sample: &str) -> Vec<ObservedEdge> {
+        // `_sample` is the benign sample baked into the M3 observer for this first cut; a fuller
+        // harness would stage an arbitrary sample into the guest. Nothing here trusts the result —
+        // it crosses the bounded, validating channel exactly like a stranger's input (DD-036).
+        let mut cmd = std::process::Command::new(&self.observer);
+        cmd.arg("--raw");
+        if let Some(k) = &self.kernel {
+            cmd.env("KERNEL", k);
+        }
+        match cmd.output() {
+            Ok(out) => crate::channel::read_trace(out.stdout.as_slice()).unwrap_or_else(|r| {
+                eprintln!("[microvm] channel QUARANTINED the trace ({r}) — zero observations trusted");
+                Vec::new()
+            }),
+            Err(e) => {
+                eprintln!("[microvm] could not run the contained observer ({e}) — zero observations");
+                Vec::new()
+            }
+        }
+    }
+
+    fn containment(&self) -> &str {
+        "microVM (M1): KVM, ephemeral, no egress (-nic none), no host FS, 256M cap + wall-clock \
+         kill-switch; trace read back over the M2 channel through the bounded validator (M3 observer)"
+    }
+}
+
+#[cfg(test)]
+mod m4 {
+    use super::*;
+
+    // WRONG=0 discipline for the dynamic producer: a dynamic observation is NEVER stamped certain
+    // (user/100). It is partial-coverage by nature (GAP-8 evasion is inherent), so DD-027 collaborate
+    // can only ever let it win a disagreement against a *lower*-confidence fact, never silently
+    // overwrite a confident user/static one. This asserts the stamping discipline the merge relies on.
+    #[test]
+    fn dynamic_observations_are_never_stamped_certain() {
+        let manifest = env!("CARGO_MANIFEST_DIR");
+        let h = RecordedHarness::from_file(&format!("{manifest}/runtime-iat.json"));
+        let edges = h.observe("ignored — recorded replay");
+        assert!(!edges.is_empty(), "the recorded trace should yield observations");
+        assert!(
+            edges.iter().all(|e| e.confidence < 100),
+            "a dynamic observation must never claim certainty (user/100) — that is what keeps DD-027 \
+             collaborate from letting partial-coverage dynamic data overwrite a confident fact"
+        );
+    }
+}

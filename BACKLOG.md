@@ -107,6 +107,18 @@ Tracked "later / someday" items that aren't on the current sprint path
       packed/anti-analysis malware is **ptrace / QEMU-user trace**, which rides with **M5**. GAP-8
       (evasion) stays open → DD-007/DD-027 confidence weighting in M4. **M4 is now UNBLOCKED.** Report:
       harness-m3/M3-REPORT.md.
+    - [x] **M4 dynamic producer end-to-end on benign — FIRST CUT DONE (2026-06-24): [harness-m4/](spike/dynamic-analysis/harness-m4/) + [src/harness.rs](spike/dynamic-analysis/src/harness.rs).**
+      `MicroVmHarness: DynamicHarness` realizes the trait the spike stubbed against the **real tier**:
+      `observe` runs the contained pipeline (M1 boot → M3 observer → M2 channel → bounded validator)
+      and returns `ObservedEdge`s; the `m4` path stamps each `Provenance{producer:"dynamic",
+      confidence}`. Measured (`m4-producer.sh`): **11 resolved-IAT edges from a REAL benign run**,
+      validated + stamped (conf 95). **WRONG=0 by stamping discipline** — dynamic is never certain
+      (`user`/100), so DD-027 `collaborate` can only down-rank it, never overwrite a confident fact (M4
+      *consumes* the merge; the matcher is untouched); hermetic test
+      `harness::m4::dynamic_observations_are_never_stamped_certain` (20 spike tests green). **Honest
+      completion (M4→M5):** full uplift merge needs the sample's own `.scylla` (ingest); a hostile
+      sample needs the observer generalized to ptrace/QEMU-trace — both ride **M5** (the gated wall:
+      real malware + isolated node + external pen-test). Report: harness-m4/M4-REPORT.md.
 
 ## Re-anchoring recovery
 

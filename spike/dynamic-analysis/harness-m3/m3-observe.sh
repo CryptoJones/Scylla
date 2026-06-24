@@ -12,6 +12,10 @@
 # Still NO hostile execution (a benign sample), NO Scylla integration (M4 wires it through collaborate).
 # Set $KERNEL to a readable bzImage.
 set -uo pipefail
+# --raw: emit ONLY the captured guest serial (the M2 channel) on stdout — diagnostics go to stderr —
+# so M4's MicroVmHarness can run this as the real contained pipeline and read_trace the result.
+RAW=0; [ "${1:-}" = "--raw" ] && RAW=1
+exec 3>&1; [ "$RAW" = 1 ] && exec >&2
 HERE="$(cd "$(dirname "$0")" && pwd)"; SPIKE_DIR="$(cd "$HERE/.." && pwd)"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 export PATH="$HOME/.cargo/bin:$PATH" CC="${CC:-/usr/bin/gcc}" CXX="${CXX:-/usr/bin/g++}"
@@ -70,6 +74,8 @@ echo "=== boot the contained microVM (no net, no host FS, 256M cap) — observer
 timeout 40 qemu-system-x86_64 -machine microvm -accel kvm -cpu host -m 256 -smp 1 \
   -kernel "$W/vmlinuz" -initrd "$W/ir.cpio.gz" -append "console=ttyS0 reboot=t panic=-1" \
   -nodefaults -no-reboot -no-user-config -nic none -serial stdio -display none > "$W/serial.log" 2>&1
+# --raw: hand the captured channel (serial) to the caller (M4's MicroVmHarness) and stop here.
+if [ "$RAW" = 1 ]; then cat "$W/serial.log" >&3; exit 0; fi
 grep -aE 'GUEST:' "$W/serial.log" | sed 's/^/    /'
 
 echo "=== host reads the channel through the bounded validator (channel.rs / m2-read) ==="

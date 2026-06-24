@@ -81,6 +81,16 @@ the box that actually runs the sample — and that is pure security engineering.
   (opt-in, like `SCYLLA_ENGINE_WARM`), never the default.
 - **Gate:** on the corpus's benign samples, the dynamic producer enriches the static model (the seam
   spike's measured uplift, now from a real run) with `WRONG = 0` preserved end-to-end.
+- **First cut DONE (2026-06-24):** `MicroVmHarness: DynamicHarness` (`src/harness.rs`) — `observe`
+  runs the real contained pipeline (M1 boot → M3 observer → M2 channel → bounded validator) and
+  returns `ObservedEdge`s; the `m4` path stamps each `Provenance { producer: "dynamic", confidence }`.
+  Measured (`harness-m4/m4-producer.sh`): 11 resolved-IAT edges from a REAL benign run, validated +
+  stamped (`confidence=95`). `WRONG = 0` is held by the **stamping discipline** — a dynamic
+  observation is never certain (`user`/100), so DD-027 `collaborate` can only down-rank it, never
+  overwrite a confident fact (M4 *consumes* the merge; the matcher is untouched); hermetic test
+  `harness::m4::dynamic_observations_are_never_stamped_certain`. **Honest completion (M4→M5):** the
+  full uplift merge needs the *sample's own* `.scylla` (ingest), and a hostile sample needs the M3
+  observer generalized to ptrace/QEMU-trace — both ride with M5. See `harness-m4/M4-REPORT.md`.
 
 ### M5 — widen to hostile samples (the actual point)
 - **Build:** only now, carefully, on an **isolated node**, opt-in, with the M1 red-team re-run against

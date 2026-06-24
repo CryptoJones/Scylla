@@ -9,6 +9,15 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.4.0] — 2026-06-24
+
+The ninth head — an LSP server, so an editor navigates the model with the go-to-symbol / hover /
+find-references / rename it already has for source — plus a diff pane for the TUI, so a structural
+diff is browsable in the terminal. Both are thin projections of the one client port (DD-017): no
+body, no contract, no schema change (a SemVer minor). Eight heads became nine.
+
 ### Added
 
 - **`scylla-tui` diff pane (DD-017).** Pass a second artifact (`scylla-tui a.scylla b.scylla`) and
@@ -143,7 +152,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...HEAD
+[0.4.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...v0.4.0
 [0.3.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...v0.3.0
 [0.2.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.1.0...v0.2.0
 [0.1.0]: https://codeberg.org/CryptoJones/Scylla/src/tag/v0.1.0

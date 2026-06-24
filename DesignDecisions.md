@@ -97,7 +97,11 @@ once, because they were all symptoms of producer↔consumer coupling in the old 
   The heavy JVM/engine becomes a *transient producer* you spin up to analyze and then drop.
 - **Collaboration / multi-user (DD-027).** The Ghidra-Server subsystem *disappears.* A
   shareable, mergeable model artifact makes collaboration **git for reverse engineering** —
-  share, sync, diff, merge two analysts' work. No bespoke collaboration server.
+  share, sync, diff, merge two analysts' work. No bespoke collaboration server. **REALIZED
+  (2026-06-24):** `collaborate()` three-way merges two analysts' facts, and is now
+  **confidence-aware** on top of DD-007 — a disagreement where one side's `Provenance::confidence`
+  clearly wins (by more than `CONFIDENCE_MARGIN`) is auto-resolved; a near-tie is still flagged,
+  never guessed (the same `WRONG = 0` "unique winner clearing a margin" discipline the matcher uses).
 - **Independent scaling.** Producing (analyze: heavy, one binary at a time) and consuming
   (serve: light, massively concurrent) are opposite workloads. The artifact lets each scale to
   its own shape — analysis on a beefy box or a worker fleet, serving from featherweight nodes.

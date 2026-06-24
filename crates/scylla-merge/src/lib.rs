@@ -914,14 +914,24 @@ pub struct CollabReport {
     pub conflicts: usize,
     /// Incoming facts that couldn't be re-anchored onto `base` (flagged, not lost).
     pub flagged: usize,
+    /// Disagreements the confidence rule settled WITHOUT flagging (DD-027): one side's
+    /// `Provenance::confidence` cleanly beat the other's (by more than `CONFIDENCE_MARGIN`), so the
+    /// higher-confidence fact stands. A near-tie is never auto-resolved — it stays a `conflict`.
+    pub resolved_by_confidence: usize,
 }
+
+/// The confidence gap (in `Provenance::confidence` points) a disagreement must clear for the
+/// higher-confidence fact to win automatically (DD-027). At or under it the two are a near-tie and
+/// the disagreement is flagged, never guessed — the same "unique winner clearing a margin" discipline
+/// the re-anchoring matcher uses to hold `WRONG = 0`.
+const CONFIDENCE_MARGIN: u8 = 5;
 
 /// Merge another analyst's facts into `base` — **git for reverse engineering** (DD-027).
 ///
 /// `incoming` is a *separate materialization of the same binary* (its own stable ids). Each
-/// incoming fact is re-anchored onto `base` structurally; clean ones are added, identical
-/// ones are no-ops, and genuine disagreements are returned as [`Conflict`]s — `base` is never
-/// silently overwritten.
+/// incoming fact is re-anchored onto `base` structurally; clean ones are added, identical ones are
+/// no-ops, and a disagreement is settled by `Provenance::confidence` when one side clearly wins
+/// (DD-027) — otherwise returned as a [`Conflict`]. `base` is never silently overwritten on a near-tie.
 pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec<Conflict>) {
     let mut base_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
     for f in &base.functions {
@@ -933,6 +943,9 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
     let mut report = CollabReport::default();
     let mut conflicts = Vec::new();
     let mut to_add = Vec::new();
+    // DD-027: confidence-resolved replacements, applied after the loop (so the merge loop holds no
+    // mutable borrow of `base.facts`, mirroring the deferred `to_add`).
+    let mut to_replace: Vec<UserFact> = Vec::new();
     for fact in &incoming.facts {
         let base_target = incoming_by_id
             .get(&fact.target)
@@ -950,12 +963,25 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
             .find(|bf| bf.target == tid && std::mem::discriminant(&bf.kind) == kind_disc);
         match existing {
             Some(bf) if bf.kind != fact.kind => {
-                conflicts.push(Conflict {
-                    target: tid,
-                    ours: bf.kind.clone(),
-                    theirs: fact.kind.clone(),
-                });
-                report.conflicts += 1;
+                // DD-027: a disagreement. Settle it by confidence when one side clearly wins; a
+                // near-tie (within CONFIDENCE_MARGIN) is flagged, never guessed (WRONG=0 discipline).
+                let base_conf = bf.provenance.confidence;
+                let incoming_conf = fact.provenance.confidence;
+                if incoming_conf > base_conf && incoming_conf - base_conf > CONFIDENCE_MARGIN {
+                    // The higher-confidence incoming fact takes over (recorded; deferred swap).
+                    to_replace.push(fact.retarget(tid));
+                    report.resolved_by_confidence += 1;
+                } else if base_conf > incoming_conf && base_conf - incoming_conf > CONFIDENCE_MARGIN {
+                    // Base is the clear winner — keep it, drop the lower-confidence incoming.
+                    report.resolved_by_confidence += 1;
+                } else {
+                    conflicts.push(Conflict {
+                        target: tid,
+                        ours: bf.kind.clone(),
+                        theirs: fact.kind.clone(),
+                    });
+                    report.conflicts += 1;
+                }
             }
             Some(_) => {} // identical — the analysts already agree
             None => {
@@ -965,13 +991,25 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
         }
     }
     base.facts.extend(to_add);
+    // Apply the DD-027 confidence-resolved swaps: replace the lower-confidence base fact with the
+    // higher-confidence incoming one (same target + kind discriminant).
+    for r in to_replace {
+        let d = std::mem::discriminant(&r.kind);
+        if let Some(slot) = base
+            .facts
+            .iter_mut()
+            .find(|bf| bf.target == r.target && std::mem::discriminant(&bf.kind) == d)
+        {
+            *slot = r;
+        }
+    }
     (report, conflicts)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scylla_model::FactKind;
+    use scylla_model::{FactKind, Provenance};
 
     const V1: &str = include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
     const V2: &str = include_str!("../../../prototype/snapshots/mathlib_v2.x86-64.O0.json");
@@ -1682,5 +1720,64 @@ mod tests {
         // base keeps its own value — incoming never silently overwrites it
         assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
         assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_b")));
+    }
+
+    #[test]
+    fn collaboration_resolves_disagreement_by_higher_confidence() {
+        // base holds a low-confidence engine guess; incoming is a confident user rename (DD-027).
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_guess".into())).with_provenance(
+            Provenance { producer: "engine".into(), confidence: 45 },
+        ));
+        b.facts.push(UserFact::new(b_fib, FactKind::Rename("recursive".into())).with_provenance(
+            Provenance { producer: "user".into(), confidence: 100 },
+        ));
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(conflicts.len(), 0, "a clear confidence winner is not a conflict");
+        assert_eq!(report.resolved_by_confidence, 1);
+        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
+        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
+    }
+
+    #[test]
+    fn collaboration_base_wins_when_more_confident() {
+        // base is the confident user fact; incoming is a low-confidence producer guess.
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        a.facts.push(UserFact::new(a_fib, FactKind::Rename("recursive".into())));
+        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_guess".into())).with_provenance(
+            Provenance { producer: "engine".into(), confidence: 40 },
+        ));
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(conflicts.len(), 0, "base clearly more confident — resolved, not flagged");
+        assert_eq!(report.resolved_by_confidence, 1);
+        // base keeps its confident value; the low-confidence incoming is dropped.
+        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
+        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
+    }
+
+    #[test]
+    fn collaboration_flags_a_near_tie_never_guesses() {
+        // 85 vs 90 — a 5-point gap == the margin, NOT over it: a near-tie, still flagged (WRONG=0).
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_a".into())).with_provenance(
+            Provenance { producer: "analyzer_a".into(), confidence: 85 },
+        ));
+        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_b".into())).with_provenance(
+            Provenance { producer: "analyzer_b".into(), confidence: 90 },
+        ));
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(report.conflicts, 1, "a near-tie is flagged, never auto-resolved");
+        assert_eq!(report.resolved_by_confidence, 0);
+        assert_eq!(conflicts.len(), 1);
+        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
     }
 }

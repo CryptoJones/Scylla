@@ -9,7 +9,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **`collaborate` is now confidence-aware (DD-027).** When two analysts' facts disagree on the same
+  entity, the merge settles it by `Provenance::confidence` (DD-007): a side that clearly wins (by more
+  than a 5-point margin) takes over and is counted in the new `CollabReport.resolved_by_confidence`; a
+  near-tie is still surfaced as a `Conflict`, never guessed — the same "unique winner clearing a
+  margin" discipline the re-anchoring matcher holds for `WRONG = 0`. The matcher and the re-anchoring
+  gate are untouched; this is the final productionization step on top of provenance.
 
 ## [0.5.0] — 2026-06-24
 

@@ -9,7 +9,18 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Producer provenance on durable facts (DD-007).** Every `UserFact` now carries a
+  `Provenance { producer, confidence }` — a free producer label (`"user"`, or an engine/producer
+  name) plus a `0..=100` trust — so a human rename is distinguishable from an engine guess or a
+  re-anchored carry-over. Slotted into the Cap'n Proto artifact **additively** (`model.capnp`
+  `@4`/`@5` — the evolution DD-002 was built for): **old artifacts load unchanged**, defaulting to a
+  certain `user` fact (back-compat tested by hand-building a pre-provenance fact). The port stamps
+  analyst annotations `user`/100; re-anchoring (`retarget`) preserves provenance; a producer stamps
+  its own via `UserFact::with_provenance`. The no-regret groundwork the dynamic-analysis seam spike
+  (`spike/dynamic-analysis/`) validated. Per-edge provenance + coverage-aware `collaborate` (DD-027)
+  remain future.
 
 ## [0.4.0] — 2026-06-24
 

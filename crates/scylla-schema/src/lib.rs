@@ -10,7 +10,7 @@ pub mod model_capnp {
 
 use std::collections::HashSet;
 
-use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
+use scylla_model::{FactKind, Function, Principal, Program, Provenance, StableId, UserFact};
 
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     match k {
@@ -89,6 +89,10 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
             fb.set_kind(kind);
             fb.set_value(value);
             fb.set_author(fact.author.as_ref().map(|p| p.0.as_str()).unwrap_or(""));
+            // Provenance (DD-007), additive: always written, so a re-serialized legacy artifact
+            // acquires its `user`/100 default and round-trips losslessly thereafter.
+            fb.set_producer(fact.provenance.producer.as_str());
+            fb.set_confidence(fact.provenance.confidence);
         }
     }
     let mut buf = Vec::new();
@@ -167,6 +171,19 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
             target: StableId(fact.get_target()),
             kind: fact_from_parts(fact.get_kind(), fact.get_value()?.to_str()?),
             author: (!author.is_empty()).then(|| Principal(author.to_owned())),
+            // Provenance (DD-007), back-compat: an EMPTY producer means a legacy artifact (the
+            // field didn't exist) — default to a certain user fact; else trust the stamped values.
+            provenance: {
+                let producer = fact.get_producer()?.to_str()?;
+                if producer.is_empty() {
+                    Provenance::default()
+                } else {
+                    Provenance {
+                        producer: producer.to_owned(),
+                        confidence: fact.get_confidence(),
+                    }
+                }
+            },
         });
     }
 
@@ -300,7 +317,7 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scylla_model::{FactKind, Function, IdMinter, Program, StableId, UserFact};
+    use scylla_model::{FactKind, Function, IdMinter, Program, Provenance, StableId, UserFact};
 
     fn sample() -> Program {
         let mut m = IdMinter::new();
@@ -362,6 +379,56 @@ mod tests {
         assert!(!bytes.is_empty());
         // A second decode of the same bytes is stable (cacheable artifact, DD-026).
         assert_eq!(from_bytes(&bytes).unwrap(), from_bytes(&bytes).unwrap());
+    }
+
+    #[test]
+    fn provenance_round_trips_losslessly() {
+        // A non-user producer stamps its own provenance (DD-007); it must survive the artifact.
+        let mut prog = sample();
+        prog.facts[0] = prog.facts[0].clone().with_provenance(Provenance {
+            producer: "engine".into(),
+            confidence: 95,
+        });
+        prog.facts[1] = prog.facts[1].clone().with_provenance(Provenance {
+            producer: "matcher:fuzzy".into(),
+            confidence: 72,
+        });
+        let back = from_bytes(&to_bytes(&prog)).expect("decode");
+        assert_eq!(back.facts[0].provenance.producer, "engine");
+        assert_eq!(back.facts[0].provenance.confidence, 95);
+        assert_eq!(back.facts[1].provenance.producer, "matcher:fuzzy");
+        assert_eq!(back.facts[1].provenance.confidence, 72);
+        assert_eq!(prog, back, "DD-007 provenance round-trips losslessly");
+    }
+
+    #[test]
+    fn legacy_artifact_without_provenance_loads_as_user() {
+        // Hand-build a PRE-DD-007 artifact: a UserFact with target/kind/value/author set but the
+        // producer/confidence fields NEVER written, exactly as an old writer left them. It must load
+        // with the certain-user default — the additive-evolution back-compat guarantee (DD-002).
+        let mut message = capnp::message::Builder::new_default();
+        {
+            let mut p = message.init_root::<model_capnp::program::Builder>();
+            p.set_name("legacy");
+            p.set_language("x86:LE:64:default");
+            let mut facts = p.reborrow().init_facts(1);
+            let mut fb = facts.reborrow().get(0);
+            fb.set_target(42);
+            fb.set_kind(0); // rename
+            fb.set_value("renamed");
+            fb.set_author("");
+            // producer / confidence DELIBERATELY left unset (a pre-provenance writer).
+        }
+        let mut bytes = Vec::new();
+        capnp::serialize::write_message(&mut bytes, &message).unwrap();
+
+        let prog = from_bytes(&bytes).expect("decode legacy");
+        assert_eq!(prog.facts.len(), 1);
+        assert_eq!(
+            prog.facts[0].provenance,
+            Provenance::default(),
+            "a legacy fact (no producer field) defaults to user/100"
+        );
     }
 
     // --- DD-036: the total artifact loader ---

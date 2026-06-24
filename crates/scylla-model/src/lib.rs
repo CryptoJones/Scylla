@@ -156,6 +156,27 @@ pub enum FactKind {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Principal(pub String);
 
+/// Where a fact came from and how strongly to trust it (DD-007). The producer is a free label —
+/// `"user"` for an analyst annotation, an engine/producer name for a machine-derived fact (static
+/// or, eventually, dynamic) — and `confidence` is a `0..=100` percent. It is the seam that lets a
+/// human rename be told apart from an engine guess or a re-anchored carry-over, and the no-regret
+/// groundwork a second producer + coverage-aware `collaborate` (DD-027) needs. Defaults to a
+/// certain user fact, so a bare `UserFact::new` and every legacy artifact reads as `user`/100.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Provenance {
+    pub producer: String,
+    pub confidence: u8,
+}
+
+impl Default for Provenance {
+    fn default() -> Self {
+        Provenance {
+            producer: "user".into(),
+            confidence: 100,
+        }
+    }
+}
+
 /// A durable user fact: an *edge* onto a stable id (DD-005). Survives re-analysis because
 /// it references the stable id, not an address.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -163,12 +184,20 @@ pub struct UserFact {
     pub target: StableId,
     pub kind: FactKind,
     pub author: Option<Principal>,
+    /// Who produced this fact + how strongly to trust it (DD-007). `UserFact::new` is a certain
+    /// user fact; a producer stamps its own via `with_provenance`.
+    pub provenance: Provenance,
 }
 
 impl UserFact {
-    /// A fact with no recorded author (single-user / local).
+    /// A fact with no recorded author (single-user / local), produced by the user (DD-007 default).
     pub fn new(target: StableId, kind: FactKind) -> Self {
-        UserFact { target, kind, author: None }
+        UserFact {
+            target,
+            kind,
+            author: None,
+            provenance: Provenance::default(),
+        }
     }
 
     /// Stamp the authoring principal (the seam).
@@ -177,9 +206,21 @@ impl UserFact {
         self
     }
 
-    /// Clone this fact onto a new target, preserving kind + author (used by re-anchoring).
+    /// Stamp the producer + confidence (DD-007) — how a non-user producer records a machine-derived
+    /// fact (an engine inference, a dynamic observation, a re-anchored carry-over).
+    pub fn with_provenance(mut self, provenance: Provenance) -> Self {
+        self.provenance = provenance;
+        self
+    }
+
+    /// Clone this fact onto a new target, preserving kind + author + provenance (re-anchoring).
     pub fn retarget(&self, target: StableId) -> Self {
-        UserFact { target, kind: self.kind.clone(), author: self.author.clone() }
+        UserFact {
+            target,
+            kind: self.kind.clone(),
+            author: self.author.clone(),
+            provenance: self.provenance.clone(),
+        }
     }
 }
 

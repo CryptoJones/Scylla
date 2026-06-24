@@ -49,8 +49,10 @@ struct MnemonicCount {
 }
 
 struct UserFact {
-  target @0 :UInt64;   # edge onto a stable id (DD-005)
-  kind   @1 :UInt16;   # 0=rename 1=retype 2=comment  (union refinement: TODO)
-  value  @2 :Text;
-  author @3 :Text;     # who made it (DD-035 identity seam; empty string = none)
+  target     @0 :UInt64;   # edge onto a stable id (DD-005)
+  kind       @1 :UInt16;   # 0=rename 1=retype 2=comment  (union refinement: TODO)
+  value      @2 :Text;
+  author     @3 :Text;     # who made it (DD-035 identity seam; empty string = none)
+  producer   @4 :Text;     # provenance (DD-007): producer label; empty = legacy artifact => "user"
+  confidence @5 :UInt8;    # provenance (DD-007): 0..=100 trust; read only when producer is set
 }

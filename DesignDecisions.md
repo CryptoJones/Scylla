@@ -211,7 +211,7 @@ statefulness complicates the ports and scaling.
 *Question:* Does every fact carry provenance (which analyzer/user produced it) and a
 confidence? *Tension:* invaluable for AI consumers, diffing, and trust — but it bloats
 the model. Opt-in vs always-on.
-*Status:* **DECIDED (2026-06-21) — *safe.*** **Omit from v1**; the schema (DD-002) stays additive so provenance/confidence can slot in later without a break. Don't bloat the model now.
+*Status:* **DECIDED (2026-06-21) — *safe.*** **Omit from v1**; the schema (DD-002) stays additive so provenance/confidence can slot in later without a break. Don't bloat the model now. **REALIZED (2026-06-24) — first step, exactly as planned:** additive `Provenance { producer, confidence }` on `UserFact` (`model.capnp` `@4`/`@5`); legacy artifacts load unchanged, defaulting to a certain `user`/100 fact (back-compat tested by hand-building a pre-provenance fact); the port stamps analyst annotations `user`/100 and re-anchoring (`retarget`) preserves provenance; producers stamp their own via `UserFact::with_provenance`. Validated by the dynamic-analysis seam spike (PR #92) as the no-regret groundwork. Per-*edge* provenance and coverage-aware `collaborate` (DD-027) remain future.
 
 **DD-008 — Contract versioning & capability negotiation.**
 *Question:* How does the domain-model contract evolve without breaking heads? (semver

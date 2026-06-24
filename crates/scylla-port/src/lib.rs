@@ -17,7 +17,7 @@ use std::collections::BTreeSet;
 /// Re-exported so heads can name the diff match method + confidence without depending on
 /// `scylla-merge` directly.
 pub use scylla_merge::{MatchInfo, MatchMethod};
-use scylla_model::{FactKind, Function, Principal, Program, StableId, UserFact};
+use scylla_model::{FactKind, Function, Principal, Program, Provenance, StableId, UserFact};
 
 /// Typed port errors (DD-021): a SMALL taxonomy that faithfully mirrors Ghidra's own
 /// exception classes, so a head can translate a failure without inventing semantics
@@ -249,6 +249,8 @@ impl Session {
             target: id,
             kind,
             author: self.principal.clone(),
+            // An analyst annotation through the port is a certain user fact (DD-007).
+            provenance: Provenance::default(),
         });
         Ok(())
     }

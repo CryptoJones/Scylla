@@ -96,6 +96,17 @@ Tracked "later / someday" items that aren't on the current sprint path
       / control-bytes) each a bounded rejection, **no panic/hang/OOM**. Live end-to-end on the real
       microVM (`harness-m2/m2-channel.sh`): a trace read off serial through console noise; a corrupted
       channel quarantined. **M3 (in-guest observer) is now UNBLOCKED.** Report: harness-m2/M2-REPORT.md.
+    - [x] **M3 in-guest observer — DONE, benign-sample gate PASS (2026-06-24): [harness-m3/](spike/dynamic-analysis/harness-m3/).**
+      Inside the M1 tier, runs a benign dynamic sample under the glibc loader's `LD_DEBUG=bindings` +
+      `LD_BIND_NOW` — the loader resolves + logs every import, reconstructing the **resolved IAT** at
+      runtime (what a dynamic IAT-rebuilder emits). The observer frames it (`m3-frame.c`, base64+FNV
+      matching `channel.rs`) onto the **M2 serial channel**; the host reads it back through the bounded
+      validator and confirms the ground-truth imports (`getpid`/`puts`/`snprintf`, +8 libc) — **PASS**,
+      loader-deterministic, within budget. So: execute-in-sandbox → observe → channel → validate, end
+      to end. **Honest limit:** `LD_DEBUG` needs a *cooperative* sample; the general observer for
+      packed/anti-analysis malware is **ptrace / QEMU-user trace**, which rides with **M5**. GAP-8
+      (evasion) stays open → DD-007/DD-027 confidence weighting in M4. **M4 is now UNBLOCKED.** Report:
+      harness-m3/M3-REPORT.md.
 
 ## Re-anchoring recovery
 

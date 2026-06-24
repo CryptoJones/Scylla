@@ -63,6 +63,15 @@ the box that actually runs the sample — and that is pure security engineering.
   x64dbg/ScyllaHide — build the Linux one). Emits the trace M2 carries out.
 - **Gate:** on a *benign* sample with a known IAT, the observer recovers it correctly (ground-truth
   comparison), reproducibly, within budget.
+- **DONE (2026-06-24):** `harness-m3/m3-observe.sh`. First cut uses the glibc loader as the IAT
+  rebuilder — run the benign sample under `LD_DEBUG=bindings` + `LD_BIND_NOW` inside the M1 tier; the
+  loader resolves + logs every import (the resolved IAT); the observer frames it (`m3-frame.c`, base64 +
+  FNV matching `channel.rs`) onto the M2 serial channel; the host reads it back through the bounded
+  validator and confirms the ground-truth imports (`getpid`/`puts`/`snprintf`, +8 more) — **PASS**,
+  loader-deterministic, within budget. Honest limit: `LD_DEBUG` needs a *cooperative* sample; the
+  general observer for packed/anti-analysis samples is **ptrace / QEMU-user trace** (no cooperation
+  needed) and rides with **M5**. GAP-8 (evasion) stays open → DD-007/DD-027 confidence weighting (M4).
+  See `harness-m3/M3-REPORT.md`. **M4 is unblocked.**
 
 ### M4 — the producer, end-to-end on benign samples
 - **Build:** `MicroVmHarness: DynamicHarness` — wire M1+M2+M3 behind the trait the spike stubbed

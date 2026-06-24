@@ -9,6 +9,15 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.5.0] — 2026-06-24
+
+Provenance becomes first-class (DD-007): the durable model now records WHO produced each fact and
+each call-graph edge, and how strongly — so a human rename, a static engine inference, and a future
+dynamic observation are all distinguishable. Slotted in additively (the Cap'n Proto artifact's whole
+point, DD-002); old `.scylla` files load unchanged. No head or matcher change (a SemVer minor).
+
 ### Added
 
 - **Producer provenance on durable facts (DD-007).** Every `UserFact` now carries a
@@ -169,7 +178,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.5.0...HEAD
+[0.5.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...v0.5.0
 [0.4.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...v0.4.0
 [0.3.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...v0.3.0
 [0.2.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.1.0...v0.2.0

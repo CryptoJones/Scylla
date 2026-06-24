@@ -61,6 +61,15 @@ Tracked "later / someday" items that aren't on the current sprint path
     `RecordedHarness` that replays a recorded trace) proves the producer interface + the
     observe→DD-007-`dynamic`-provenance flow end-to-end, executing nothing. **The real `MicroVmHarness`
     stays DEFERRED** until the containment tier is built + pen-tested against GAP-5..9. Still gated.
+  - [x] **Harness BUILD PLAN — DONE (2026-06-24, plan only): [spike/dynamic-analysis/HARNESS-BUILD-PLAN.md](spike/dynamic-analysis/HARNESS-BUILD-PLAN.md).**
+    The staged engineering design for *building* the harness, gated milestone-by-milestone: **M1**
+    containment tier (microVM/Firecracker, red-teamed for GAP-5/7) → **M2** one-way observation channel
+    (GAP-6, DD-036 caps) → **M3** in-guest observer (Linux ptrace/Frida/QEMU IAT-rebuilder) → **M4**
+    `MicroVmHarness: DynamicHarness` producer, end-to-end on BENIGN samples (WRONG=0 held) → **M5**
+    widen to hostile samples on an isolated node + external pen-test. Cost concentrated in M1 + M5
+    (multi-week security engineering, not a feature); M2–M4 mechanical once M1 stands. **No hostile
+    execution before M5; build only on an explicit go, one milestone at a time.** The plan exists so
+    the work is schedulable; building it remains DEFERRED.
 
 ## Re-anchoring recovery
 

@@ -130,6 +130,14 @@ Tracked "later / someday" items that aren't on the current sprint path
       deferred to M5.3: a minimal hardened guest kernel + the `jailer`. **M5.1–M5.2 are the next
       no-malware steps; M5.3/M5.4 need the isolated node + corpus + external pen-test.** Reports:
       harness-m5/M5_0-REPORT.md, HARNESS-M5-PLAN.md.
+    - [x] **M5.1 uncooperative in-guest observer — PASS (2026-06-24): [harness-m5/m5_1-observe.sh](spike/dynamic-analysis/harness-m5/m5_1-observe.sh).**
+      Generalizes M3's observer from the loader's `LD_DEBUG` (needs a *cooperative* sample) to **external
+      ptrace** (`ltrace` PLT interception) with `LD_DEBUG` **unset** — works on an uncooperative sample —
+      running **inside the Firecracker tier** (M5.0), the recovered IAT crossing the M2 channel to the
+      bounded validator. **PASS:** recovered the benign sample's exact IAT (`getpid`/`puts`/`snprintf`)
+      over the validated channel; `ltrace` + 6 lib deps staged into the initramfs. Honest limits (GAP-8):
+      dynamic coverage sees only *called* imports; a hostile sample can anti-trace → a production guest
+      bakes a minimal hardened tracer (M5.3). **M5.2 (benign uplift) next.** Report: harness-m5/M5_1-REPORT.md.
 
 ## Re-anchoring recovery
 

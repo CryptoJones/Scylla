@@ -58,6 +58,14 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   *without* the sample's cooperation (a statically-linked / custom-packed binary).
 - **Gate:** on a *benign* packed/stripped sample with a known IAT, the ptrace observer recovers it
   (ground truth), reproducibly. **Autonomously de-riskable now** *without* malware.
+- **DONE (2026-06-24):** `harness-m5/m5_1-observe.sh`. The observer generalizes from M3's `LD_DEBUG`
+  (cooperative) to **external ptrace** (`ltrace` intercepts PLT calls) with `LD_DEBUG` **unset** — so it
+  works on an uncooperative sample — and runs **inside the Firecracker tier** (M5.0), the recovered IAT
+  crossing the M2 channel to the host validator. **PASS:** recovered the benign sample's exact IAT
+  (`getpid`/`puts`/`snprintf`) over the validated channel. `ltrace` + its 6 lib deps staged into the
+  initramfs. Honest limits (GAP-8 inherent): dynamic coverage sees only *called* imports; a hostile
+  sample can anti-trace — a production guest bakes a minimal hardened tracer, not apt-`ltrace`; that
+  hardening is M5.3. See `harness-m5/M5_1-REPORT.md`.
 
 ### M5.2 — close M4's loop on a benign sample (uplift, WRONG = 0)
 - **Build:** ingest a benign sample to its own `.scylla` (the seam proved a runtime IAT lands by

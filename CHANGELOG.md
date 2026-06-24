@@ -7,7 +7,13 @@ All notable changes to Scylla are recorded here. The format follows
 The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md) (44 DDs); the
 *what* is mapped in [ARCHITECTURE.md](ARCHITECTURE.md). This file is the *when*.
 
-## [Unreleased]
+## [0.6.0] — 2026-06-24
+
+Provenance starts *doing work*: the merge now reconciles disagreement by it. With facts and edges
+carrying `Provenance { producer, confidence }` since v0.5.0 (DD-007), `collaborate` — the git-for-RE
+merge of two analysts' work — settles a conflict by whose fact is more trusted, instead of always
+deferring it to a human. Confined to the collaboration path; the re-anchoring matcher and the
+`WRONG = 0` gate are untouched (a SemVer minor, no head or artifact change).
 
 ### Changed
 

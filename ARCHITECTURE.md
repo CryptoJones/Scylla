@@ -35,7 +35,7 @@ arch test in `scylla-mcp`).
 | `scylla-rpc`    | the **remote head** — the client port over a Cap'n Proto promise-pipelining RPC `interface` (`scylla-rpc-serve` over TCP + the `scylla-rpc-connect` client: info/functions/view/callers/diff + rename/retype/comment + export; auth + cap + handshake + TLS) | DD-002 |
 | `scylla-http`   | the **HTTP/JSON gateway head** — query *and annotate* the model over plain HTTP (info/functions/search/view/callers/diff + rename/retype/comment + export) from any language; token-gated, TLS-capable | DD-017 |
 | `scylla-graphql`| the **GraphQL head** — the client port as one typed query graph (`query`: info/functions/search/function/callers/diff/export; `mutation`: rename/retype/comment), introspection + a GraphiQL console, one round-trip with no over/under-fetching; token-gated, TLS-capable | DD-017 |
-| `scylla-tui`    | the **TUI head** — an interactive terminal navigator (ratatui) over the port: a function list, a selection-following detail pane (addr/blocks/size/callees/callers), and a live search filter; the `App` is a pure, conformance-tested port projection (lib+bin, testable headless) | DD-017 |
+| `scylla-tui`    | the **TUI head** — an interactive terminal navigator (ratatui) over the port: a function list, a selection-following detail pane (addr/blocks/size/callees/callers), a live search filter, and a structural-diff pane (pass a 2nd artifact, toggle `d`); the `App` is a pure, conformance-tested port projection (lib+bin, testable headless) | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 
 The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the

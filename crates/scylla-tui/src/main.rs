@@ -19,10 +19,11 @@ use ratatui::crossterm::execute;
 use ratatui::prelude::*;
 
 use scylla_port::Session;
-use scylla_tui::app::{App, Mode};
+use scylla_tui::app::{App, Mode, Screen};
 use scylla_tui::ui;
 
-const USAGE: &str = "usage: scylla-tui <artifact.scylla>";
+const USAGE: &str =
+    "usage: scylla-tui <artifact.scylla> [other.scylla]   (a 2nd artifact enables the diff pane: press d)";
 
 fn main() -> ExitCode {
     let Some(path) = std::env::args().nth(1) else {
@@ -33,28 +34,39 @@ fn main() -> ExitCode {
         println!("{USAGE}");
         return ExitCode::SUCCESS;
     }
-    let bytes = match std::fs::read(&path) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("scylla-tui: cannot read {path}: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-    let session = match Session::from_artifact(&bytes) {
+    let session = match load(&path) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("scylla-tui: cannot load {path}: {e}");
+            eprintln!("scylla-tui: {e}");
             return ExitCode::FAILURE;
         }
     };
 
-    match run(App::new(session)) {
+    // An optional second artifact enables the diff pane (toggled with `d` / Tab).
+    let app = match std::env::args().nth(2) {
+        Some(other_path) => match load(&other_path) {
+            Ok(other) => App::with_diff(session, other),
+            Err(e) => {
+                eprintln!("scylla-tui: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => App::new(session),
+    };
+
+    match run(app) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("scylla-tui: {e}");
             ExitCode::FAILURE
         }
     }
+}
+
+/// Load a `.scylla` artifact into a session, mapping IO/decode failures to a printable message.
+fn load(path: &str) -> Result<Session, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    Session::from_artifact(&bytes).map_err(|e| format!("cannot load {path}: {e}"))
 }
 
 /// Set up the alternate-screen raw-mode terminal, run the event loop, and ALWAYS restore the
@@ -99,7 +111,8 @@ fn handle_key(app: &mut App, code: KeyCode) {
             KeyCode::Char('k') | KeyCode::Up => app.up(),
             KeyCode::Char('g') | KeyCode::Home => app.top(),
             KeyCode::Char('G') | KeyCode::End => app.bottom(),
-            KeyCode::Char('/') => app.enter_search(),
+            KeyCode::Char('d') | KeyCode::Tab => app.toggle_screen(),
+            KeyCode::Char('/') if app.screen() == Screen::Functions => app.enter_search(),
             _ => {}
         },
         Mode::Search => match code {

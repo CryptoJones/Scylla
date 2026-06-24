@@ -9,7 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`scylla-tui` diff pane (DD-017).** Pass a second artifact (`scylla-tui a.scylla b.scylla`) and
+  press `d` / Tab to toggle a structural-diff screen: a summary line (unchanged / renamed / modified
+  / added / removed) over a color-coded, scrollable list of the changes, each carrying its recovery
+  rung + confidence from the matcher's provenance. The diff is `Session::diff` folded into rows by
+  the headless `App` (still zero terminal dependency), conformance-tested against the port.
 
 ## [0.3.0] — 2026-06-23
 

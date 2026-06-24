@@ -101,7 +101,9 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   GraphiQL console at `GET /graphql`. Token-gated and TLS-capable, like the HTTP and RPC heads.
 - **TUI** — `crates/scylla-tui`: `scylla-tui` is an interactive terminal navigator over the model —
   browse the function list, a detail pane (address, basic blocks, size, callees, callers) that
-  follows the selection, and a live `/` search filter, all over the client port. The `App` (model +
+  follows the selection, a live `/` search filter, and a structural-diff pane (pass a second
+  artifact, toggle with `d`) listing renamed / modified / added / removed with per-pair confidence —
+  all over the client port. The `App` (model +
   UI state) is a pure projection of the port, conformance-tested verb-for-verb; the `ratatui` shell
   is thin on top.
 

@@ -20,6 +20,12 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
   (the `diff` input and the `export` output). Token-gated (`SCYLLA_GRAPHQL_TOKEN`) and TLS-capable
   (`SCYLLA_GRAPHQL_TLS_CERT` / `_KEY`), mirroring the HTTP head. Synchronous `juniper` execution on
   the same `tiny_http` server — no async runtime.
+- **`scylla-tui` — the eighth head: an interactive TUI navigator (DD-017).** A `ratatui` terminal app
+  over the model — a function list, a detail pane (address / basic blocks / size / callees / callers)
+  that follows the selection, and a live `/` search filter. The `App` (model + UI state) is a pure
+  projection of `scylla_port::Session` with zero terminal dependency, conformance-tested against the
+  port verb-for-verb (no pty); the crossterm shell only turns keystrokes into `App` calls. Lib + bin
+  so the navigation logic is testable headless.
 
 ## [0.2.0] — 2026-06-23
 

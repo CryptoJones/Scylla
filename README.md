@@ -14,10 +14,10 @@ reverse-engineering domain model** — the *body* — and exposes it through thi
 **disposable protocol adapters** — the *heads*.
 
 Named for the six-headed sea monster of Homer's *Odyssey*: many heads, one immortal
-body. Lop a head off and grow a new one. Today there are **seven heads** — an MCP server
+body. Lop a head off and grow a new one. Today there are **eight heads** — an MCP server
 (so AI agents reverse-engineer binaries directly), a browser/WASM head, a native serving
-binary, a terminal CLI, a remote Cap'n Proto RPC head, an HTTP/JSON gateway, and a GraphQL
-gateway — all projecting the *same* body. When MCP is the CORBA of 2040, you grow a new head and the
+binary, a terminal CLI, a remote Cap'n Proto RPC head, an HTTP/JSON gateway, a GraphQL
+gateway, and a TUI navigator — all projecting the *same* body. When MCP is the CORBA of 2040, you grow a new head and the
 body never notices.
 
 ## The idea
@@ -68,7 +68,7 @@ what shipped when is in [CHANGELOG.md](CHANGELOG.md).
 ## The heads
 
 One body — the durable RE domain model (`scylla-model`) and the client port over it
-(`scylla-port`) — and **seven heads** today, each a thin adapter projecting the *same* verbs
+(`scylla-port`) — and **eight heads** today, each a thin adapter projecting the *same* verbs
 (navigate / annotate / **diff** / merge / export):
 
 - **Browser (WASM)** — `crates/scylla-wasm`: the client port compiled to `wasm32`, so a browser
@@ -99,6 +99,11 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   `mutation { rename, retype, comment }` — so a client fetches exactly the function / caller / diff
   shape it wants in a single round-trip (no over- or under-fetching), with schema introspection and a
   GraphiQL console at `GET /graphql`. Token-gated and TLS-capable, like the HTTP and RPC heads.
+- **TUI** — `crates/scylla-tui`: `scylla-tui` is an interactive terminal navigator over the model —
+  browse the function list, a detail pane (address, basic blocks, size, callees, callers) that
+  follows the selection, and a live `/` search filter, all over the client port. The `App` (model +
+  UI state) is a pure projection of the port, conformance-tested verb-for-verb; the `ratatui` shell
+  is thin on top.
 
 The **diff** is a real binary-differ: it pairs functions across two builds by structural identity
 (address-independent), then climbs the BinDiff-style ladder — call-graph propagation, unique
@@ -107,7 +112,7 @@ matched / renamed / **modified** / added / removed. Fail-closed throughout: a ne
 
 ## Status
 
-**Feature-complete core, seven working heads.** The durable Rust body (model + client port +
+**Feature-complete core, eight working heads.** The durable Rust body (model + client port +
 Cap'n Proto model-artifact) is built, with a structural binary-diff engine at parity with the
 identity-anchored merge. The heads above all run today over that one body — including a **remote
 RPC head** over the Cap'n Proto promise-pipelining surface (DD-002), the transport the format was

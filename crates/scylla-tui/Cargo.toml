@@ -1,0 +1,24 @@
+[package]
+name = "scylla-tui"
+description = "A TUI head — an interactive terminal navigator over a .scylla model (browse the function list, a detail pane, callers, and a live search filter), entirely over the client port."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# Lib + bin: the `App` (model + UI state) is a pure, testable projection of the client port; the
+# binary is the thin terminal shell around it. The conformance tests drive the lib, never a terminal.
+[lib]
+name = "scylla_tui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scylla-tui"
+path = "src/main.rs"
+
+[dependencies]
+# The maintained terminal-UI stack; ratatui re-exports its crossterm backend (one version, no C deps).
+ratatui = "0.29"
+# A read+navigate head, consuming the client port (DD-017) — never the model internals.
+scylla-port = { path = "../scylla-port" }
+scylla-model = { path = "../scylla-model" }

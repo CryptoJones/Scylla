@@ -103,6 +103,12 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
 - **Gate:** every class contained; observations stay `producer="dynamic"` + partial-coverage confidence
   (GAP-8: a sample that lies/evades can only feed down-rankable data, never ground truth, and the
   analyst is told coverage was partial).
+- **Observer de-risked on benign (2026-06-24):** `harness-m5/m5_3-syscall.sh` proves the
+  packing-resistant **syscall-level observer** (`strace`/ptrace) runs **inside the Firecracker tier**
+  and recovers behavior (`getpid`+`write`) from **both** a normal and a UPX-packed benign binary —
+  where PLT interception (M5.1) was defeated by packing. So the *observer* unknown for packed samples
+  is removed; the **infrastructure** (isolated node + jailer + hardened kernel + corpus + external
+  pen-test) and **anti-trace hardening** remain for M5.3 proper. See `harness-m5/M5_3-SYSCALL-REPORT.md`.
 
 ### M5.4 — external pen-test
 - **Gate:** GAP-5..9 re-validated against hostile samples **by an external pen-tester**; findings

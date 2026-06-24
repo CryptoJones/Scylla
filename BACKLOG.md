@@ -160,6 +160,14 @@ Tracked "later / someday" items that aren't on the current sprint path
         `producer="dynamic"` (5/5 survived; loads cleanly through the `scylla` CLI — additive, legacy
         readers unaffected). Dynamic provenance is **durable on disk**, not runtime-only; `callees` +
         matcher untouched (WRONG=0). Report: harness-m5/M5_2-PERSIST-REPORT.md.
+    - [x] **M5.3 prep — syscall observer (packing-resistant) in the tier (2026-06-24): [harness-m5/m5_3-syscall.sh](spike/dynamic-analysis/harness-m5/m5_3-syscall.sh).**
+      Proves the **syscall-level observer** (`strace`/ptrace) runs **inside the Firecracker tier** and
+      recovers behavior (`getpid`+`write`) from **both** a normal and a UPX-packed benign binary — where
+      PLT interception (M5.1) was defeated by packing. So the harness now has a *named-IAT* observer
+      (M5.1, cooperative/unpacked) **and** a *behavioral/syscall* observer (packing-resistant), both
+      proven in the tier. Removes the observer unknown for packed samples; M5.3 proper still needs the
+      isolated node + jailer + hardened kernel + corpus + external pen-test + anti-trace hardening.
+      Report: harness-m5/M5_3-SYSCALL-REPORT.md.
 
 ## Re-anchoring recovery
 

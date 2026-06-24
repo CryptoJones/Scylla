@@ -9,6 +9,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.3.0] — 2026-06-23
+
+Two more heads grown on the v0.2.0 body, both thin projections of the one client port (DD-017) —
+the hexagon's whole bet, paid out: grow a new head and the body never notices. No body, no
+contract, no schema change (a SemVer minor). Six heads became eight.
+
 ### Added
 
 - **`scylla-graphql` — the seventh head: a GraphQL gateway (DD-017).** The client port projected as
@@ -122,6 +130,7 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...HEAD
+[0.3.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...v0.3.0
 [0.2.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.1.0...v0.2.0
 [0.1.0]: https://codeberg.org/CryptoJones/Scylla/src/tag/v0.1.0

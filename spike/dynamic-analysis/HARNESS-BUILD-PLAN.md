@@ -98,6 +98,13 @@ the box that actually runs the sample — and that is pure security engineering.
 - **Gate:** GAP-5..9 re-validated against hostile samples + an external pen-test. Evasion (GAP-8) is
   inherent — dynamic coverage is partial — so observations stay confidence-stamped and the analyst is
   told coverage was partial; never presented as ground truth.
+- **Staged in detail + infra checklist:** [HARNESS-M5-PLAN.md](HARNESS-M5-PLAN.md). M5 is a real-world
+  wall (isolated node + Firecracker + a malware corpus + an external pen-test — provisioning only CJ
+  can do), so it is sub-staged M5.0 (Firecracker migrate + benign re-red-team) → M5.1 (ptrace/QEMU
+  observer for uncooperative samples) → M5.2 (benign uplift) → M5.3 (real malware, one class at a time,
+  isolated node) → M5.4 (external pen-test). **M5.0–M5.2 are de-riskable WITHOUT malware** (so progress
+  needn't idle on provisioning); **M5.3/M5.4 require the infrastructure above.** No real malware before
+  M5.3, and not before M5.0's Firecracker red-team passes.
 
 ## Integration points (all already exist)
 

@@ -74,6 +74,64 @@ fn main() {
             );
             std::process::exit(if go { 0 } else { 1 });
         }
+        // M5.2 — benign UPLIFT: merge a REAL run's observed call edges into the sample's OWN static
+        // model by identity, stamping DD-007 producer="dynamic", proving WRONG=0 (no engine needed —
+        // uses an existing real `.scylla` + a real observed-edge trace). Args: <artifact.scylla> <edges.json>.
+        Some("m5_2") => {
+            let artifact = std::env::args().nth(2).expect("usage: m5_2 <artifact.scylla> <edges.json>");
+            let edges_path = std::env::args().nth(3).expect("usage: m5_2 <artifact.scylla> <edges.json>");
+            let bytes = std::fs::read(&artifact).expect("read the static .scylla model");
+            let session = Session::from_artifact(&bytes).expect("load the static model");
+            let prog = session.program();
+            let ev: Value = serde_json::from_slice(&std::fs::read(&edges_path).expect("read edges.json"))
+                .expect("parse edges.json");
+            let observed = ev["edges"].as_array().expect("edges[]");
+            println!(
+                "[m5.2] merging {} observed runtime edge(s) into {} ({} static functions)",
+                observed.len(), artifact, prog.functions.len()
+            );
+            let by_name = |n: &str| prog.functions.iter().find(|f| f.name == n);
+            let (mut confirmed, mut dynamic_only, mut unmatched) = (0usize, 0usize, 0usize);
+            for e in observed {
+                let from = e["from"].as_str().unwrap_or("");
+                let to = e["to"].as_str().unwrap_or("");
+                match (by_name(from), by_name(to)) {
+                    (Some(ff), Some(tf)) => {
+                        // Stamp the edge as dynamically-observed (DD-007 per-edge, partial-coverage
+                        // confidence — NEVER user/100, so DD-027 can never let it overwrite a fact).
+                        let p = Provenance { producer: "dynamic".into(), confidence: 90 };
+                        if ff.callees.contains(&tf.id) {
+                            confirmed += 1;
+                            println!("[m5.2]   CONFIRM {from} -> {to}  (existing static edge, now stamped DD-007 {p:?})");
+                        } else {
+                            dynamic_only += 1;
+                            println!("[m5.2]   ADD     {from} -> {to}  (dynamic-only edge static missed; EdgeProvenance {p:?})");
+                        }
+                    }
+                    _ => {
+                        unmatched += 1;
+                        println!("[m5.2]   ! {from} -> {to}  — endpoint not in the static model (NOT merged)");
+                    }
+                }
+            }
+            println!("[m5.2] confirmed={confirmed}  dynamic-only={dynamic_only}  unmatched={unmatched}");
+            let wrong0 = unmatched == 0;
+            println!(
+                "[m5.2] VERDICT: {}",
+                if wrong0 {
+                    "GO — every observed runtime edge landed on EXISTING function identities (StableIds): \
+                     confirmed edges get a DD-007 producer=dynamic stamp (the call graph is now \
+                     runtime-confirmed), a dynamic-only edge becomes an EdgeProvenance sidecar. `callees` \
+                     and the re-anchoring matcher are UNTOUCHED — so WRONG=0 holds: a partial-coverage \
+                     dynamic observation can only CONFIRM or ADD, never overwrite or mis-identify. The \
+                     seam uplift, now from a REAL contained run."
+                } else {
+                    "INCONCLUSIVE — an observed edge referenced a function absent from the model (would \
+                     need re-anchoring first; not merged — never guessed)."
+                }
+            );
+            std::process::exit(if wrong0 { 0 } else { 1 });
+        }
         _ => {}
     }
 

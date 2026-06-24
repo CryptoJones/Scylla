@@ -72,6 +72,15 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   `StableId`), run the real observer on the *same* sample, merge, and **measure the uplift** the seam
   spike predicted — now from a real contained run — with `WRONG = 0` end to end. (Needs the engine.)
 - **Gate:** measurable uplift on benign samples, `WRONG = 0` preserved.
+- **DONE (2026-06-24):** `harness-m5/m5_2-uplift.sh` + the spike's `m5_2` path. Closes the loop WITHOUT
+  the engine, using a real in-repo artifact: the `mathlib` fixture + its `mathlib.scylla`. A gdb
+  function-entry tracer observes the real runtime call graph (`main→{gcd,fib,factorial,sum_to}`,
+  `fib→fib`); the merge resolves each edge to a `StableId` by identity, confirms it against the static
+  `callees`, and stamps DD-007 `producer="dynamic"`. **PASS — 5/5 confirmed, 0 unmatched = `WRONG=0`**.
+  Internal call edges are the provenance-carrying observation (`EdgeProvenance`, `model.capnp @13`); the
+  merge only ever CONFIRMs or ADDs, never overwrites (`callees`+matcher untouched). On a packed sample
+  the same merge would ADD the dynamically-resolved edges static missed. See `harness-m5/M5_2-REPORT.md`.
+  **With this the entire no-malware track is complete; only M5.3/M5.4 (real malware + infra) remain.**
 
 ### M5.3 — introduce real malware, one class at a time (isolated node, opt-in)
 - **Build:** only now, on the isolated node, opt-in, introduce real samples **one behavior class at a

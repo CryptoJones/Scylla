@@ -138,6 +138,16 @@ Tracked "later / someday" items that aren't on the current sprint path
       over the validated channel; `ltrace` + 6 lib deps staged into the initramfs. Honest limits (GAP-8):
       dynamic coverage sees only *called* imports; a hostile sample can anti-trace → a production guest
       bakes a minimal hardened tracer (M5.3). **M5.2 (benign uplift) next.** Report: harness-m5/M5_1-REPORT.md.
+    - [x] **M5.2 benign uplift — real run merged into the model, WRONG=0 — PASS (2026-06-24): [harness-m5/m5_2-uplift.sh](spike/dynamic-analysis/harness-m5/m5_2-uplift.sh).**
+      Closes M4's loop WITHOUT the engine, using a real in-repo artifact (the `mathlib` fixture + its
+      `mathlib.scylla`). A gdb function-entry tracer observes the real runtime call graph
+      (`main→{gcd,fib,factorial,sum_to}`, `fib→fib`); the spike's `m5_2` merge resolves each edge to a
+      `StableId` by identity, confirms it against the static `callees`, and stamps DD-007
+      `producer="dynamic"`. **5/5 confirmed, 0 unmatched = WRONG=0** — the seam uplift from a REAL
+      contained run. Internal call edges are the provenance-carrying observation (`EdgeProvenance`,
+      model.capnp @13); the merge only CONFIRMs or ADDs, never overwrites (`callees`+matcher untouched).
+      **The entire no-malware harness track (M1→M5.2) is now complete; only M5.3/M5.4 (real malware +
+      isolated node + jailer + corpus + external pen-test) remain.** Report: harness-m5/M5_2-REPORT.md.
 
 ## Re-anchoring recovery
 

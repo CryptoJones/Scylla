@@ -138,6 +138,12 @@ Tracked "later / someday" items that aren't on the current sprint path
       over the validated channel; `ltrace` + 6 lib deps staged into the initramfs. Honest limits (GAP-8):
       dynamic coverage sees only *called* imports; a hostile sample can anti-trace → a production guest
       bakes a minimal hardened tracer (M5.3). **M5.2 (benign uplift) next.** Report: harness-m5/M5_1-REPORT.md.
+      - [x] **Follow-on finding (2026-06-24): packing defeats PLT interception → M5.3 needs a syscall observer.**
+        `harness-m5/m5_1-packed.sh` (benign UPX-packed binary): static + `ltrace` + M3's `LD_DEBUG` all
+        recover **0 imports** (a packer's stub has no PLT until runtime unpack); **`strace`/syscall-level
+        survives** (`getpid`/`write`). So PLT interception is the benign-IAT path; **M5.3 must add a
+        syscall-level observer** (ptrace-`PTRACE_SYSCALL`/seccomp/QEMU-user/eBPF) since malware is packed.
+        Observations stay `producer="dynamic"`, confidence-stamped. Report: harness-m5/M5_1-PACKED-FINDING.md.
     - [x] **M5.2 benign uplift — real run merged into the model, WRONG=0 — PASS (2026-06-24): [harness-m5/m5_2-uplift.sh](spike/dynamic-analysis/harness-m5/m5_2-uplift.sh).**
       Closes M4's loop WITHOUT the engine, using a real in-repo artifact (the `mathlib` fixture + its
       `mathlib.scylla`). A gdb function-entry tracer observes the real runtime call graph

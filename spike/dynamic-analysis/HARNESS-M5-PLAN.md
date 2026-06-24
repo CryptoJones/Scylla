@@ -66,6 +66,14 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   initramfs. Honest limits (GAP-8 inherent): dynamic coverage sees only *called* imports; a hostile
   sample can anti-trace — a production guest bakes a minimal hardened tracer, not apt-`ltrace`; that
   hardening is M5.3. See `harness-m5/M5_1-REPORT.md`.
+- **Follow-on finding (2026-06-24): packing defeats PLT interception → M5.3 needs a syscall observer.**
+  `harness-m5/m5_1-packed.sh` (a benign UPX-packed binary): static analysis **and** `ltrace` (and M3's
+  `LD_DEBUG`) all recover **0 imports** — a packer's stub has no PLT until it unpacks at runtime —
+  while **`strace` (syscall-level) survives** (recovers `getpid`/`write(...)`). So M5.1's
+  PLT-interception observer is the *benign-IAT* path; **M5.3 must add a syscall-level observer**
+  (ptrace-`PTRACE_SYSCALL` / seccomp-notify / QEMU-user / eBPF) since real malware is routinely packed.
+  Observations stay `producer="dynamic"`, confidence-stamped, never ground truth. See
+  `harness-m5/M5_1-PACKED-FINDING.md`.
 
 ### M5.2 — close M4's loop on a benign sample (uplift, WRONG = 0)
 - **Build:** ingest a benign sample to its own `.scylla` (the seam proved a runtime IAT lands by

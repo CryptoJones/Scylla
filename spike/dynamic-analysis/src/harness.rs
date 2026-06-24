@@ -14,6 +14,7 @@ use serde_json::Value;
 /// One runtime observation: a call-graph edge a dynamic producer resolved (e.g. an indirect call the
 /// static analysis left dangling), by function/target NAME. A real harness keys on address; the
 /// merge resolves to a `StableId` (the seam spike showed this lands on existing identities).
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObservedEdge {
     pub from: String,
     pub to: String,

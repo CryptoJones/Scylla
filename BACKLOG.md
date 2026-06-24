@@ -87,6 +87,15 @@ Tracked "later / someday" items that aren't on the current sprint path
       GAP-9 ephemeral (no cross-run persistence). Closes GAP-7/GAP-9 and GAP-5 for the **configured
       surface** on synthetic attacks; the QEMU-device-0-day residual + real malware is **M5**
       (Firecracker + external pen-test). **M2 is now UNBLOCKED.** Report: harness-m1/M1-REDTEAM-REPORT.md.
+    - [x] **M2 one-way observation channel — DONE, GAP-6 fuzz PASS (2026-06-24): [harness-m2/](spike/dynamic-analysis/harness-m2/) + [src/channel.rs](spike/dynamic-analysis/src/channel.rs).**
+      The channel out of the no-egress tier is the guest's **serial console** (one-way, no new device);
+      the host reader (`channel.rs`) treats it like a stranger's `.scylla` — DD-036 caps on every
+      dimension, validate-then-quarantine, never `eval`, DD-035-sanitized on display. **GAP-6 gate:**
+      `cargo test` `channel::gap6` — **19 cases** (oversized / no-newline-gigabyte / too-many-lines /
+      bad-base64 / len+checksum-mismatch / invalid + 5000-deep-nested JSON / >4096-records / bad-fields
+      / control-bytes) each a bounded rejection, **no panic/hang/OOM**. Live end-to-end on the real
+      microVM (`harness-m2/m2-channel.sh`): a trace read off serial through console noise; a corrupted
+      channel quarantined. **M3 (in-guest observer) is now UNBLOCKED.** Report: harness-m2/M2-REPORT.md.
 
 ## Re-anchoring recovery
 

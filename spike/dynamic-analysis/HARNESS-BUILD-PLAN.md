@@ -47,6 +47,13 @@ the box that actually runs the sample — and that is pure security engineering.
 - **Gate (GAP-6):** fuzz the channel with adversarial/oversized/malformed traces — the host parser
   never panics, OOMs, or trusts content; a hostile trace can at worst feed the matcher garbage that
   DD-007/DD-027 provenance-weighting must down-rank, never reach the host.
+- **DONE (2026-06-24):** the channel is the guest's **serial console** (one-way, no new device on the
+  tier); the host reader is `src/channel.rs` — bounded on every dimension, validate-then-quarantine,
+  never `eval`, DD-035-sanitized on display. **GAP-6 gate PASS:** `cargo test` `channel::gap6` (19
+  cases — oversized/no-newline/too-many-lines/bad-base64/len+checksum-mismatch/invalid+5000-deep-nested
+  JSON/too-many-records/bad-fields/control-bytes — each a bounded rejection, no panic/hang/OOM). Live
+  end-to-end on the real microVM via `harness-m2/m2-channel.sh` (valid trace read off serial through
+  console noise; corrupted channel quarantined). See `harness-m2/M2-REPORT.md`. **M3 is unblocked.**
 
 ### M3 — the in-guest observer
 - **Build:** what runs *inside* the VM to record observations. First target = the spike's proven win:

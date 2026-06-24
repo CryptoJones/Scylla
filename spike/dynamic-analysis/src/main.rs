@@ -14,6 +14,7 @@
 //! that a real dynamic producer needs is explicitly OUT OF SCOPE — it gets its own threat model
 //! when/if the harness is ever built (the eval is emphatic: do not weaken DD-034 to "get ready").
 
+mod channel;
 mod harness;
 
 use std::collections::BTreeSet;
@@ -24,6 +25,23 @@ use scylla_port::Session;
 use serde_json::Value;
 
 fn main() {
+    // M2 — the one-way observation channel (see channel.rs / harness-m1/../harness-m2).
+    match std::env::args().nth(1).as_deref() {
+        // Read a recorded trace off the channel (stdin) through the bounded, validating reader.
+        Some("m2-read") => channel::run_stdin(),
+        // Emit a sample VALID frame (what an in-guest observer would write to serial) for the demo.
+        Some("m2-make") => {
+            print!(
+                "{}",
+                channel::make_frame(
+                    r#"{"edges":[{"from":"main","to":"gcd","confidence":90},{"from":"gcd","to":"__imp_mod","confidence":80}]}"#
+                )
+            );
+            return;
+        }
+        _ => {}
+    }
+
     let manifest = env!("CARGO_MANIFEST_DIR");
     let artifact = std::env::args()
         .nth(1)

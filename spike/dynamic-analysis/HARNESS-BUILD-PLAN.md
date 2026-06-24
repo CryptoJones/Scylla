@@ -34,6 +34,11 @@ the box that actually runs the sample — and that is pure security engineering.
 - **Gate (GAP-5, GAP-7):** a red-team pass — a deliberately escape-attempting + resource-bombing guest
   cannot reach the host, the network, or another run, and is reaped within budget. No further
   milestone until this holds. This is the hard, expensive milestone; everything after is plumbing.
+- **Gate — PASSED (2026-06-24):** `harness-m1/m1-redteam.sh` boots synthetic hostile guests and asserts
+  from the host that none escaped — **16/16** assertions (no net/FS/device/vsock reach; spin + balloon +
+  fork-bomb each bounded and reaped with the host unaffected; ephemeral, no cross-run leak). See
+  `harness-m1/M1-REDTEAM-REPORT.md`. **M2 is unblocked.** Residual: a QEMU-device 0-day (GAP-5) and real
+  malware are out of scope for a synthetic red team — that hardening is **M5** (Firecracker + pen-test).
 
 ### M2 — the one-way observation channel
 - **Build:** a single bounded channel out of the guest (vsock / a serialized artifact on a read-back

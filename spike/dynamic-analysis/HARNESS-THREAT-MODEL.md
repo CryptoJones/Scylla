@@ -77,11 +77,11 @@ observations). The containment tier must therefore provide, all of them load-bea
 
 | Gap | Where | Risk | Status |
 |---|---|---|---|
-| GAP-5 | S6 | **Sandbox escape** — VM/hypervisor breakout to the host | **OPEN — gates the build** |
-| GAP-6 | S6→core | **Observation-channel injection** — adversarial trace subverts the merge/parser | **OPEN** (mitigation: DD-036 caps + DD-007/DD-027 provenance weighting) |
-| GAP-7 | S6 | **Resource exhaustion / fork-bomb** before the kill-switch | **OPEN** (mitigation: VM cgroup caps + wall-clock) |
+| GAP-5 | S6 | **Sandbox escape** — VM/hypervisor breakout to the host | **M1-GATE PASS (2026-06-24)** for the *configured surface* on synthetic attacks (`m1-redteam.sh`: no net/FS/device/vsock reach); QEMU-device-0-day residual → **M5** (Firecracker + pen-test) |
+| GAP-6 | S6→core | **Observation-channel injection** — adversarial trace subverts the merge/parser | **OPEN** (mitigation: DD-036 caps + DD-007/DD-027 provenance weighting) — the **M2 gate** |
+| GAP-7 | S6 | **Resource exhaustion / fork-bomb** before the kill-switch | **M1-GATE PASS (2026-06-24)** (`m1-redteam.sh`: spin/balloon/fork-bomb each bounded + reaped, host unaffected) |
 | GAP-8 | S6 | **Evasion** — sample detects the harness, behaves benignly or lies | **OPEN, inherent** (dynamic analysis is coverage-partial by nature; provenance/confidence must record this) |
-| GAP-9 | S6 | **Cross-run contamination / persistence** | **Mitigated by design** (ephemeral per-sample VM) but must be verified |
+| GAP-9 | S6 | **Cross-run contamination / persistence** | **VERIFIED (2026-06-24)** (`m1-redteam.sh`: ephemeral per-run rootfs, no cross-run leak) |
 
 Unlike the shipped THREAT-MODEL's GAP-1..4 (all CLOSED), **these are open by construction**: closing
 them is the work of *building* the harness, and that work is exactly what stays deferred until it's

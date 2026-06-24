@@ -75,10 +75,18 @@ Tracked "later / someday" items that aren't on the current sprint path
       (`timeout`) QEMU `microvm`+KVM sandbox that runs a BENIGN payload and is destroyed. Verified on
       ronin28 (VT-x + `/dev/kvm`, user in `kvm` group → no sudo to run; QEMU installed): the guest
       executed (`M1_GUEST_RAN ok`), had zero network interfaces, and powered off (qemu rc=0). Proves
-      execution + containment + ephemeral teardown on a cooperative guest. **GATE PENDING:** the
-      GAP-5/7 RED-TEAM (a HOSTILE guest can't escape/exhaust) is the next checkpoint before M2; M5
-      should migrate the tier to Firecracker (smaller attack surface). No hostile code run; no Scylla
-      integration yet. Report: harness-m1/M1-REPORT.md.
+      execution + containment + ephemeral teardown on a cooperative guest. **GATE — now PASSED
+      (2026-06-24, see next bullet);** M5 should still migrate the tier to Firecracker (smaller attack
+      surface). No hostile code run; no Scylla integration yet. Report: harness-m1/M1-REPORT.md.
+    - [x] **M1 GATE red-team — PASS (2026-06-24): [harness-m1/m1-redteam.sh](spike/dynamic-analysis/harness-m1/m1-redteam.sh).**
+      Boots SYNTHETIC hostile guests that attack every containment knob and asserts FROM THE HOST that
+      nothing escaped — **16/16 across 5 scenarios**: GAP-5 escape (no NIC/egress, no block devices,
+      `vda`/`9p`/`virtiofs` mounts all blocked, no vsock, host canary untouched), GAP-7 (CPU-spinner +
+      fork-bomb reaped by the kill-switch `rc=124` with the host responsive — heartbeat gap 0.31s, host
+      proc table flat 466→465; memory balloon OOM-killed INSIDE the VM, host RAM drop just 171MB),
+      GAP-9 ephemeral (no cross-run persistence). Closes GAP-7/GAP-9 and GAP-5 for the **configured
+      surface** on synthetic attacks; the QEMU-device-0-day residual + real malware is **M5**
+      (Firecracker + external pen-test). **M2 is now UNBLOCKED.** Report: harness-m1/M1-REDTEAM-REPORT.md.
 
 ## Re-anchoring recovery
 

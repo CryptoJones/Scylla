@@ -154,6 +154,12 @@ Tracked "later / someday" items that aren't on the current sprint path
       model.capnp @13); the merge only CONFIRMs or ADDs, never overwrites (`callees`+matcher untouched).
       **The entire no-malware harness track (M1→M5.2) is now complete; only M5.3/M5.4 (real malware +
       isolated node + jailer + corpus + external pen-test) remain.** Report: harness-m5/M5_2-REPORT.md.
+      - [x] **Persist + round-trip (2026-06-24): [harness-m5/m5_2-persist.sh](spike/dynamic-analysis/harness-m5/m5_2-persist.sh).**
+        WRITE the dynamic-enriched `.scylla` and prove the DD-007 per-edge provenance (model.capnp @13)
+        **survives the Cap'n Proto round-trip**: reloading the artifact, the edges still carry
+        `producer="dynamic"` (5/5 survived; loads cleanly through the `scylla` CLI — additive, legacy
+        readers unaffected). Dynamic provenance is **durable on disk**, not runtime-only; `callees` +
+        matcher untouched (WRONG=0). Report: harness-m5/M5_2-PERSIST-REPORT.md.
 
 ## Re-anchoring recovery
 

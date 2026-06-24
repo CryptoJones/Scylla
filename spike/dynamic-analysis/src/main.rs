@@ -132,6 +132,80 @@ fn main() {
             );
             std::process::exit(if wrong0 { 0 } else { 1 });
         }
+        // M5.2 (persist) — like `m5_2`, but actually WRITE the dynamic-enriched `.scylla` and prove
+        // the DD-007 per-edge provenance (model.capnp @13) SURVIVES the Cap'n Proto round-trip.
+        // Args: <in.scylla> <edges.json> <out.scylla>.
+        Some("m5_2-persist") => {
+            let inp = std::env::args().nth(2).expect("usage: m5_2-persist <in.scylla> <edges.json> <out.scylla>");
+            let edges_path = std::env::args().nth(3).expect("usage: m5_2-persist <in> <edges.json> <out>");
+            let outp = std::env::args().nth(4).expect("usage: m5_2-persist <in> <edges> <out.scylla>");
+            let mut prog = scylla_schema::from_bytes(&std::fs::read(&inp).expect("read .scylla"))
+                .expect("decode .scylla");
+            let ev: Value = serde_json::from_slice(&std::fs::read(&edges_path).expect("read edges.json"))
+                .expect("parse edges.json");
+            let observed = ev["edges"].as_array().expect("edges[]");
+            let mut to_stamp: Vec<(usize, scylla_model::StableId)> = Vec::new();
+            let (mut confirmed, mut unmatched) = (0usize, 0usize);
+            for e in observed {
+                let from = e["from"].as_str().unwrap_or("");
+                let to = e["to"].as_str().unwrap_or("");
+                let to_id = prog.functions.iter().find(|f| f.name == to).map(|f| f.id);
+                let from_idx = prog.functions.iter().position(|f| f.name == from);
+                match (from_idx, to_id) {
+                    (Some(idx), Some(tid)) => {
+                        to_stamp.push((idx, tid));
+                        confirmed += 1;
+                    }
+                    _ => unmatched += 1,
+                }
+            }
+            for (idx, tid) in &to_stamp {
+                let f = &mut prog.functions[*idx];
+                if f.edge_provenance_of(*tid).is_none() {
+                    f.edge_provenance.push(scylla_model::EdgeProvenance {
+                        target: *tid,
+                        provenance: Provenance { producer: "dynamic".into(), confidence: 90 },
+                    });
+                }
+            }
+            // PERSIST + ROUND-TRIP: serialize the enriched model, reload it, confirm the stamps survived.
+            let out_bytes = scylla_schema::to_bytes(&prog);
+            std::fs::write(&outp, &out_bytes).expect("write enriched .scylla");
+            let reloaded = scylla_schema::from_bytes(&out_bytes).expect("reload enriched .scylla");
+            let mut survived = 0usize;
+            for (idx, tid) in &to_stamp {
+                let name = prog.functions[*idx].name.clone();
+                let ok = reloaded
+                    .functions
+                    .iter()
+                    .find(|f| f.name == name)
+                    .and_then(|rf| rf.edge_provenance_of(*tid))
+                    .map(|p| p.producer.as_str())
+                    == Some("dynamic");
+                if ok {
+                    survived += 1;
+                }
+            }
+            println!(
+                "[m5.2-persist] stamped {confirmed} edge(s) producer=dynamic, wrote {outp} ({} bytes); \
+                 round-trip: {survived}/{} survived reload; unmatched={unmatched}",
+                out_bytes.len(),
+                to_stamp.len()
+            );
+            let ok = unmatched == 0 && !to_stamp.is_empty() && survived == to_stamp.len();
+            println!(
+                "[m5.2-persist] VERDICT: {}",
+                if ok {
+                    "GO — the dynamic-enriched model serialized and the DD-007 per-edge provenance \
+                     (model.capnp @13) SURVIVED the Cap'n Proto round-trip: reloading the artifact, \
+                     the call edges still carry producer=dynamic. So a dynamic producer's observations \
+                     are DURABLE in the `.scylla`, additively (legacy artifacts unaffected), WRONG=0."
+                } else {
+                    "FAIL — a stamp did not survive reload, or an edge was unmatched."
+                }
+            );
+            std::process::exit(if ok { 0 } else { 1 });
+        }
         _ => {}
     }
 

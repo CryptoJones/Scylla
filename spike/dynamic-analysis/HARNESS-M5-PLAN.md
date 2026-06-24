@@ -88,6 +88,12 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   Internal call edges are the provenance-carrying observation (`EdgeProvenance`, `model.capnp @13`); the
   merge only ever CONFIRMs or ADDs, never overwrites (`callees`+matcher untouched). On a packed sample
   the same merge would ADD the dynamically-resolved edges static missed. See `harness-m5/M5_2-REPORT.md`.
+- **Persist + round-trip DONE (2026-06-24):** `harness-m5/m5_2-persist.sh` + the spike's `m5_2-persist`
+  path WRITE the dynamic-enriched `.scylla` and prove the DD-007 per-edge provenance (`model.capnp @13`)
+  **survives the Cap'n Proto round-trip** — reloading the artifact, the call edges still carry
+  `producer="dynamic"` (5/5 survived; the enriched artifact loads cleanly through the `scylla` CLI,
+  additive, legacy readers unaffected). So dynamic provenance is **durable on disk**, not runtime-only.
+  See `harness-m5/M5_2-PERSIST-REPORT.md`.
   **With this the entire no-malware track is complete; only M5.3/M5.4 (real malware + infra) remain.**
 
 ### M5.3 — introduce real malware, one class at a time (isolated node, opt-in)

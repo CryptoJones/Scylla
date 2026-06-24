@@ -26,6 +26,7 @@ version = "0.0.0"
 dependencies = [
  "scylla-model",
  "scylla-port",
+ "scylla-schema",
  "serde_json",
 ]
 

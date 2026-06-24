@@ -109,6 +109,12 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   where PLT interception (M5.1) was defeated by packing. So the *observer* unknown for packed samples
   is removed; the **infrastructure** (isolated node + jailer + hardened kernel + corpus + external
   pen-test) and **anti-trace hardening** remain for M5.3 proper. See `harness-m5/M5_3-SYSCALL-REPORT.md`.
+- **Behavior-class de-risk — network beaconing (2026-06-24):** `harness-m5/m5_3-beacon.sh` runs a
+  benign sample that tries to `connect()` to `8.8.8.8:443` in the no-egress tier under the syscall
+  observer. Both hold: **OBSERVE** (the observer captures `connect(8.8.8.8:443) = -1 ENETUNREACH` — the
+  beacon attempt + target) and **CONTAIN** (no NIC; the connect fails → no egress). So at M5.3 the
+  analyst learns the C2 endpoint a sample *tried* to reach with **zero packets leaving the box**. See
+  `harness-m5/M5_3-BEACON-REPORT.md`.
 
 ### M5.4 — external pen-test
 - **Gate:** GAP-5..9 re-validated against hostile samples **by an external pen-tester**; findings

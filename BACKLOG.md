@@ -168,6 +168,12 @@ Tracked "later / someday" items that aren't on the current sprint path
       proven in the tier. Removes the observer unknown for packed samples; M5.3 proper still needs the
       isolated node + jailer + hardened kernel + corpus + external pen-test + anti-trace hardening.
       Report: harness-m5/M5_3-SYSCALL-REPORT.md.
+    - [x] **M5.3 prep — network-beacon behavior class, observe+contain (2026-06-24): [harness-m5/m5_3-beacon.sh](spike/dynamic-analysis/harness-m5/m5_3-beacon.sh).**
+      A benign sample tries to `connect()` to `8.8.8.8:443` in the no-egress Firecracker tier under the
+      syscall observer. Both hold: **OBSERVE** (captures `connect(8.8.8.8:443) = -1 ENETUNREACH` — the
+      beacon attempt + target) and **CONTAIN** (no NIC, connect fails → no egress). So at M5.3 the
+      analyst learns the C2 endpoint a sample *tried* to reach with zero packets leaving the box. One of
+      M5.3's named behavior classes de-risked on benign. Report: harness-m5/M5_3-BEACON-REPORT.md.
 
 ## Re-anchoring recovery
 

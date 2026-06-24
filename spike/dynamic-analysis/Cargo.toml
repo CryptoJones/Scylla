@@ -1,0 +1,15 @@
+[package]
+name = "dynamic-analysis-seam-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Isolated from the parent workspace — a spike is an out-of-tree de-risk experiment, not a shipped
+# crate (same as spike/rpc-shape). It path-depends on the real model crates to load a `.scylla` and
+# read the static model; those crates resolve their own workspace inheritance from the Scylla root.
+[workspace]
+
+[dependencies]
+scylla-port = { path = "../../crates/scylla-port" }
+scylla-model = { path = "../../crates/scylla-model" }
+serde_json = "1"

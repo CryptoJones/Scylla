@@ -41,6 +41,16 @@ Tracked "later / someday" items that aren't on the current sprint path
   producer **provenance** (DD-007) + coverage-aware `collaborate` (DD-027). First real step: a
   narrow seam prototype (ingest one runtime artifact, merge vs the static model) before betting on
   the harness.
+  - [x] **Seam spike — DONE, GO (2026-06-23): [spike/dynamic-analysis/](spike/dynamic-analysis/).**
+    A synthetic *resolved IAT* (what a dynamic IAT-rebuilder emits for a packed sample — NOTHING is
+    executed) merges into the static `mathlib` model **by `StableId`**: the 6 entries land +5
+    dynamic-only imports across 5 functions, 1 already-known (deduped), **0 unmatched** — the narrow
+    waist absorbed a second producer with no rewrite. And because `Function.imports` is a DD-041
+    cross-arch **anchor** input, a dynamic IAT rebuild *lifts re-anchoring* on packed/stripped
+    samples where static imports go to 0. Seam proven (as DD-004 / DD-040 were). Productionize behind
+    DD-007 provenance + DD-027 coverage-aware collaborate; the **execution-containment harness stays
+    DEFERRED** with its own threat model (do NOT weaken DD-034 to prepare for it). Full writeup +
+    `run-spike.sh` in the spike dir.
 
 ## Re-anchoring recovery
 

@@ -1,0 +1,13 @@
+{
+  "_comment": "SYNTHETIC runtime artifact — NOT produced by executing anything. It stands in for a resolved IAT a dynamic producer (e.g. an IAT-rebuilder on a packed sample) would emit: call-sites whose imported targets static analysis could not recover, now resolved to concrete symbols. Functions are named to match the mathlib static model so the seam-merge lands on existing StableIds. This is the de-risk fixture the eval prescribed — see SPIKE-REPORT.md.",
+  "sample": "mathlib (hypothetical packed/IAT-stripped build)",
+  "producer": "dynamic-iat-rebuilder (stand-in)",
+  "resolved_imports": [
+    { "function": "main", "import": "__libc_start_main" },
+    { "function": "main", "import": "printf" },
+    { "function": "gcd", "import": "__stack_chk_fail" },
+    { "function": "fib", "import": "malloc" },
+    { "function": "factorial", "import": "printf" },
+    { "function": "sum_to", "import": "__stack_chk_fail" }
+  ]
+}

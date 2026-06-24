@@ -36,6 +36,7 @@ arch test in `scylla-mcp`).
 | `scylla-http`   | the **HTTP/JSON gateway head** — query *and annotate* the model over plain HTTP (info/functions/search/view/callers/diff + rename/retype/comment + export) from any language; token-gated, TLS-capable | DD-017 |
 | `scylla-graphql`| the **GraphQL head** — the client port as one typed query graph (`query`: info/functions/search/function/callers/diff/export; `mutation`: rename/retype/comment), introspection + a GraphiQL console, one round-trip with no over/under-fetching; token-gated, TLS-capable | DD-017 |
 | `scylla-tui`    | the **TUI head** — an interactive terminal navigator (ratatui) over the port: a function list, a selection-following detail pane (addr/blocks/size/callees/callers), a live search filter, and a structural-diff pane (pass a 2nd artifact, toggle `d`); the `App` is a pure, conformance-tested port projection (lib+bin, testable headless) | DD-017 |
+| `scylla-lsp`    | the **LSP head** — a Language Server: the program as one virtual document, with documentSymbol (`functions`), hover (`view`, untrusted-wrapped), references (`callers`), rename (annotate → `WorkspaceEdit`), workspace/symbol (`search`); hand-rolled Content-Length JSON-RPC, headless `dispatch` (lib+bin) | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
 
 The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the
@@ -62,13 +63,13 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
    (strings/imports) → BSim feature vector → fuzzy mnemonic + ordered-trigram cosine — the *same*
    matcher the merge uses, fail-closed (`WRONG=0`).
 
-The client port is driven by **eight heads** today, each projecting the same verbs: `scylla-mcp`
+The client port is driven by **nine heads** today, each projecting the same verbs: `scylla-mcp`
 (agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`
 (the browser, client-side), `scylla-serve` (the native binary serving it), `scylla-cli` (the
 terminal), `scylla-rpc` (a remote consumer over Cap'n Proto promise-pipelining RPC, DD-002),
 `scylla-http` (a plain HTTP/JSON gateway for any language), `scylla-graphql` (the same port as one
-typed GraphQL graph), and `scylla-tui` (an interactive terminal navigator). Lop one off, grow
-another; the body
+typed GraphQL graph), `scylla-tui` (an interactive terminal navigator), and `scylla-lsp` (a Language
+Server for editors). Lop one off, grow another; the body
 never notices.
 
 ## Driving it

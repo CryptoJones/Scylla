@@ -1481,6 +1481,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scylla-lsp"
+version = "0.3.0"
+dependencies = [
+ "scylla-model",
+ "scylla-port",
+ "serde_json",
+]
+
+[[package]]
 name = "scylla-mcp"
 version = "0.3.0"
 dependencies = [

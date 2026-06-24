@@ -16,6 +16,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
   / added / removed) over a color-coded, scrollable list of the changes, each carrying its recovery
   rung + confidence from the matcher's provenance. The diff is `Session::diff` folded into rows by
   the headless `App` (still zero terminal dependency), conformance-tested against the port.
+- **`scylla-lsp` — the ninth head: a Language Server (DD-017).** Editors (nvim / VS Code) navigate a
+  `.scylla` model like source. The program is projected as one virtual document (functions in address
+  order): `documentSymbol` is the `functions` verb, `hover` is `view` at DETAIL (Markdown, wrapped
+  `<untrusted-data>` per DD-035), `references` is the `callers` verb (the call graph read backwards),
+  `rename` is the annotate verb returned as a `WorkspaceEdit`, and `workspace/symbol` is `search`.
+  Hand-rolled `Content-Length` JSON-RPC like the MCP head; the `dispatch` router is a pure,
+  headless-testable port projection (lib + bin), conformance-tested verb-for-verb — no editor.
 
 ## [0.3.0] — 2026-06-23
 

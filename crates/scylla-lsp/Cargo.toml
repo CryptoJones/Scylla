@@ -1,0 +1,24 @@
+[package]
+name = "scylla-lsp"
+description = "An LSP head — a Language Server so editors navigate a .scylla model like source (document symbols, hover, references = callers, rename, workspace symbols = search), all over the client port."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# Lib + bin (like the MCP head): the `dispatch` router is a pure projection of the client port,
+# callable in-process so the conformance tests drive it without a spawned server or an editor; the
+# binary is the thin Content-Length stdio shell around it.
+[lib]
+name = "scylla_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scylla-lsp"
+path = "src/main.rs"
+
+[dependencies]
+# Hand-rolled JSON-RPC, like the MCP head — serde_json only, no LSP framework, no serde derive.
+serde_json = "1"
+scylla-port = { path = "../scylla-port" }
+scylla-model = { path = "../scylla-model" }

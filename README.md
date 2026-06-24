@@ -14,10 +14,10 @@ reverse-engineering domain model** — the *body* — and exposes it through thi
 **disposable protocol adapters** — the *heads*.
 
 Named for the six-headed sea monster of Homer's *Odyssey*: many heads, one immortal
-body. Lop a head off and grow a new one. Today there are **eight heads** — an MCP server
+body. Lop a head off and grow a new one. Today there are **nine heads** — an MCP server
 (so AI agents reverse-engineer binaries directly), a browser/WASM head, a native serving
 binary, a terminal CLI, a remote Cap'n Proto RPC head, an HTTP/JSON gateway, a GraphQL
-gateway, and a TUI navigator — all projecting the *same* body. When MCP is the CORBA of 2040, you grow a new head and the
+gateway, a TUI navigator, and an LSP server — all projecting the *same* body. When MCP is the CORBA of 2040, you grow a new head and the
 body never notices.
 
 ## The idea
@@ -68,7 +68,7 @@ what shipped when is in [CHANGELOG.md](CHANGELOG.md).
 ## The heads
 
 One body — the durable RE domain model (`scylla-model`) and the client port over it
-(`scylla-port`) — and **eight heads** today, each a thin adapter projecting the *same* verbs
+(`scylla-port`) — and **nine heads** today, each a thin adapter projecting the *same* verbs
 (navigate / annotate / **diff** / merge / export):
 
 - **Browser (WASM)** — `crates/scylla-wasm`: the client port compiled to `wasm32`, so a browser
@@ -106,6 +106,12 @@ One body — the durable RE domain model (`scylla-model`) and the client port ov
   all over the client port. The `App` (model +
   UI state) is a pure projection of the port, conformance-tested verb-for-verb; the `ratatui` shell
   is thin on top.
+- **LSP** — `crates/scylla-lsp`: `scylla-lsp` is a Language Server so an editor (nvim, VS Code)
+  navigates the model like source — the program is one virtual document (functions in address order),
+  with go-to-symbol (`documentSymbol`), hover (the port's `view`, wrapped untrusted per DD-035),
+  find-references (= the `callers` verb), rename (the annotate verb, as a `WorkspaceEdit`), and
+  workspace-symbol (= `search`). Hand-rolled `Content-Length` JSON-RPC; the `dispatch` router is a
+  headless, conformance-tested port projection.
 
 The **diff** is a real binary-differ: it pairs functions across two builds by structural identity
 (address-independent), then climbs the BinDiff-style ladder — call-graph propagation, unique
@@ -114,7 +120,7 @@ matched / renamed / **modified** / added / removed. Fail-closed throughout: a ne
 
 ## Status
 
-**Feature-complete core, eight working heads.** The durable Rust body (model + client port +
+**Feature-complete core, nine working heads.** The durable Rust body (model + client port +
 Cap'n Proto model-artifact) is built, with a structural binary-diff engine at parity with the
 identity-anchored merge. The heads above all run today over that one body — including a **remote
 RPC head** over the Cap'n Proto promise-pipelining surface (DD-002), the transport the format was

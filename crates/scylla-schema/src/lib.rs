@@ -10,7 +10,9 @@ pub mod model_capnp {
 
 use std::collections::HashSet;
 
-use scylla_model::{FactKind, Function, Principal, Program, Provenance, StableId, UserFact};
+use scylla_model::{
+    EdgeProvenance, FactKind, Function, Principal, Program, Provenance, StableId, UserFact,
+};
 
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     match k {
@@ -78,6 +80,14 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
                 let mut mc = tg.reborrow().get(j as u32);
                 mc.set_mnemonic(t.as_str());
                 mc.set_count(*c);
+            }
+            // Per-edge provenance (DD-007), additive + sparse: empty on legacy models.
+            let mut ep = fb.reborrow().init_edge_provenance(f.edge_provenance.len() as u32);
+            for (j, e) in f.edge_provenance.iter().enumerate() {
+                let mut eb = ep.reborrow().get(j as u32);
+                eb.set_target(e.target.0);
+                eb.set_producer(e.provenance.producer.as_str());
+                eb.set_confidence(e.provenance.confidence);
             }
         }
 
@@ -160,6 +170,21 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
                     h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
                 }
                 h
+            },
+            // Per-edge provenance (DD-007), additive: an old artifact yields an empty list (capnp
+            // default) → no per-edge provenance recorded, exactly right.
+            edge_provenance: {
+                let mut v = Vec::new();
+                for e in f.get_edge_provenance()?.iter() {
+                    v.push(EdgeProvenance {
+                        target: StableId(e.get_target()),
+                        provenance: Provenance {
+                            producer: e.get_producer()?.to_str()?.to_owned(),
+                            confidence: e.get_confidence(),
+                        },
+                    });
+                }
+                v
             },
         });
     }
@@ -317,7 +342,9 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scylla_model::{FactKind, Function, IdMinter, Program, Provenance, StableId, UserFact};
+    use scylla_model::{
+        EdgeProvenance, FactKind, Function, IdMinter, Program, Provenance, StableId, UserFact,
+    };
 
     fn sample() -> Program {
         let mut m = IdMinter::new();
@@ -341,6 +368,7 @@ mod tests {
                     imports: vec![],
                     callee_names: vec![],
                     bsim_vector: vec![],
+                    edge_provenance: vec![],
                 },
                 Function {
                     id: main,
@@ -356,6 +384,7 @@ mod tests {
                     imports: vec!["printf".into()],
                     callee_names: vec!["main.helper".into()],
                     bsim_vector: vec![(0xDEAD_BEEF, 1.0f32.to_bits()), (0x1234, 0.5f32.to_bits())],
+                    edge_provenance: vec![],
                 },
             ],
             facts: vec![
@@ -429,6 +458,41 @@ mod tests {
             Provenance::default(),
             "a legacy fact (no producer field) defaults to user/100"
         );
+    }
+
+    #[test]
+    fn edge_provenance_round_trips() {
+        // Mark main's call to gcd as a dynamically-observed edge (DD-007 per-edge), then round-trip.
+        let mut prog = sample();
+        let gcd_id = prog
+            .functions
+            .iter()
+            .find(|f| f.name == "FUN_00401156")
+            .expect("gcd")
+            .id;
+        let main = prog
+            .functions
+            .iter_mut()
+            .find(|f| f.name == "main")
+            .expect("main");
+        main.edge_provenance.push(EdgeProvenance {
+            target: gcd_id,
+            provenance: Provenance {
+                producer: "dynamic".into(),
+                confidence: 90,
+            },
+        });
+        let back = from_bytes(&to_bytes(&prog)).expect("decode");
+        let main_back = back.functions.iter().find(|f| f.name == "main").expect("main back");
+        assert_eq!(
+            main_back.edge_provenance_of(gcd_id),
+            Some(&Provenance {
+                producer: "dynamic".into(),
+                confidence: 90
+            }),
+            "per-edge provenance survives the artifact, keyed by callee id"
+        );
+        assert_eq!(prog, back, "per-edge provenance round-trips losslessly");
     }
 
     // --- DD-036: the total artifact loader ---

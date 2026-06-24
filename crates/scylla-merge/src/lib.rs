@@ -1153,6 +1153,7 @@ mod tests {
             imports: vec![],
             callee_names: callee_names.into_iter().map(String::from).collect(),
             bsim_vector: vec![],
+            edge_provenance: vec![],
         };
         let prog = |mnem: &str| {
             let mut m = IdMinter::new();
@@ -1211,6 +1212,7 @@ mod tests {
             imports: vec![],
             callee_names: vec![],
             bsim_vector: vec![],
+            edge_provenance: vec![],
         };
         // Same multiset, different order — identical histograms, distinct trigrams.
         let target_seq = ["push", "mov", "add", "mov", "ret"];
@@ -1301,6 +1303,7 @@ mod tests {
             imports: vec![],
             callee_names: vec![],
             bsim_vector: bsim,
+            edge_provenance: vec![],
         };
         // factorial vs sum_to share 3 of 4 features (cosine 0.75); gcd's vector is cross-arch-distinct.
         let fact_v = bv(&[(1, 1.0), (2, 1.0), (3, 1.0), (4, 1.0)]);

@@ -19,8 +19,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
   certain `user` fact (back-compat tested by hand-building a pre-provenance fact). The port stamps
   analyst annotations `user`/100; re-anchoring (`retarget`) preserves provenance; a producer stamps
   its own via `UserFact::with_provenance`. The no-regret groundwork the dynamic-analysis seam spike
-  (`spike/dynamic-analysis/`) validated. Per-edge provenance + coverage-aware `collaborate` (DD-027)
-  remain future.
+  (`spike/dynamic-analysis/`) validated.
+- **Per-edge provenance (DD-007).** The call graph's edges carry provenance too now: `Function` gains
+  a sparse `edge_provenance` sidecar (`EdgeProvenance { target, provenance }`, `model.capnp` `@13`)
+  marking which `callees` a producer resolved with a recorded producer + confidence — e.g. an edge a
+  dynamic producer observed at runtime that static analysis left dangling (the seam spike's other
+  half). `callees` itself is untouched, so the matcher is unaffected; the sidecar is empty on every
+  existing model (back-compat tested), and `Function::edge_provenance_of(target)` returns the stamp
+  or `None` (an ordinary static call). Coverage-aware `collaborate` (DD-027) remains future.
 
 ## [0.4.0] — 2026-06-24
 

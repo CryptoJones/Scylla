@@ -47,6 +47,8 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
             .iter()
             .map(|bf| (bf.hash, bf.weight))
             .collect(),
+        // The static gRPC producer records no per-edge provenance (DD-007); a dynamic producer would.
+        edge_provenance: Vec::new(),
     }
 }
 

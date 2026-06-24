@@ -86,6 +86,23 @@ pub struct Function {
     /// all miss — a *weighted cosine* over these vectors reproduces Ghidra's `LSHVector.compare`
     /// exactly, because the producer bakes the feature weights into the coefficients.
     pub bsim_vector: Vec<(u32, u32)>,
+    /// **Per-edge provenance** (DD-007): a SPARSE sidecar marking which call-graph edges out of this
+    /// function carry a recorded producer + confidence — e.g. an edge a dynamic producer resolved at
+    /// runtime that static analysis left dangling. An edge in [`Function::callees`] but ABSENT here is
+    /// an ordinary statically-resolved call (implicitly the engine's). Empty for every model that
+    /// predates a provenance-stamping producer; `callees` itself is untouched, so nothing else changes.
+    pub edge_provenance: Vec<EdgeProvenance>,
+}
+
+impl Function {
+    /// The recorded provenance of the edge `self -> target`, if a producer stamped one. `None` means
+    /// an ordinary statically-resolved call (the implicit engine default) — the list is sparse.
+    pub fn edge_provenance_of(&self, target: StableId) -> Option<&Provenance> {
+        self.edge_provenance
+            .iter()
+            .find(|e| e.target == target)
+            .map(|e| &e.provenance)
+    }
 }
 
 /// The mnemonic histogram of a function: the instruction multiset, sorted by mnemonic (so it is
@@ -175,6 +192,16 @@ impl Default for Provenance {
             confidence: 100,
         }
     }
+}
+
+/// Provenance for a single call-graph edge `from -> target` (DD-007, per-edge). The `target` keys
+/// the edge within its source function's [`Function::edge_provenance`] sidecar; `provenance` records
+/// the producer + confidence (e.g. a dynamic producer marking an edge it observed at runtime). The
+/// implicit default — no entry — is an ordinary static call, so the sidecar stays sparse.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EdgeProvenance {
+    pub target: StableId,
+    pub provenance: Provenance,
 }
 
 /// A durable user fact: an *edge* onto a stable id (DD-005). Survives re-analysis because
@@ -285,6 +312,7 @@ mod tests {
                 imports: vec![],
                 callee_names: vec![],
                 bsim_vector: vec![],
+                edge_provenance: vec![],
             }],
             facts: vec![UserFact::new(gcd, FactKind::Rename("gcd".into()))],
         };

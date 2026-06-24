@@ -89,6 +89,8 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
             imports: f.imports.clone(),
             callee_names: f.callee_names.clone(),
             bsim_vector: f.bsim_vector.clone(),
+            // The static snapshot producer records no per-edge provenance (DD-007).
+            edge_provenance: Vec::new(),
         });
     }
 

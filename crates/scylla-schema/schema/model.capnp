@@ -36,6 +36,16 @@ struct Function {
                                 # as a histogram — the local-order signal the order-independent
                                 # `mnemonics` histogram discards. Folded into the FUZZY cosine. Empty
                                 # for functions with < 3 instructions or no mnemonic data.
+  edgeProvenance @13 :List(EdgeProvenance);  # per-edge provenance (DD-007), SPARSE: only callees with
+                                # a recorded producer (e.g. a dynamically-resolved edge static analysis
+                                # left dangling). A callee absent here is an ordinary static call.
+                                # Empty on every artifact predating a provenance-stamping producer.
+}
+
+struct EdgeProvenance {
+  target     @0 :UInt64;   # the callee stable id this edge points to (DD-007 per-edge)
+  producer   @1 :Text;     # producer label (e.g. "dynamic"); always set when listed
+  confidence @2 :UInt8;    # 0..=100 trust
 }
 
 struct BsimFeature {

@@ -179,6 +179,13 @@ Tracked "later / someday" items that aren't on the current sprint path
       the `openat` to the cron path — the persistence mechanism) and **CONTAIN** (same image rebooted →
       file gone, ephemeral GAP-9; never touched a host FS). Analyst learns the mechanism, nothing left
       behind. Report: harness-m5/M5_3-PERSISTENCE-REPORT.md.
+    - [x] **M5.3 prep — anti-analysis (tracer detection), GAP-8 finding (2026-06-24): [harness-m5/m5_3-antianalysis.sh](spike/dynamic-analysis/harness-m5/m5_3-antianalysis.sh).**
+      A benign probe reads `/proc/self/status` TracerPid: no observer → traced=0, under the syscall
+      observer → traced=1. So an **in-guest ptrace observer is detectable** (GAP-8 real); the harness
+      still captures the probe. Mitigations: stealthier **out-of-guest** observation (QEMU-TCG /
+      hypervisor introspection) + provenance down-ranking (built). Rounds out M5.3's named behavior
+      classes de-risked on benign (anti-analysis/beacon/persistence + fork-bomb via the red team).
+      Report: harness-m5/M5_3-ANTIANALYSIS-FINDING.md.
 
 ## Re-anchoring recovery
 

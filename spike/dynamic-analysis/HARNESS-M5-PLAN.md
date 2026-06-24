@@ -120,6 +120,11 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   the `openat` to the cron path — the persistence mechanism) and **CONTAIN** (booting the same image
   again, the file is gone — ephemeral per-run rootfs, GAP-9 — and it never touched a host FS). So the
   analyst learns the mechanism with nothing left behind. See `harness-m5/M5_3-PERSISTENCE-REPORT.md`.
+- **Behavior-class finding — anti-analysis (2026-06-24):** `harness-m5/m5_3-antianalysis.sh` — a benign
+  probe reads `/proc/self/status` `TracerPid`. No observer → `traced=0`; under the syscall observer →
+  `traced=1`. So an **in-guest ptrace observer is detectable** (GAP-8 real). Mitigations: stealthier
+  **out-of-guest** observation (QEMU-TCG / hypervisor introspection — no in-guest TracerPid) for
+  evasion-aware samples, + provenance down-ranking (already built). See `harness-m5/M5_3-ANTIANALYSIS-FINDING.md`.
 
 ### M5.4 — external pen-test
 - **Gate:** GAP-5..9 re-validated against hostile samples **by an external pen-tester**; findings

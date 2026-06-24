@@ -174,6 +174,11 @@ Tracked "later / someday" items that aren't on the current sprint path
       beacon attempt + target) and **CONTAIN** (no NIC, connect fails → no egress). So at M5.3 the
       analyst learns the C2 endpoint a sample *tried* to reach with zero packets leaving the box. One of
       M5.3's named behavior classes de-risked on benign. Report: harness-m5/M5_3-BEACON-REPORT.md.
+    - [x] **M5.3 prep — persistence behavior class, observe+contain (2026-06-24): [harness-m5/m5_3-persistence.sh](spike/dynamic-analysis/harness-m5/m5_3-persistence.sh).**
+      A benign sample drops a cron job (`/etc/cron.d/...`) in the ephemeral tier. **OBSERVE** (captures
+      the `openat` to the cron path — the persistence mechanism) and **CONTAIN** (same image rebooted →
+      file gone, ephemeral GAP-9; never touched a host FS). Analyst learns the mechanism, nothing left
+      behind. Report: harness-m5/M5_3-PERSISTENCE-REPORT.md.
 
 ## Re-anchoring recovery
 

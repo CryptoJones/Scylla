@@ -115,6 +115,11 @@ gate**: the authorization is given; the *infrastructure* is what's missing. No r
   beacon attempt + target) and **CONTAIN** (no NIC; the connect fails → no egress). So at M5.3 the
   analyst learns the C2 endpoint a sample *tried* to reach with **zero packets leaving the box**. See
   `harness-m5/M5_3-BEACON-REPORT.md`.
+- **Behavior-class de-risk — persistence (2026-06-24):** `harness-m5/m5_3-persistence.sh` — a benign
+  sample drops a cron job (`/etc/cron.d/...`) in the ephemeral tier. **OBSERVE** (the observer captures
+  the `openat` to the cron path — the persistence mechanism) and **CONTAIN** (booting the same image
+  again, the file is gone — ephemeral per-run rootfs, GAP-9 — and it never touched a host FS). So the
+  analyst learns the mechanism with nothing left behind. See `harness-m5/M5_3-PERSISTENCE-REPORT.md`.
 
 ### M5.4 — external pen-test
 - **Gate:** GAP-5..9 re-validated against hostile samples **by an external pen-tester**; findings

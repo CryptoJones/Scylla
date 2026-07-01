@@ -17,9 +17,28 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          components: clippy
 
-      - name: Test workspace
-        run: cargo test --workspace
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test workspace (locked)
+        run: cargo test --workspace --locked
 
       - name: Consume-side core builds for WASM (DD-028)
         run: cargo build --target wasm32-unknown-unknown -p scylla-port
+
+  # The JVM engine-service (DD-040): keep it compiling on every change, not only at release.
+  engine-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build the JVM engine-service (Gradle)
+        working-directory: engine-service
+        run: gradle --no-daemon compileJava

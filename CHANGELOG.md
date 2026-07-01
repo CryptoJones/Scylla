@@ -191,7 +191,7 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.5.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...HEAD
 [0.5.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...v0.5.0
 [0.4.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...v0.4.0
 [0.3.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...v0.3.0

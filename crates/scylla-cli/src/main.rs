@@ -90,7 +90,7 @@ fn info(path: &str, json: bool) -> ExitCode {
             "language": p.language,
             "functions": p.functions.len(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
     } else {
         println!("name:      {}", p.name);
         println!("language:  {}", p.language);
@@ -139,7 +139,7 @@ fn functions(path: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
     } else {
         for f in &fns {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -166,7 +166,7 @@ fn search(path: &str, query: &str, zoom_arg: Option<&str>, json: bool) -> ExitCo
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).unwrap());
+        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
     } else {
         for f in &hits {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -209,7 +209,7 @@ fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>, json: bool) -> ExitCod
             "callees": v.callees,
             "callers": v.callers,
         });
-        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
         return ExitCode::SUCCESS;
     }
     let list = |xs: &[String]| {
@@ -356,7 +356,7 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
             "modified": pairs(&d.changed),
             "added": d.only_there,
             "removed": d.only_here,
-            "methods": serde_json::to_value(&by_method).unwrap(),
+            "methods": serde_json::to_value(&by_method).expect("a BTreeMap<String,_> serializes infallibly"),
             "confidence": d
                 .provenance
                 .iter()
@@ -368,7 +368,7 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
                 })
                 .collect::<serde_json::Map<String, serde_json::Value>>(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
     } else {
         println!("scylla diff: {a_path}  vs  {b_path}");
         println!(
@@ -438,7 +438,7 @@ async fn materialize(endpoint: &str, bin_path: &str, out: &str) -> ExitCode {
         Ok(b) => b,
         Err(e) => {
             eprintln!("error: reading {bin_path}: {e}");
-            return ExitCode::FAILURE;
+            return ExitCode::from(2); // trouble = 2 (1 is reserved for diff's "differs")
         }
     };
     let name = std::path::Path::new(bin_path)
@@ -449,13 +449,13 @@ async fn materialize(endpoint: &str, bin_path: &str, out: &str) -> ExitCode {
         Ok(p) => p,
         Err(e) => {
             eprintln!("error: engine materialize ({endpoint}): {e}");
-            return ExitCode::FAILURE;
+            return ExitCode::from(2);
         }
     };
     let bytes = scylla_schema::to_bytes(&prog);
     if let Err(e) = std::fs::write(out, &bytes) {
         eprintln!("error: writing {out}: {e}");
-        return ExitCode::FAILURE;
+        return ExitCode::from(2);
     }
     eprintln!(
         "Scylla: materialized {} functions from {name} -> {out} ({} bytes)",

@@ -81,7 +81,9 @@ fn line_text(v: &FunctionView) -> String {
     }
 }
 
-/// A single-line LSP range `[0, len)` on `line`.
+/// A single-line LSP range `[0, len)` on `line`. `len` is measured in **UTF-16 code units** (the
+/// default LSP position encoding), so a rename's `WorkspaceEdit` covers the whole line even when the
+/// name contains a supplementary-plane character (one that is two UTF-16 units).
 fn line_range(line: usize, len: usize) -> Value {
     json!({
         "start": {"line": line, "character": 0},
@@ -97,7 +99,7 @@ fn document_symbols(session: &Session) -> Value {
         .iter()
         .enumerate()
         .map(|(line, v)| {
-            let range = line_range(line, line_text(v).chars().count());
+            let range = line_range(line, line_text(v).encode_utf16().count());
             json!({
                 "name": v.name,
                 "detail": v.summary,
@@ -122,7 +124,7 @@ fn hover(session: &Session, params: &Value) -> Value {
     let full = session.view(v.id, Zoom::Detail).unwrap_or_else(|_| v.clone());
     json!({
         "contents": {"kind": "markdown", "value": wrap_untrusted(hover_markdown(&full))},
-        "range": line_range(line, line_text(v).chars().count()),
+        "range": line_range(line, line_text(v).encode_utf16().count()),
     })
 }
 
@@ -141,7 +143,7 @@ fn references(session: &Session, params: &Value) -> Value {
         .iter()
         .enumerate()
         .filter(|(_, v)| callers.contains(&v.id))
-        .map(|(i, v)| json!({"uri": DOC_URI, "range": line_range(i, line_text(v).chars().count())}))
+        .map(|(i, v)| json!({"uri": DOC_URI, "range": line_range(i, line_text(v).encode_utf16().count())}))
         .collect();
     Value::Array(locations)
 }
@@ -158,7 +160,7 @@ fn workspace_symbols(session: &Session, params: &Value) -> Value {
             Some(json!({
                 "name": hit.name,
                 "kind": 12,
-                "location": {"uri": DOC_URI, "range": line_range(line, line_text(hit).chars().count())},
+                "location": {"uri": DOC_URI, "range": line_range(line, line_text(hit).encode_utf16().count())},
             }))
         })
         .collect();
@@ -177,7 +179,7 @@ fn rename(session: &mut Session, params: &Value) -> Result<Value, String> {
     let (id, old_len) = {
         let ordered = ordered(session);
         let target = ordered.get(line).ok_or("no function at that position")?;
-        (target.id, line_text(target).chars().count())
+        (target.id, line_text(target).encode_utf16().count())
     };
     session.rename(id, new_name).map_err(|e| e.to_string())?;
     let updated = session.view(id, Zoom::Domain).map_err(|e| e.to_string())?;

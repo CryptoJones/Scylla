@@ -6,7 +6,8 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 3 {
-        eprintln!("usage: {} <snapshot.json> <out.scylla>", args[0]);
+        let prog = args.first().map(String::as_str).unwrap_or("scylla-ingest");
+        eprintln!("usage: {prog} <snapshot.json> <out.scylla>");
         return ExitCode::from(2);
     }
     let json = match std::fs::read_to_string(&args[1]) {

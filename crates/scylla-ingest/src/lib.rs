@@ -6,7 +6,7 @@
 //! mint stable ids (DD-004), resolve the call graph onto them, and the result serializes to
 //! the canonical Cap'n Proto artifact (DD-002/026) via `scylla-schema`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use scylla_model::{Function, IdMinter, Program, StableId};
 use serde::Deserialize;
@@ -47,8 +47,13 @@ struct Snapshot {
     functions: Vec<SnapFunc>,
 }
 
-fn parse_addr(s: &str) -> u64 {
-    u64::from_str_radix(s.trim().trim_start_matches("0x"), 16).unwrap_or(0)
+/// Parse a hex entry/callee address (`0x401156`, `0X401156`, or bare `401156`) to its numeric value,
+/// or `None` when it does not parse. Returning `None` (never a collapsed `0`) is load-bearing: the
+/// caller must not conflate an unparseable address with the real address `0`.
+fn parse_addr(s: &str) -> Option<u64> {
+    let t = s.trim();
+    let t = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")).unwrap_or(t);
+    u64::from_str_radix(t, 16).ok()
 }
 
 /// Build a native model `Program` from a snapshot JSON string.
@@ -56,25 +61,37 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
     let snap: Snapshot = serde_json::from_str(json)?;
     let mut minter = IdMinter::new();
 
-    // Pass 1: mint one stable id per function, keyed by its (current) entry address.
-    // The address is just the key here — identity is the minted id, not the address (DD-004).
-    let mut id_of: HashMap<u64, StableId> = HashMap::new();
-    for f in &snap.functions {
-        id_of.insert(parse_addr(&f.entry), minter.mint());
+    // Mint one stable id per function, by INDEX — identity is the minted id, never the address
+    // (DD-004). A duplicate or unparseable entry address must never make two functions share an id
+    // (the old address-keyed mint did, silently). A separate address->id map drives callee
+    // resolution, and it drops ambiguous addresses so an edge resolves to nothing, never to the
+    // wrong function.
+    let ids: Vec<StableId> = snap.functions.iter().map(|_| minter.mint()).collect();
+    let mut addr_to_id: HashMap<u64, StableId> = HashMap::new();
+    let mut ambiguous: HashSet<u64> = HashSet::new();
+    for (f, &id) in snap.functions.iter().zip(&ids) {
+        if let Some(a) = parse_addr(&f.entry) {
+            if addr_to_id.insert(a, id).is_some() {
+                ambiguous.insert(a); // two functions claim this address — resolution is ambiguous
+            }
+        }
+    }
+    for a in &ambiguous {
+        addr_to_id.remove(a);
     }
 
-    // Pass 2: build functions, resolving call edges to stable ids.
+    // Build functions, resolving call edges to stable ids by their (unique) target address.
     let mut functions = Vec::with_capacity(snap.functions.len());
-    for f in &snap.functions {
-        let addr = parse_addr(&f.entry);
+    for (f, &id) in snap.functions.iter().zip(&ids) {
+        let addr = parse_addr(&f.entry).unwrap_or(0);
         let callees = f
             .callees
             .iter()
-            .filter_map(|c| id_of.get(&parse_addr(c)).copied())
+            .filter_map(|c| parse_addr(c).and_then(|ca| addr_to_id.get(&ca).copied()))
             .collect();
         let histogram = scylla_model::mnemonic_histogram(&f.mnemonics);
         functions.push(Function {
-            id: id_of[&addr],
+            id,
             addr,
             name: f.name.clone(),
             size: f.size,
@@ -128,6 +145,23 @@ mod tests {
         let bytes = scylla_schema::to_bytes(&prog);
         let back = scylla_schema::from_bytes(&bytes).unwrap();
         assert_eq!(prog, back, "materialized model must round-trip losslessly");
+    }
+
+    #[test]
+    fn duplicate_entry_addresses_get_distinct_ids() {
+        // A buggy/compromised engine (GAP-3) could emit two functions with the same entry address.
+        // They must get DISTINCT stable ids (identity is the minted id, not the address, DD-004),
+        // and a call to that now-ambiguous address must resolve to NOTHING, never the wrong function.
+        let json = r#"{"program":"p","language":"l","functions":[
+            {"entry":"0x1000","name":"a","size":1,"bb_count":1,"callees":[]},
+            {"entry":"0x1000","name":"b","size":1,"bb_count":1,"callees":[]},
+            {"entry":"0x2000","name":"caller","size":1,"bb_count":1,"callees":["0x1000"]}
+        ]}"#;
+        let prog = snapshot_to_program(json).expect("parse");
+        let id = |n: &str| prog.functions.iter().find(|f| f.name == n).unwrap().id;
+        assert_ne!(id("a"), id("b"), "two functions sharing an entry address must not share an id");
+        let caller = prog.functions.iter().find(|f| f.name == "caller").unwrap();
+        assert!(caller.callees.is_empty(), "a call to the ambiguous address resolves to nothing");
     }
 
     #[test]

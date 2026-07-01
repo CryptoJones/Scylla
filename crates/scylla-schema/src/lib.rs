@@ -106,13 +106,19 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
         }
     }
     let mut buf = Vec::new();
-    capnp::serialize::write_message(&mut buf, &message).expect("write capnp message");
+    capnp::serialize::write_message(&mut buf, &message)
+        .expect("writing a capnp message to an in-memory Vec is infallible");
     buf
 }
 
 /// Deserialize the canonical artifact bytes back into a native Program.
 pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
-    let reader = capnp::serialize::read_message(&mut &bytes[..], reader_options())?;
+    // Zero-copy: borrow the segments out of the already-in-memory slice instead of allocating owned
+    // copies up to the traversal limit. This removes the full-buffer duplication AND refuses the
+    // "20-byte artifact declaring a ~511 MiB segment" allocation — flat-slice validates each declared
+    // segment against the actual buffer length rather than allocating it (DD-036 "never OOMs").
+    let reader =
+        capnp::serialize::read_message_from_flat_slice(&mut &bytes[..], reader_options())?;
     let p = reader.get_root::<model_capnp::program::Reader>()?;
 
     let mut functions = Vec::new();
@@ -222,9 +228,11 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
 
 // ----------------------------------------------------------------------------------------
 // DD-036 — the total artifact loader.
-// Reader limits are set ON PURPOSE; the capnp defaults are a security decision made by
-// accident. The loader never panics and never OOMs — a structurally broken artifact is a
+// Reader limits are set EXPLICITLY, never left to the capnp library defaults (which can shift
+// between releases). The loader never panics and never OOMs — a structurally broken artifact is a
 // LoadError, and soft faults (dangling refs, over-long strings) are quarantined and counted.
+// Nesting is pinned at the conservative default depth; the model is intentionally shallow, so a
+// deeper artifact is hostile. The traversal ceiling bounds pointer-amplification.
 // ----------------------------------------------------------------------------------------
 
 /// Amplification-bomb ceiling: words the reader will traverse before refusing (~512 MiB).
@@ -246,6 +254,8 @@ fn reader_options() -> capnp::message::ReaderOptions {
 pub struct LoadReport {
     pub dropped_dangling_callees: usize,
     pub dropped_dangling_facts: usize,
+    pub dropped_dangling_edge_provenance: usize,
+    pub dropped_duplicate_functions: usize,
     pub truncated_strings: usize,
 }
 
@@ -253,6 +263,8 @@ impl LoadReport {
     pub fn clean(&self) -> bool {
         self.dropped_dangling_callees == 0
             && self.dropped_dangling_facts == 0
+            && self.dropped_dangling_edge_provenance == 0
+            && self.dropped_duplicate_functions == 0
             && self.truncated_strings == 0
     }
 }
@@ -295,6 +307,13 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
     let mut prog = from_bytes(bytes).map_err(|e| LoadError::Decode(e.to_string()))?;
     let mut report = LoadReport::default();
 
+    // Duplicate stable ids break the identity invariant (DD-004): downstream `.find(|f| f.id == id)`
+    // would silently pick the first and the rest become unreachable. Drop later duplicates, counted.
+    let mut seen_ids: HashSet<u64> = HashSet::new();
+    let before_funcs = prog.functions.len();
+    prog.functions.retain(|f| seen_ids.insert(f.id.0));
+    report.dropped_duplicate_functions += before_funcs - prog.functions.len();
+
     let valid_ids: HashSet<u64> = prog.functions.iter().map(|f| f.id.0).collect();
 
     for func in &mut prog.functions {
@@ -304,14 +323,14 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         if truncate_to(&mut func.name, MAX_STRING_LEN) {
             report.truncated_strings += 1;
         }
-        // A hostile artifact's mnemonic strings are untrusted too — truncate the absurd ones.
-        for (mnem, _) in &mut func.mnemonics {
+        // EVERY engine-derived string is untrusted — a hostile/buggy producer can emit an absurd one
+        // in any field. Bound mnemonics AND ordered trigrams (the same instruction data), then the
+        // string refs / import names / callee names (DD-041, DD-043).
+        for (mnem, _) in func.mnemonics.iter_mut().chain(func.trigrams.iter_mut()) {
             if truncate_to(mnem, MAX_STRING_LEN) {
                 report.truncated_strings += 1;
             }
         }
-        // String refs / import names / callee names (DD-041, DD-043) are engine-derived → untrusted;
-        // bound them the same.
         for s in func
             .string_refs
             .iter_mut()
@@ -322,6 +341,25 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
                 report.truncated_strings += 1;
             }
         }
+        // Per-edge provenance must describe a surviving callee edge; drop dangling entries (counted),
+        // then bound the untrusted producer string.
+        let callee_set: HashSet<StableId> = func.callees.iter().copied().collect();
+        let ep_before = func.edge_provenance.len();
+        func.edge_provenance.retain(|e| callee_set.contains(&e.target));
+        report.dropped_dangling_edge_provenance += ep_before - func.edge_provenance.len();
+        for e in &mut func.edge_provenance {
+            if truncate_to(&mut e.provenance.producer, MAX_STRING_LEN) {
+                report.truncated_strings += 1;
+            }
+        }
+    }
+
+    // The top-level program strings are untrusted too.
+    if truncate_to(&mut prog.name, MAX_STRING_LEN) {
+        report.truncated_strings += 1;
+    }
+    if truncate_to(&mut prog.language, MAX_STRING_LEN) {
+        report.truncated_strings += 1;
     }
 
     let before_facts = prog.facts.len();
@@ -333,6 +371,15 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         };
         if truncate_to(s, MAX_STRING_LEN) {
             report.truncated_strings += 1;
+        }
+        // The provenance producer and the author Principal are untrusted strings as well.
+        if truncate_to(&mut fact.provenance.producer, MAX_STRING_LEN) {
+            report.truncated_strings += 1;
+        }
+        if let Some(author) = &mut fact.author {
+            if truncate_to(&mut author.0, MAX_STRING_LEN) {
+                report.truncated_strings += 1;
+            }
         }
     }
 
@@ -534,6 +581,47 @@ mod tests {
         let bytes = to_bytes(&p);
         let (_, report) = load(&bytes).expect("load");
         assert_eq!(report.dropped_dangling_facts, 1);
+    }
+
+    #[test]
+    fn load_truncates_program_name_and_trigrams() {
+        // The program name/language and the ordered trigrams are untrusted engine output too.
+        let mut p = sample();
+        p.name = "N".repeat(MAX_STRING_LEN + 8);
+        p.functions[0].trigrams.push(("T".repeat(MAX_STRING_LEN + 8), 1));
+        let bytes = to_bytes(&p);
+        let (prog, report) = load(&bytes).expect("load");
+        assert!(report.truncated_strings >= 2, "program name and the trigram are both truncated");
+        assert!(prog.name.len() <= MAX_STRING_LEN);
+        assert!(prog.functions[0].trigrams.iter().all(|(m, _)| m.len() <= MAX_STRING_LEN));
+    }
+
+    #[test]
+    fn load_drops_dangling_edge_provenance() {
+        // An edge-provenance entry whose target is not a surviving callee edge is dropped, counted.
+        let mut p = sample();
+        p.functions[1].edge_provenance.push(EdgeProvenance {
+            target: StableId(99999), // not among main's callees
+            provenance: Provenance { producer: "ghidra".into(), confidence: 90 },
+        });
+        let bytes = to_bytes(&p);
+        let (prog, report) = load(&bytes).expect("load");
+        assert_eq!(report.dropped_dangling_edge_provenance, 1);
+        assert!(prog.functions[1].edge_provenance.iter().all(|e| e.target != StableId(99999)));
+    }
+
+    #[test]
+    fn load_drops_duplicate_function_ids() {
+        // Two functions sharing a stable id violate DD-004 identity; the later one is dropped.
+        let mut p = sample();
+        let dup_id = p.functions[0].id;
+        let mut collider = p.functions[0].clone();
+        collider.name = "collider".into();
+        p.functions.push(collider);
+        let bytes = to_bytes(&p);
+        let (prog, report) = load(&bytes).expect("load");
+        assert_eq!(report.dropped_duplicate_functions, 1);
+        assert_eq!(prog.functions.iter().filter(|f| f.id == dup_id).count(), 1);
     }
 
     #[test]

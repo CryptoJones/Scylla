@@ -351,6 +351,7 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
             if truncate_to(&mut e.provenance.producer, MAX_STRING_LEN) {
                 report.truncated_strings += 1;
             }
+            e.provenance.confidence = e.provenance.confidence.min(100); // documented 0..=100
         }
     }
 
@@ -376,6 +377,7 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         if truncate_to(&mut fact.provenance.producer, MAX_STRING_LEN) {
             report.truncated_strings += 1;
         }
+        fact.provenance.confidence = fact.provenance.confidence.min(100); // documented 0..=100
         if let Some(author) = &mut fact.author {
             if truncate_to(&mut author.0, MAX_STRING_LEN) {
                 report.truncated_strings += 1;

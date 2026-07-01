@@ -17,10 +17,18 @@ pub type Addr = u64;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct StableId(pub u64);
 
-/// Mints monotonically increasing stable ids ("at first sight").
-#[derive(Debug, Default)]
+/// Mints monotonically increasing stable ids ("at first sight"). Ids start at 1 — `StableId(0)` is
+/// reserved as invalid (it is indistinguishable from a Cap'n Proto unset `UInt64` field, which reads
+/// back as 0), so `Default` must match `new()` rather than the derived 0-based counter.
+#[derive(Debug)]
 pub struct IdMinter {
     next: u64,
+}
+
+impl Default for IdMinter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IdMinter {

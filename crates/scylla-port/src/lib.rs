@@ -12,12 +12,14 @@
 //! `analyze`, `decompile`) are the producer side (scylla-ingest + the engine port) and land
 //! on this same session as it grows.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Re-exported so heads can name the diff match method + confidence without depending on
 /// `scylla-merge` directly.
 pub use scylla_merge::{MatchInfo, MatchMethod};
 use scylla_model::{FactKind, Function, Principal, Program, Provenance, StableId, UserFact};
+/// Re-exported so a head can inspect what the total loader (DD-036) quarantined on load.
+pub use scylla_schema::LoadReport;
 
 /// Typed port errors (DD-021): a SMALL taxonomy that faithfully mirrors Ghidra's own
 /// exception classes, so a head can translate a failure without inventing semantics
@@ -107,6 +109,9 @@ pub struct SessionDiff {
 pub struct Session {
     program: Program,
     principal: Option<Principal>,
+    /// What the total loader quarantined for the artifact this session was loaded from (empty for a
+    /// session opened directly from an in-memory `Program`).
+    load_report: LoadReport,
 }
 
 impl Session {
@@ -115,6 +120,7 @@ impl Session {
         Session {
             program,
             principal: Some(Principal("local".into())),
+            load_report: LoadReport::default(),
         }
     }
 
@@ -123,15 +129,28 @@ impl Session {
         Session {
             program,
             principal: Some(principal),
+            load_report: LoadReport::default(),
         }
     }
 
     /// Load a session from a canonical model artifact (DD-026).
     pub fn from_artifact(bytes: &[u8]) -> Result<Self, PortError> {
-        // Go through the total validating loader (DD-036), not raw decode.
-        scylla_schema::load(bytes)
-            .map(|(program, _report)| Session::open(program))
-            .map_err(|e| PortError::Decode(e.to_string()))
+        // Go through the total validating loader (DD-036), not raw decode, and KEEP the report so a
+        // head can tell whether the artifact was partially quarantined (dropped/truncated data).
+        let (program, load_report) =
+            scylla_schema::load(bytes).map_err(|e| PortError::Decode(e.to_string()))?;
+        Ok(Session {
+            program,
+            principal: Some(Principal("local".into())),
+            load_report,
+        })
+    }
+
+    /// What the total loader (DD-036) had to quarantine when this session's artifact was loaded —
+    /// dropped dangling refs, truncated over-long strings, duplicate ids. `load_report().clean()`
+    /// is `true` when the artifact loaded with nothing quarantined.
+    pub fn load_report(&self) -> &LoadReport {
+        &self.load_report
     }
 
     /// Serialize the session's model to the canonical artifact.
@@ -165,11 +184,16 @@ impl Session {
             .collect()
     }
 
-    /// Project one function at a zoom altitude (DD-020).
-    pub fn view(&self, id: StableId, zoom: Zoom) -> Result<FunctionView, PortError> {
-        let f = self.func(id)?;
-        let name = self.name_of(id);
-        let callers = self.callers(id);
+    /// Build a view for `f` given its callers and a display-name resolver — shared by the single
+    /// [`Session::view`] path and the batch [`Session::functions`] path (which precomputes the
+    /// resolver + caller index once, so listing N functions is O(N + E), not O(N^2)).
+    fn assemble_view(
+        f: &Function,
+        zoom: Zoom,
+        callers: &[StableId],
+        name_of: &dyn Fn(StableId) -> String,
+    ) -> FunctionView {
+        let name = name_of(f.id);
         let summary = format!(
             "{name} — {} block(s), {} out-call(s), {} caller(s)",
             f.bb_count,
@@ -177,7 +201,7 @@ impl Session {
             callers.len(),
         );
         let mut v = FunctionView {
-            id,
+            id: f.id,
             name,
             summary,
             addr: None,
@@ -189,20 +213,56 @@ impl Session {
         if zoom != Zoom::Intent {
             v.addr = Some(f.addr);
             v.bb_count = Some(f.bb_count);
-            v.callees = Some(f.callees.iter().map(|c| self.name_of(*c)).collect());
-            v.callers = Some(callers.iter().map(|c| self.name_of(*c)).collect());
+            v.callees = Some(f.callees.iter().map(|c| name_of(*c)).collect());
+            v.callers = Some(callers.iter().map(|c| name_of(*c)).collect());
         }
         if zoom == Zoom::Detail {
             v.size = Some(f.size);
         }
-        Ok(v)
+        v
     }
 
-    /// List all functions at a zoom altitude.
+    /// A precomputed `id -> display name` map (the FIRST rename per target wins, matching
+    /// [`scylla_model::Program::display_name`]) so the batch verbs resolve names in O(1).
+    fn display_name_index(&self) -> HashMap<StableId, String> {
+        let mut names: HashMap<StableId, String> =
+            self.program.functions.iter().map(|f| (f.id, f.name.clone())).collect();
+        let mut renamed: HashSet<StableId> = HashSet::new();
+        for fact in &self.program.facts {
+            if let FactKind::Rename(n) = &fact.kind {
+                if renamed.insert(fact.target) {
+                    names.insert(fact.target, n.clone());
+                }
+            }
+        }
+        names
+    }
+
+    /// Project one function at a zoom altitude (DD-020).
+    pub fn view(&self, id: StableId, zoom: Zoom) -> Result<FunctionView, PortError> {
+        let f = self.func(id)?;
+        let callers = self.callers(id);
+        Ok(Self::assemble_view(f, zoom, &callers, &|id| self.name_of(id)))
+    }
+
+    /// List all functions at a zoom altitude. O(N + E): a caller adjacency and a display-name map are
+    /// built once, instead of re-deriving callers and every callee/caller name per function.
     pub fn functions(&self, zoom: Zoom) -> Vec<FunctionView> {
-        let ids: Vec<StableId> = self.program.functions.iter().map(|f| f.id).collect();
-        ids.into_iter()
-            .map(|id| self.view(id, zoom).unwrap())
+        let mut caller_index: HashMap<StableId, Vec<StableId>> = HashMap::new();
+        for f in &self.program.functions {
+            for c in &f.callees {
+                caller_index.entry(*c).or_default().push(f.id);
+            }
+        }
+        let names = self.display_name_index();
+        let name_of = |id: StableId| names.get(&id).cloned().unwrap_or_default();
+        self.program
+            .functions
+            .iter()
+            .map(|f| {
+                let callers = caller_index.get(&f.id).map(Vec::as_slice).unwrap_or(&[]);
+                Self::assemble_view(f, zoom, callers, &name_of)
+            })
             .collect()
     }
 
@@ -257,6 +317,8 @@ impl Session {
 
     /// Coarse-grained diff against another session: ids present only here / only there, by
     /// structural identity. (A first taste of DD-017's `diff` verb.)
+    #[deprecated(note = "superseded by `diff` (structural identity); kept only as the coarse \
+                         address-set taste — do not build on it")]
     pub fn diff_function_addrs(&self, other: &Session) -> (BTreeSet<u64>, BTreeSet<u64>) {
         let mine: BTreeSet<u64> = self.program.functions.iter().map(|f| f.addr).collect();
         let theirs: BTreeSet<u64> = other.program.functions.iter().map(|f| f.addr).collect();

@@ -7,6 +7,51 @@ All notable changes to Scylla are recorded here. The format follows
 The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md) (44 DDs); the
 *what* is mapped in [ARCHITECTURE.md](ARCHITECTURE.md). This file is the *when*.
 
+## [0.7.0] — 2026-07-01
+
+A security- and robustness-hardening pass across the whole platform — the fixes from a full code
+review ([RECOMMENDATIONS.md](RECOMMENDATIONS.md)). No new heads and no artifact-format change, but the
+breadth of the hardening (and a few fail-closed behavior changes — TLS half-config, the CLI
+`materialize` exit code) makes this a SemVer minor.
+
+### Security
+
+- **`WRONG = 0` re-anchoring holes closed (scylla-merge).** The EXACT and ANCHOR passes and the
+  `collaborate`/`propagate` paths now require BOTH-sided uniqueness and a reciprocal-best match (the
+  discipline the diff path already used), so a deleted or twin function can no longer silently
+  mis-attach an analyst's fact. Adversarial regression tests added.
+- **The `<untrusted-data>` prompt-injection envelope is no longer escapable (scylla-mcp, scylla-lsp,
+  DD-035).** A hostile binary whose name/comment embedded the closing sentinel could end the envelope
+  early; both fence tokens are now neutralized before wrapping.
+- **Network heads (scylla-http, scylla-graphql, scylla-rpc):** constant-time bearer-token comparison,
+  TLS fails closed on a half-configured cert/key, request bodies are size-capped, and a per-request
+  panic can no longer take the server down.
+- **scylla-rpc no longer dies on a transient `accept()` error** (a remote, pre-auth availability
+  kill), and the TLS handshake is time-bounded so it can't squat a connection slot; explicit inbound
+  reader limits replace the library default.
+- **The total loader (scylla-schema) truncates every untrusted string, drops dangling
+  edge-provenance and duplicate ids, and loads zero-copy** so a tiny artifact can't declare a
+  half-gigabyte segment.
+- **Stable-id collisions on duplicate/unparseable addresses fixed** in the offline (scylla-ingest)
+  and engine (scylla-engine) producers — identity is the minted id, never the address (DD-004).
+- **engine-service (JVM):** the analysis deadline kills the whole Ghidra process tree (not just the
+  launcher script), the gRPC inbound limit fits a real firmware, cold analyses are concurrency-capped,
+  and the per-request temp project directory is cleaned up.
+
+### Fixed
+
+- MCP/LSP stdio input is size-capped and resilient to a stray non-UTF-8 byte; LSP `Content-Length` is
+  bounded and ranges are measured in UTF-16 (so a rename covers the whole line).
+- scylla-port surfaces the loader's `LoadReport`, and `functions`/`search` are O(N+E), not O(N²).
+- scylla-cli `materialize` uses exit code 2 for trouble (1 stays reserved for "diff differs").
+- scylla-wasm guards its wasm32-only pointer packing; scylla-tui restores the terminal on a panic;
+  scylla-serve caps handler threads and rejects non-GET/HEAD.
+
+### CI
+
+- CI runs clippy (`-D warnings`), tests `--locked`, and builds the JVM engine-service on every change
+  (not only at release).
+
 ## [0.6.0] — 2026-06-24
 
 Provenance starts *doing work*: the merge now reconciles disagreement by it. With facts and edges
@@ -191,7 +236,9 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...HEAD
+[0.7.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...v0.7.0
+[0.6.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.5.0...v0.6.0
 [0.5.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...v0.5.0
 [0.4.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.3.0...v0.4.0
 [0.3.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.2.0...v0.3.0

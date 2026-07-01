@@ -9,27 +9,32 @@
 //! silently mis-attached. Zero-wrong is the contract; recovery rate is the thing we lift with
 //! richer signals.
 //!
-//! Three passes, each strictly more permissive than the last but all gated by unique-match safety:
-//! 1. **EXACT** — a fact carries on a UNIQUE structural-signature match. The signature folds the
-//!    model's **mnemonic fingerprint** (DD-038) into the coarse CFG/size/out-degree tuple; richer
-//!    signature → more *unique* matches, never a wrong one.
+//! Five passes, each a different signal but all gated by unique-match safety (every one accepts only
+//! a clear unique winner — a threshold-and-margin or reciprocal-best test — so a near-tie is flagged,
+//! never guessed):
+//! 1. **EXACT** — a fact carries on a UNIQUE structural-signature match, unique on BOTH the old and
+//!    new side. The signature folds the model's **mnemonic fingerprint** (DD-038) into the coarse
+//!    CFG/size/out-degree tuple; richer signature → more *unique* matches, never a wrong one.
 //! 2. **ANCHOR (DD-041)** — the CROSS-ARCHITECTURE recovery pass. x86-64 and aarch64 share neither
 //!    mnemonics nor addresses (so the exact fingerprint and fuzzy cosine are both ~0), but the same
 //!    source references the same **string literals** and calls the same **imports by name**. We
 //!    match functions with a rich-enough arch-independent feature set by **Jaccard** over it,
-//!    accepted only on a unique best clearing a high threshold AND a runner-up margin. This is the
-//!    binary-diffing standard (BinDiff/SIGMADIFF anchor on unique strings/imports). Call-graph
-//!    **propagation** from these anchors is now realized in the `diff` verb ([`diff_programs`]): a
-//!    leftover function re-identified by its unique neighbourhood of already-matched callers/callees
-//!    is recovered — as `matched` if its body is unchanged (signature-ambiguous twin), or as
-//!    `changed` if its body differs (the "modified" class). Iterated to a fixpoint, fail-closed.
+//!    accepted only on a unique best clearing a high threshold AND a runner-up margin AND a
+//!    reciprocal-best check. This is the binary-diffing standard (BinDiff/SIGMADIFF anchor on unique
+//!    strings/imports).
 //! 3. **FUZZY** — cosine over the stored mnemonic histogram AND its ordered trigrams (the latter
 //!    captures the local instruction order the histogram drops) + structural closeness, accepted
-//!    only above a confidence threshold AND with a runner-up margin. Lifts both edit classes to
-//!    100% and recovers some recompile.
+//!    only above a confidence threshold AND with a runner-up margin AND a reciprocal-best check.
+//!    Lifts both edit classes to 100% and recovers some recompile.
+//! 4. **PROPAGATION (DD-041)** — call-graph propagation: a leftover re-identified by its unique
+//!    neighbourhood of already-matched callers/callees, accepted only on a margin-clearing AND
+//!    reciprocal (both-sides-unique) winner. Iterated to a fixpoint, fail-closed. Also drives the
+//!    `diff` verb's "modified" class ([`diff_programs`]).
+//! 5. **BSIM (DD-044)** — weighted cosine over the decompiled-feature vector, the cross-arch lever
+//!    for symmetric leaves nothing else can place, accepted on a threshold + reciprocal-best pair.
 //!
-//! Zero-wrong holds throughout — exact is unique-match, anchor and fuzzy are threshold+margin over a
-//! unique best ("never guess a near-tie").
+//! Zero-wrong holds throughout — exact is unique-match on both sides, the rest are threshold+margin
+//! over a reciprocal unique best ("never guess a near-tie").
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -94,21 +99,31 @@ fn similarity(a: &Function, b: &Function) -> f64 {
     mix + structure
 }
 
-/// The old function whose [`similarity`] to `g` is highest, over ALL of `olds` — the *reverse*
-/// direction of the fuzzy match, for the reciprocal-best (symmetric-match) check below. `None` only
-/// if `olds` is empty. Ties resolve to the first seen → treated as "not uniquely reciprocal", which
-/// fails closed (a near-tie should not anchor a fact anyway).
+/// The old function whose [`similarity`] to `g` is the UNIQUE highest, over ALL of `olds` — the
+/// *reverse* direction of the fuzzy match, for the reciprocal-best (symmetric-match) check below.
+/// `None` if `olds` is empty OR the top score does not strictly beat the runner-up: a tie is not a
+/// unique reciprocal and must fail closed (a near-tie should never anchor a fact). Earlier this kept
+/// the first-seen of a tie, which — when the fact-carrying old happened to sort first — let a genuine
+/// tie pass the reciprocity check and made the outcome sensitive to `old.functions` order.
 fn best_old_match<'a>(g: &Function, olds: &'a [Function]) -> Option<&'a Function> {
     let mut best: Option<&Function> = None;
     let mut best_s = f64::NEG_INFINITY;
+    let mut second_s = f64::NEG_INFINITY;
     for o in olds {
         let s = similarity(o, g);
         if s > best_s {
+            second_s = best_s;
             best_s = s;
             best = Some(o);
+        } else if s > second_s {
+            second_s = s;
         }
     }
-    best
+    if best_s > second_s {
+        best
+    } else {
+        None
+    }
 }
 
 /// A fuzzy match must clear this similarity to be trusted at all...
@@ -138,12 +153,9 @@ fn jaccard(a: &HashSet<&str>, b: &HashSet<&str>) -> f64 {
         return 0.0;
     }
     let inter = a.intersection(b).count();
+    // Both sides are non-empty here, so union = |a| + |b| - |inter| >= max(|a|, |b|) >= 1.
     let union = a.len() + b.len() - inter;
-    if union == 0 {
-        0.0
-    } else {
-        inter as f64 / union as f64
-    }
+    inter as f64 / union as f64
 }
 
 /// An anchor needs at least this many arch-independent features to be discriminating — one common
@@ -154,6 +166,34 @@ const ANCHOR_THRESHOLD: f64 = 0.5;
 /// ...AND beat the runner-up by this (wide) margin — a *clear* unique winner. Holds `WRONG = 0` the
 /// same way exact/fuzzy do: a near-tie is flagged, never guessed.
 const ANCHOR_MARGIN: f64 = 0.25;
+
+/// The reciprocal of the ANCHOR pass: the OLD function whose arch-independent anchor-set is `g`'s
+/// unique clear best (clears [`ANCHOR_THRESHOLD`] and beats the runner-up by [`ANCHOR_MARGIN`]).
+/// `None` on a near-tie, too few features, or no clear winner. The forward anchor pass proves `g` is
+/// the target's best new function; this proves the target is `g`'s best old function — without it a
+/// deleted old function whose anchor-set is a subset of a look-alike's set hijacks the look-alike's
+/// match (a one-directional false positive, exactly what the fuzzy/bsim passes reject reciprocally).
+fn best_old_by_anchor(g: &Function, olds: &[Function]) -> Option<StableId> {
+    let gset = anchor_set(g);
+    if gset.len() < ANCHOR_MIN_FEATURES {
+        return None;
+    }
+    let (mut best, mut best_s, mut second_s) = (None, -1.0_f64, -1.0_f64);
+    for o in olds {
+        let s = jaccard(&gset, &anchor_set(o));
+        if s > best_s {
+            second_s = best_s;
+            best_s = s;
+            best = Some(o.id);
+        } else if s > second_s {
+            second_s = s;
+        }
+    }
+    match best {
+        Some(id) if best_s >= ANCHOR_THRESHOLD && best_s - second_s >= ANCHOR_MARGIN => Some(id),
+        _ => None,
+    }
+}
 
 /// Recursion-match weight in the propagation score: a *self-recursive* function matching another
 /// self-recursive one is a strong, ISA-independent signal (it survives any recompile) — heavy
@@ -189,61 +229,68 @@ fn caller_map(funcs: &[Function]) -> HashMap<StableId, Vec<StableId>> {
 /// called by two matched functions outranks one called by one. Accept only a unique winner clearing
 /// `PROP_MIN_AGREEMENT` AND beating the runner-up by `PROP_MARGIN`; symmetric neighbors tie and stay
 /// flagged. Builds only on already-confirmed (WRONG=0) matches, so it never cascades a wrong guess.
+/// The graph-propagation best match for `subject` (in the `subject` program) among functions of the
+/// `other` program: the unique graph-local candidate that reproduces enough of `subject`'s ALREADY
+/// -MATCHED neighborhood (callers of the images of its matched callers, callees of the images of its
+/// matched callees, plus a self-recursion match) to clear [`PROP_MIN_AGREEMENT`] and beat the
+/// runner-up by [`PROP_MARGIN`]. Direction-agnostic: pass old→new maps for the forward direction and
+/// new→old for the reciprocal check. `subject_to_other` maps `subject`-side ids to their confirmed
+/// `other`-side images; `other_claimed` candidates are skipped (empty for the reciprocal probe).
 #[allow(clippy::too_many_arguments)]
-fn propagate_match(
-    b_id: StableId,
-    matched: &HashMap<StableId, StableId>,
-    claimed: &HashSet<StableId>,
-    old_by_id: &HashMap<StableId, &Function>,
-    new_by_id: &HashMap<StableId, &Function>,
-    old_callers: &HashMap<StableId, Vec<StableId>>,
-    new_callers: &HashMap<StableId, Vec<StableId>>,
+fn propagate_best(
+    subject_id: StableId,
+    subject_to_other: &HashMap<StableId, StableId>,
+    subject_by_id: &HashMap<StableId, &Function>,
+    subject_callers: &HashMap<StableId, Vec<StableId>>,
+    other_by_id: &HashMap<StableId, &Function>,
+    other_callers: &HashMap<StableId, Vec<StableId>>,
+    other_claimed: &HashSet<StableId>,
 ) -> Option<StableId> {
-    let b = old_by_id.get(&b_id)?;
-    // Images (in `new`) of b's already-matched neighbors.
-    let caller_imgs: Vec<StableId> = old_callers
-        .get(&b_id)
+    let s = subject_by_id.get(&subject_id)?;
+    // Images (in `other`) of subject's already-matched neighbors.
+    let caller_imgs: Vec<StableId> = subject_callers
+        .get(&subject_id)
         .into_iter()
         .flatten()
-        .filter_map(|c| matched.get(c).copied())
+        .filter_map(|c| subject_to_other.get(c).copied())
         .collect();
     let callee_imgs: Vec<StableId> =
-        b.callees.iter().filter_map(|c| matched.get(c).copied()).collect();
+        s.callees.iter().filter_map(|c| subject_to_other.get(c).copied()).collect();
     if caller_imgs.is_empty() && callee_imgs.is_empty() {
         return None; // not reachable from any confirmed anchor yet
     }
     // Graph-local candidate set: stay on the call edges out of/into the confirmed neighborhood.
     let mut candidates: HashSet<StableId> = HashSet::new();
     for ci in &caller_imgs {
-        if let Some(cf) = new_by_id.get(ci) {
+        if let Some(cf) = other_by_id.get(ci) {
             candidates.extend(cf.callees.iter().copied());
         }
     }
     for ei in &callee_imgs {
-        if let Some(cs) = new_callers.get(ei) {
+        if let Some(cs) = other_callers.get(ei) {
             candidates.extend(cs.iter().copied());
         }
     }
-    let b_recursive = b.callees.contains(&b_id);
+    let s_recursive = s.callees.contains(&subject_id);
     let (mut best, mut best_s, mut second_s) = (None, -1.0_f64, -1.0_f64);
     for cand in candidates {
-        if claimed.contains(&cand) {
+        if other_claimed.contains(&cand) {
             continue;
         }
-        let Some(cf) = new_by_id.get(&cand) else { continue };
+        let Some(cf) = other_by_id.get(&cand) else { continue };
         let caller_agree = caller_imgs
             .iter()
-            .filter(|ci| new_by_id.get(ci).is_some_and(|f| f.callees.contains(&cand)))
+            .filter(|ci| other_by_id.get(ci).is_some_and(|f| f.callees.contains(&cand)))
             .count();
         let callee_agree = callee_imgs.iter().filter(|ei| cf.callees.contains(ei)).count();
-        let recursion = if b_recursive && cf.callees.contains(&cand) { 1.0 } else { 0.0 };
-        let s = caller_agree as f64 + callee_agree as f64 + PROP_RECURSION_WEIGHT * recursion;
-        if s > best_s {
+        let recursion = if s_recursive && cf.callees.contains(&cand) { 1.0 } else { 0.0 };
+        let score = caller_agree as f64 + callee_agree as f64 + PROP_RECURSION_WEIGHT * recursion;
+        if score > best_s {
             second_s = best_s;
-            best_s = s;
+            best_s = score;
             best = Some(cand);
-        } else if s > second_s {
-            second_s = s;
+        } else if score > second_s {
+            second_s = score;
         }
     }
     // The runner-up to beat is the higher of the actual second-best AND the generic-neighbor
@@ -258,6 +305,42 @@ fn propagate_match(
         Some(id) if best_s - runner_up >= PROP_MARGIN => Some(id),
         _ => None,
     }
+}
+
+/// PROPAGATION (DD-041 follow-up): match `b_id` (old) by its position in the call graph relative to
+/// the functions already matched, then confirm the match is RECIPROCAL — `b`'s best new candidate
+/// must, symmetrically, have `b` as its own best old propagation-source (both-sides-unique, the same
+/// discipline `diff_programs` uses). Without the reciprocal gate two old leftovers sharing a matched
+/// neighborhood could each clear the margin and the first-processed would claim the candidate, so a
+/// function inlined away in `new` could steal its surviving neighbor's image. Builds only on
+/// already-confirmed (WRONG=0) matches, so it never cascades a wrong guess.
+#[allow(clippy::too_many_arguments)]
+fn propagate_match(
+    b_id: StableId,
+    matched: &HashMap<StableId, StableId>,
+    claimed: &HashSet<StableId>,
+    old_by_id: &HashMap<StableId, &Function>,
+    new_by_id: &HashMap<StableId, &Function>,
+    old_callers: &HashMap<StableId, Vec<StableId>>,
+    new_callers: &HashMap<StableId, Vec<StableId>>,
+) -> Option<StableId> {
+    let cand =
+        propagate_best(b_id, matched, old_by_id, old_callers, new_by_id, new_callers, claimed)?;
+    // Reciprocal-best gate: the candidate's own best old propagation-source must be `b_id`. `matched`
+    // is injective (each new id is `claimed` at most once), so inverting it is unambiguous.
+    let rev_matched: HashMap<StableId, StableId> =
+        matched.iter().map(|(o, n)| (*n, *o)).collect();
+    let no_claims = HashSet::new();
+    let back = propagate_best(
+        cand,
+        &rev_matched,
+        new_by_id,
+        new_callers,
+        old_by_id,
+        old_callers,
+        &no_claims,
+    );
+    (back == Some(b_id)).then_some(cand)
 }
 
 /// Weighted cosine of two **BSim** feature vectors (DD-044), in `0..=1`. Each vector is sparse
@@ -293,23 +376,32 @@ fn bsim_similarity(a: &[(u32, u32)], b: &[(u32, u32)]) -> f64 {
     }
 }
 
-/// The old function whose [`bsim_similarity`] to `g` is highest — the reverse direction for the
-/// reciprocal-best (symmetric-match) check, mirroring [`best_old_match`]. Vectorless olds are
-/// skipped (no signal). `None` if none carry a BSim vector.
+/// The old function whose [`bsim_similarity`] to `g` is the UNIQUE highest — the reverse direction
+/// for the reciprocal-best (symmetric-match) check, mirroring [`best_old_match`]. Vectorless olds are
+/// skipped (no signal). `None` if none carry a BSim vector OR the top score does not strictly beat
+/// the runner-up (a tie is not a unique reciprocal and must fail closed).
 fn best_old_match_bsim<'a>(g: &Function, olds: &'a [Function]) -> Option<&'a Function> {
     let mut best: Option<&Function> = None;
     let mut best_s = f64::NEG_INFINITY;
+    let mut second_s = f64::NEG_INFINITY;
     for o in olds {
         if o.bsim_vector.is_empty() {
             continue;
         }
         let s = bsim_similarity(&o.bsim_vector, &g.bsim_vector);
         if s > best_s {
+            second_s = best_s;
             best_s = s;
             best = Some(o);
+        } else if s > second_s {
+            second_s = s;
         }
     }
-    best
+    if best_s > second_s {
+        best
+    } else {
+        None
+    }
 }
 
 /// A BSim vector below this many features is not discriminating enough to anchor an identity — the
@@ -338,6 +430,14 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     for f in &new.functions {
         new_by_sig.entry(signature(f)).or_default().push(f.id);
     }
+    // Old-side signature buckets too: the EXACT pass requires uniqueness on BOTH sides (below), the
+    // same both-sided discipline `diff_programs` already uses. New-side uniqueness alone let two old
+    // functions that share a signature both claim the one new function with it — a silent
+    // double-attach, a WRONG=0 breach on the edit/recompile/deletion path.
+    let mut old_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
+    for f in &old.functions {
+        old_by_sig.entry(signature(f)).or_default().push(f.id);
+    }
     let old_by_id: HashMap<StableId, &Function> =
         old.functions.iter().map(|f| (f.id, f)).collect();
     let new_by_id: HashMap<StableId, &Function> =
@@ -347,7 +447,7 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
 
     // Build a function MATCHING (old id -> new id) over the functions that carry facts, in fact
     // order so each pass sees the prior passes' claims; then re-target every fact through it. The
-    // four passes are strictly increasing in permissiveness, each holding WRONG=0 its own way.
+    // five passes (exact, anchor, fuzzy, propagation, bsim) each hold WRONG=0 their own way.
     let mut matched: HashMap<StableId, StableId> = HashMap::new();
     let mut claimed: HashSet<StableId> = HashSet::new();
     let mut targets: Vec<StableId> = Vec::new();
@@ -360,15 +460,23 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
         }
     }
 
-    // Pass 1 — EXACT: a UNIQUE exact-signature match (WRONG=0 by construction). New-side uniqueness
-    // only (as before): exactly one new function carries this signature.
+    // Pass 1 — EXACT: a UNIQUE exact-signature match (WRONG=0 by construction). Uniqueness is
+    // required on BOTH sides — exactly one OLD function AND exactly one NEW function carry this
+    // signature — and the winning id must be as-yet-unclaimed. (New-side-only uniqueness let two old
+    // functions sharing a signature both retarget onto the single new function with it: a silent
+    // mis-attach that only surfaces on edit/recompile/deletion, where the old collision has no new
+    // twin to flag it.)
     let mut deferred: Vec<StableId> = Vec::new();
     for t in &targets {
         let unique = old_by_id
             .get(t)
-            .and_then(|oldf| new_by_sig.get(&signature(oldf)))
-            .filter(|ids| ids.len() == 1)
-            .map(|ids| ids[0]);
+            .and_then(|oldf| {
+                let sig = signature(oldf);
+                let old_unique = old_by_sig.get(&sig).is_some_and(|ids| ids.len() == 1);
+                let new_ids = new_by_sig.get(&sig)?;
+                (old_unique && new_ids.len() == 1).then(|| new_ids[0])
+            })
+            .filter(|id| !claimed.contains(id));
         match unique {
             Some(id) => {
                 matched.insert(*t, id);
@@ -407,7 +515,14 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
             }
         }
         match best {
-            Some(id) if best_s >= ANCHOR_THRESHOLD && best_s - second_s >= ANCHOR_MARGIN => {
+            Some(id)
+                if best_s >= ANCHOR_THRESHOLD
+                    && best_s - second_s >= ANCHOR_MARGIN
+                    // Reciprocal-best gate (WRONG=0): the winning new function's own best old
+                    // anchor-match must be this target, not merely the reverse. Mirrors the
+                    // fuzzy/bsim passes and the diff-path anchor rung.
+                    && best_old_by_anchor(new_by_id[&id], &old.functions) == Some(t) =>
+            {
                 matched.insert(t, id);
                 claimed.insert(id);
             }
@@ -486,7 +601,7 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     // only on a UNIQUE best clearing BSIM_THRESHOLD, beating the runner-up by BSIM_MARGIN, AND
     // reciprocal-best (the candidate's own best old-match by BSim is this function) — the same
     // WRONG=0 discipline as the fuzzy pass. The de-risk (DD-044) showed reciprocal-best is
-    // load-bearing: the one-opcode-apart twin (`factorial`↔`sum_to`) scores ~0.71, which can clear a
+    // load-bearing: the one-opcode-apart twin (`factorial`↔`sum_to`) scores ~0.75, which can clear a
     // bare 0.7 floor, but each true twin is 1.0 so the mutual-best resolves the pair. A too-small
     // vector (< BSIM_MIN_FEATURES) defers (significance proxy). No-op when `bsim_vector` is empty
     // (no producer signal yet), so it never perturbs the string/graph passes or the gate classes.
@@ -937,6 +1052,13 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
     for f in &base.functions {
         base_by_sig.entry(signature(f)).or_default().push(f.id);
     }
+    // Incoming-side buckets too: re-anchoring an incoming fact requires the signature to be unique on
+    // BOTH sides (below). Base-side-only uniqueness let two distinct incoming functions sharing a
+    // signature collapse their facts onto the single base function with it — one is a mis-attribution.
+    let mut incoming_by_sig: HashMap<(u32, u64, usize, u64), Vec<StableId>> = HashMap::new();
+    for f in &incoming.functions {
+        incoming_by_sig.entry(signature(f)).or_default().push(f.id);
+    }
     let incoming_by_id: HashMap<StableId, &Function> =
         incoming.functions.iter().map(|f| (f.id, f)).collect();
 
@@ -947,11 +1069,12 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
     // mutable borrow of `base.facts`, mirroring the deferred `to_add`).
     let mut to_replace: Vec<UserFact> = Vec::new();
     for fact in &incoming.facts {
-        let base_target = incoming_by_id
-            .get(&fact.target)
-            .and_then(|inf| base_by_sig.get(&signature(inf)))
-            .filter(|ids| ids.len() == 1)
-            .map(|ids| ids[0]);
+        let base_target = incoming_by_id.get(&fact.target).and_then(|inf| {
+            let sig = signature(inf);
+            let incoming_unique = incoming_by_sig.get(&sig).is_some_and(|ids| ids.len() == 1);
+            let base_ids = base_by_sig.get(&sig)?;
+            (incoming_unique && base_ids.len() == 1).then(|| base_ids[0])
+        });
         let Some(tid) = base_target else {
             report.flagged += 1;
             continue;
@@ -1066,6 +1189,161 @@ mod tests {
         let report = merge_into(&v1, &mut v2);
         assert!(report.merged >= 1, "gcd/fib (unchanged) should survive the edit");
         assert_zero_wrong(&v2);
+    }
+
+    /// WRONG=0 regression (MERGE-P0-1): the EXACT pass must require signature uniqueness on BOTH
+    /// sides. Two DISTINCT old functions share one signature and both carry a fact; the rebuild has
+    /// exactly ONE function with that signature (the others were deleted/inlined). New-side-only
+    /// uniqueness let both old facts retarget onto that single survivor — a silent double-attach. The
+    /// correct answer is to flag both (they are genuinely indistinguishable), never guess.
+    #[test]
+    fn exact_pass_does_not_double_attach_on_shared_signature() {
+        use scylla_model::{Function, IdMinter};
+        let mk = |m: &mut IdMinter, name: &str| Function {
+            id: m.mint(),
+            addr: 0,
+            name: name.into(),
+            size: 64,
+            bb_count: 3,
+            callees: vec![],
+            fingerprint: 7, // identical structural signature across all three
+            mnemonics: vec![("mov".into(), 3), ("ret".into(), 1)],
+            trigrams: vec![],
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: vec![],
+            edge_provenance: vec![],
+        };
+        let mut m = IdMinter::new();
+        let mut old = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![mk(&mut m, "alpha"), mk(&mut m, "beta")],
+            facts: Vec::new(),
+        };
+        let (alpha, beta) = (old.functions[0].id, old.functions[1].id);
+        old.facts.push(UserFact::new(alpha, FactKind::Rename("ALPHA".into())));
+        old.facts.push(UserFact::new(beta, FactKind::Rename("BETA".into())));
+        let mut new = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![mk(&mut m, "survivor")],
+            facts: Vec::new(),
+        };
+        let report = merge_into(&old, &mut new);
+        assert_eq!(report.merged, 0, "two old twins sharing a signature must NOT both claim one new function");
+        assert_eq!(report.flagged, 2, "both indistinguishable facts are flagged for review");
+        assert!(new.facts.is_empty(), "nothing may be mis-attached to the survivor (WRONG=0)");
+    }
+
+    /// WRONG=0 regression (MERGE-P0-2): the ANCHOR pass must be RECIPROCAL. A deleted, fact-carrying
+    /// old function (`ghost`) has an arch-independent feature set that is a SUBSET of a survivor
+    /// (`real`)'s set, so `ghost` forward-matches the rebuilt image with a clear margin — but the
+    /// rebuilt image's own best old match is `real`, not `ghost`. Without the reciprocal-best gate
+    /// `ghost` (processed first) hijacks the match and its fact mis-attaches; `real`'s real fact is
+    /// then locked out. The reciprocal gate places `real`'s fact correctly and flags `ghost`.
+    #[test]
+    fn anchor_pass_requires_reciprocal_best() {
+        use scylla_model::{Function, IdMinter};
+        let mk = |m: &mut IdMinter, name: &str, bb: u32, strs: &[&str]| Function {
+            id: m.mint(),
+            addr: 0,
+            name: name.into(),
+            size: 10,
+            bb_count: bb, // distinct per fn -> distinct signatures -> EXACT never fires; only ANCHOR
+            callees: vec![],
+            fingerprint: 0,
+            mnemonics: vec![], // no mnemonics/callees/bsim -> fuzzy/propagation/bsim can't act
+            trigrams: vec![],
+            string_refs: strs.iter().map(|s| (*s).to_string()).collect(),
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: vec![],
+            edge_provenance: vec![],
+        };
+        let mut m = IdMinter::new();
+        // real & the rebuilt image share the full set {s1..s5}; ghost shares only {s1,s2,s3}.
+        let full = &["s1", "s2", "s3", "s4", "s5"][..];
+        let mut old = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![
+                mk(&mut m, "ghost", 1, &["s1", "s2", "s3"]),
+                mk(&mut m, "real", 2, full),
+            ],
+            facts: Vec::new(),
+        };
+        let (ghost, real) = (old.functions[0].id, old.functions[1].id);
+        // ghost's fact is FIRST — the order that triggers the pre-fix hijack.
+        old.facts.push(UserFact::new(ghost, FactKind::Rename("GHOST".into())));
+        old.facts.push(UserFact::new(real, FactKind::Rename("REAL".into())));
+        let mut new = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![
+                mk(&mut m, "real_rebuilt", 3, full),
+                mk(&mut m, "decoy", 4, &["z1", "z2"]),
+            ],
+            facts: Vec::new(),
+        };
+        let report = merge_into(&old, &mut new);
+        let landed = |label: &str| {
+            new.facts
+                .iter()
+                .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == label))
+                .map(|f| new.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone())
+        };
+        assert_eq!(report.merged, 1, "only real's fact re-anchors; ghost is flagged");
+        assert_eq!(landed("REAL").as_deref(), Some("real_rebuilt"), "real's fact lands on its true image");
+        assert_eq!(landed("GHOST"), None, "the deleted ghost must NOT hijack the image (WRONG=0)");
+    }
+
+    /// WRONG=0 regression (MERGE-P1-2): `collaborate` must require signature uniqueness on BOTH
+    /// sides. Two DISTINCT incoming functions share a signature; the base has one function with it.
+    /// Base-side-only uniqueness collapsed both incoming facts onto that one base function — the
+    /// correct answer is to flag both (ambiguous), never attribute one analyst's fact to the wrong
+    /// function.
+    #[test]
+    fn collaborate_requires_both_sided_signature_uniqueness() {
+        use scylla_model::{Function, IdMinter};
+        let mk = |m: &mut IdMinter, name: &str| Function {
+            id: m.mint(),
+            addr: 0,
+            name: name.into(),
+            size: 64,
+            bb_count: 3,
+            callees: vec![],
+            fingerprint: 9,
+            mnemonics: vec![("mov".into(), 2)],
+            trigrams: vec![],
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: vec![],
+            edge_provenance: vec![],
+        };
+        let mut m = IdMinter::new();
+        let mut base = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![mk(&mut m, "target")],
+            facts: Vec::new(),
+        };
+        let mut incoming = Program {
+            name: "lib".into(),
+            language: "x86:LE:64:default".into(),
+            functions: vec![mk(&mut m, "a"), mk(&mut m, "b")],
+            facts: Vec::new(),
+        };
+        let (a, b) = (incoming.functions[0].id, incoming.functions[1].id);
+        incoming.facts.push(UserFact::new(a, FactKind::Rename("RA".into())));
+        incoming.facts.push(UserFact::new(b, FactKind::Rename("RB".into())));
+        let (report, conflicts) = collaborate(&mut base, &incoming);
+        assert_eq!(report.merged, 0, "ambiguous incoming twins must not re-anchor");
+        assert_eq!(report.flagged, 2, "both incoming facts are flagged");
+        assert!(conflicts.is_empty(), "no conflict is manufactured by collapsing distinct facts");
+        assert!(base.facts.is_empty(), "nothing mis-attributed onto the base function (WRONG=0)");
     }
 
     #[test]

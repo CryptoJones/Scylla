@@ -12,7 +12,7 @@ pub mod pb {
 
 pub mod job;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use scylla_model::{Function, IdMinter, Program, StableId};
 
@@ -58,18 +58,30 @@ pub fn chunk_to_function(chunk: &pb::FunctionChunk, id: StableId) -> Function {
 /// without a live engine. `name`/`language` come from the stream's `ProgramInfo` header.
 pub fn assemble(name: &str, language: &str, chunks: &[pb::FunctionChunk]) -> Program {
     let mut minter = IdMinter::new();
-    let mut id_of: HashMap<u64, StableId> = HashMap::new();
-    for c in chunks {
-        id_of.insert(c.entry, minter.mint());
+    // Mint one stable id per chunk by INDEX. The engine is UNTRUSTED (GAP-3), so two chunks sharing
+    // an entry address must NOT collapse onto one stable id (identity is the minted id, DD-004). A
+    // separate address->id map drives callee resolution and DROPS ambiguous (duplicated) addresses,
+    // so a callee to such an address resolves to nothing rather than to the wrong function.
+    let ids: Vec<StableId> = chunks.iter().map(|_| minter.mint()).collect();
+    let mut addr_to_id: HashMap<u64, StableId> = HashMap::new();
+    let mut ambiguous: HashSet<u64> = HashSet::new();
+    for (c, &id) in chunks.iter().zip(&ids) {
+        if addr_to_id.insert(c.entry, id).is_some() {
+            ambiguous.insert(c.entry);
+        }
+    }
+    for a in &ambiguous {
+        addr_to_id.remove(a);
     }
     let functions = chunks
         .iter()
-        .map(|c| {
-            let mut f = chunk_to_function(c, id_of[&c.entry]);
+        .zip(&ids)
+        .map(|(c, &id)| {
+            let mut f = chunk_to_function(c, id);
             f.callees = c
                 .callees
                 .iter()
-                .filter_map(|a| id_of.get(a).copied())
+                .filter_map(|a| addr_to_id.get(a).copied())
                 .collect();
             f
         })
@@ -89,9 +101,29 @@ pub fn assemble(name: &str, language: &str, chunks: &[pb::FunctionChunk]) -> Pro
 pub const MAX_FUNCTIONS: usize = 1_000_000;
 /// Cumulative instruction (mnemonic) ceiling across the whole stream.
 pub const MAX_TOTAL_MNEMONICS: usize = 100_000_000;
+/// Cumulative BYTE ceiling across ALL retained fields of the stream. The count caps above miss a
+/// malicious engine that streams unbounded `string_refs`/`imports`/`callee_names`/`bsim_vector` with
+/// zero mnemonics (~4 TB without tripping either count cap); a byte budget closes that. 512 MiB
+/// matches the artifact loader's traversal ceiling.
+pub const MAX_TOTAL_BYTES: usize = 512 * 1024 * 1024;
+
+/// Approximate the retained byte size of a streamed chunk (all fields that survive into the model).
+fn chunk_bytes(c: &pb::FunctionChunk) -> usize {
+    c.name.len()
+        + c.mnemonics.iter().map(String::len).sum::<usize>()
+        + c.string_refs.iter().map(String::len).sum::<usize>()
+        + c.imports.iter().map(String::len).sum::<usize>()
+        + c.callee_names.iter().map(String::len).sum::<usize>()
+        + c.bsim_vector.len() * 8
+        + c.callees.len() * 8
+}
 
 /// Refuse an over-large engine stream. `Err(reason)` when a cap is exceeded; `Ok` at/under it.
-fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), String> {
+fn check_stream_caps(
+    n_functions: usize,
+    total_mnemonics: usize,
+    total_bytes: usize,
+) -> Result<(), String> {
     if n_functions > MAX_FUNCTIONS {
         return Err(format!(
             "engine stream exceeded {MAX_FUNCTIONS} functions — refusing (untrusted engine output)"
@@ -100,6 +132,11 @@ fn check_stream_caps(n_functions: usize, total_mnemonics: usize) -> Result<(), S
     if total_mnemonics > MAX_TOTAL_MNEMONICS {
         return Err(format!(
             "engine stream exceeded {MAX_TOTAL_MNEMONICS} instructions — refusing (untrusted engine output)"
+        ));
+    }
+    if total_bytes > MAX_TOTAL_BYTES {
+        return Err(format!(
+            "engine stream exceeded {MAX_TOTAL_BYTES} bytes — refusing (untrusted engine output)"
         ));
     }
     Ok(())
@@ -150,6 +187,7 @@ pub async fn materialize(
         .into_inner();
     let mut chunks = Vec::new();
     let mut total_mnemonics = 0usize;
+    let mut total_bytes = 0usize;
     let mut prog_name = name.to_string();
     let mut language = String::new();
     while let Some(ev) = stream.message().await? {
@@ -163,7 +201,8 @@ pub async fn materialize(
             Some(Event::Function(c)) => {
                 // Bound the untrusted stream BEFORE retaining the chunk — fail closed, never OOM.
                 total_mnemonics += c.mnemonics.len();
-                check_stream_caps(chunks.len() + 1, total_mnemonics)?;
+                total_bytes += chunk_bytes(&c);
+                check_stream_caps(chunks.len() + 1, total_mnemonics, total_bytes)?;
                 chunks.push(c);
             }
             None => {} // an empty event — ignore
@@ -226,16 +265,49 @@ mod tests {
     #[test]
     fn stream_caps_refuse_an_oversized_engine_stream() {
         // GAP-3: a compromised engine can't OOM the core. At the cap is fine; over it is refused.
-        assert!(check_stream_caps(10, 1_000).is_ok());
-        assert!(check_stream_caps(MAX_FUNCTIONS, MAX_TOTAL_MNEMONICS).is_ok());
+        assert!(check_stream_caps(10, 1_000, 1_000).is_ok());
+        assert!(check_stream_caps(MAX_FUNCTIONS, MAX_TOTAL_MNEMONICS, MAX_TOTAL_BYTES).is_ok());
         assert!(
-            check_stream_caps(MAX_FUNCTIONS + 1, 0).is_err(),
+            check_stream_caps(MAX_FUNCTIONS + 1, 0, 0).is_err(),
             "too many functions refused"
         );
         assert!(
-            check_stream_caps(1, MAX_TOTAL_MNEMONICS + 1).is_err(),
+            check_stream_caps(1, MAX_TOTAL_MNEMONICS + 1, 0).is_err(),
             "too many instructions refused"
         );
+        assert!(
+            check_stream_caps(1, 0, MAX_TOTAL_BYTES + 1).is_err(),
+            "a byte flood with zero mnemonics is refused"
+        );
+    }
+
+    #[test]
+    fn assemble_gives_distinct_ids_on_duplicate_entry_addresses() {
+        // A buggy/compromised engine (GAP-3) could stream two functions at the same entry address.
+        // They must get DISTINCT stable ids (DD-004), and a call to that now-ambiguous address must
+        // resolve to nothing, never the wrong function.
+        let mk = |entry: u64, name: &str, callees: Vec<u64>| pb::FunctionChunk {
+            entry,
+            name: name.into(),
+            size: 1,
+            bb_count: 1,
+            callees,
+            mnemonics: vec![],
+            string_refs: vec![],
+            imports: vec![],
+            callee_names: vec![],
+            bsim_vector: vec![],
+        };
+        let chunks = vec![
+            mk(0x1000, "a", vec![]),
+            mk(0x1000, "b", vec![]),
+            mk(0x2000, "caller", vec![0x1000]),
+        ];
+        let prog = assemble("p", "l", &chunks);
+        let id = |n: &str| prog.functions.iter().find(|f| f.name == n).unwrap().id;
+        assert_ne!(id("a"), id("b"), "duplicate entry addresses must not share a stable id");
+        let caller = prog.functions.iter().find(|f| f.name == "caller").unwrap();
+        assert!(caller.callees.is_empty(), "a call to the ambiguous address resolves to nothing");
     }
 
     #[test]

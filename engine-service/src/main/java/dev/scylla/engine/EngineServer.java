@@ -110,6 +110,42 @@ public final class EngineServer {
         return s.length() <= n ? s : "…" + s.substring(s.length() - n);
     }
 
+    /** Recursively delete a directory tree, best-effort (ignores individual failures). Java's
+     *  {@code deleteIfExists} won't remove a non-empty dir, so the cold path's temp project would
+     *  otherwise leak on every request until the sandbox runs out of inodes/disk. */
+    private static void deleteRecursively(Path root) {
+        try (var walk = Files.walk(root)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (Exception ignored) {
+                    // best-effort
+                }
+            });
+        } catch (Exception ignored) {
+            // the dir may already be gone
+        }
+    }
+
+    /** Max inbound gRPC message. A whole binary (a 200 MB firmware — see job.rs) rides in
+     *  {@code MaterializeRequest.binary}, so the 4 MiB grpc-java default would reject the very inputs
+     *  the service is designed for. Matches the artifact loader's traversal ceiling. */
+    static final int MAX_INBOUND_MESSAGE = 512 * 1024 * 1024;
+
+    /** Cap concurrent COLD {@code analyzeHeadless} subprocesses — each is a full Ghidra JVM, so an
+     *  unbounded burst would exhaust host CPU/RAM. Sized by {@code SCYLLA_ENGINE_COLD_CONCURRENCY}
+     *  (default 2). The warm pool is already bounded by its worker queue; this guards the fallback. */
+    private static int coldConcurrency() {
+        try {
+            return Math.max(1, Integer.parseInt(System.getenv("SCYLLA_ENGINE_COLD_CONCURRENCY")));
+        } catch (Exception e) {
+            return 2;
+        }
+    }
+
+    private static final java.util.concurrent.Semaphore COLD_SLOTS =
+            new java.util.concurrent.Semaphore(coldConcurrency());
+
     /** The warm-worker source ({@code ScyllaWarmWorker.java}): {@code SCYLLA_WARM_WORKER_SRC} if
      *  set, else the {@code warm-worker/} dir shipped beside this service in the install — the
      *  worker travels WITH the service and is compiled against the dist at startup. {@code ""} if
@@ -228,6 +264,8 @@ public final class EngineServer {
                 // best-effort graceful quit; force-kill below regardless
             }
             if (proc.isAlive()) {
+                // Kill the whole tree in case the worker forked helpers, not just the direct child.
+                proc.descendants().forEach(ProcessHandle::destroyForcibly);
                 proc.destroyForcibly();
             }
         }
@@ -370,7 +408,11 @@ public final class EngineServer {
                 }
             }
             Path bin = null, out = null, proj = null;
+            boolean slot = false;
             try {
+                // Bound concurrent cold Ghidra JVMs (each is heavy) so a burst can't exhaust the host.
+                COLD_SLOTS.acquire();
+                slot = true;
                 bin = Files.createTempFile("scylla-bin", ".bin");
                 out = Files.createTempFile("scylla-snap", ".json");
                 proj = Files.createTempDirectory("scylla-proj");
@@ -403,6 +445,10 @@ public final class EngineServer {
                 drain.start();
 
                 if (!p.waitFor(timeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS)) {
+                    // analyzeHeadless is a launcher that forks the real Ghidra JVM as a grandchild;
+                    // destroyForcibly() on the direct child alone orphans that JVM (still analyzing a
+                    // hostile binary) past the deadline (GAP-2). Kill the whole tree, descendants first.
+                    p.descendants().forEach(ProcessHandle::destroyForcibly);
                     p.destroyForcibly();
                     resp.onError(Status.DEADLINE_EXCEEDED
                             .withDescription("GayHydra headless exceeded the " + timeoutSeconds()
@@ -426,8 +472,15 @@ public final class EngineServer {
                 resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
                         .asRuntimeException());
             } finally {
+                if (slot) {
+                    COLD_SLOTS.release();
+                }
                 try { if (bin != null) Files.deleteIfExists(bin); } catch (Exception ignored) {}
                 try { if (out != null) Files.deleteIfExists(out); } catch (Exception ignored) {}
+                // -deleteProject removes the ghidra project INSIDE proj, never the temp dir itself.
+                if (proj != null) {
+                    deleteRecursively(proj);
+                }
             }
         }
 
@@ -508,14 +561,24 @@ public final class EngineServer {
 
         @Override
         public void decompile(DecompileRequest req, StreamObserver<DecompileReply> resp) {
-            resp.onNext(DecompileReply.newBuilder()
-                    .setC("/* decompilation: on-demand GayHydra call, pending */").build());
-            resp.onCompleted();
+            // Not yet implemented — return UNIMPLEMENTED rather than a placeholder string a caller
+            // can't distinguish from a real (empty) decompilation.
+            resp.onError(Status.UNIMPLEMENTED
+                    .withDescription("decompile is not yet implemented (on-demand GayHydra call pending)")
+                    .asRuntimeException());
         }
     }
 
     public static void main(String[] args) throws Exception {
-        int port = args.length > 0 ? Integer.parseInt(args[0]) : 50051;
+        int port = 50051;
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.err.println("invalid port: " + args[0]);
+                System.exit(2);
+            }
+        }
 
         // GHIDRA_DIST is REQUIRED — the GayHydra dist is an external ~890MB mount, never baked
         // into the image, and a hardcoded laptop path is a footgun that works on exactly one box.
@@ -589,6 +652,7 @@ public final class EngineServer {
                     .channelType(EpollServerDomainSocketChannel.class)
                     .bossEventLoopGroup(new EpollEventLoopGroup(1))
                     .workerEventLoopGroup(new EpollEventLoopGroup())
+                    .maxInboundMessageSize(MAX_INBOUND_MESSAGE)
                     .addService(new EngineImpl(dist, scriptDir, warmEngine))
                     .build().start();
             // Netty creates the socket under the process umask; widen it so the host client (a
@@ -603,6 +667,7 @@ public final class EngineServer {
                     + " | dist=" + dist + " | scripts=" + scriptDir);
         } else {
             server = ServerBuilder.forPort(port)
+                    .maxInboundMessageSize(MAX_INBOUND_MESSAGE)
                     .addService(new EngineImpl(dist, scriptDir, warmEngine)).build().start();
             System.out.println("scylla-engine-service (GayHydra " + mode + ") on " + port
                     + " | dist=" + dist + " | scripts=" + scriptDir);

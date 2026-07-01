@@ -90,7 +90,7 @@ impl authenticator::Server for AuthImpl {
         async move {
             let presented = params.get()?.get_token()?.to_str()?;
             if let Some(t) = &expected {
-                if presented != t.as_str() {
+                if !constant_time_eq(presented.as_bytes(), t.as_bytes()) {
                     return Err(capnp::Error::failed(
                         "authentication failed: bad token".into(),
                     ));
@@ -382,10 +382,36 @@ where
         r.compat(),
         w.compat_write(),
         rpc_twoparty_capnp::Side::Server,
-        Default::default(),
+        reader_options(),
     );
     let auth = auth_server(session, token);
     RpcSystem::new(Box::new(net), Some(auth.client))
+}
+
+/// Explicit inbound reader limits for the wire — NEVER the shifting capnp library default (a
+/// security decision, mirroring the artifact loader's DD-036 stance). The traversal ceiling matches
+/// the artifact loader's (keep in sync with `scylla_schema::MAX_TRAVERSAL_WORDS`) so a model that
+/// loads locally can also be diffed/exported over RPC; the connection cap + handshake timeout bound
+/// how many large inbound messages can arrive at once.
+const RPC_MAX_TRAVERSAL_WORDS: usize = 64 * 1024 * 1024; // 512 MiB
+const RPC_MAX_NESTING: i32 = 64;
+
+fn reader_options() -> capnp::message::ReaderOptions {
+    let mut o = capnp::message::ReaderOptions::new();
+    o.traversal_limit_in_words(Some(RPC_MAX_TRAVERSAL_WORDS));
+    o.nesting_limit(RPC_MAX_NESTING);
+    o
+}
+
+/// Constant-time byte comparison: no early exit and length folded in, so a timing side channel leaks
+/// neither the token's length nor a matching prefix (the online token-guessing oracle).
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    let mut diff = (a.len() ^ b.len()) as u64;
+    let n = a.len().max(b.len());
+    for i in 0..n {
+        diff |= u64::from(a.get(i).copied().unwrap_or(0) ^ b.get(i).copied().unwrap_or(0));
+    }
+    diff == 0
 }
 
 /// Serve one connection but DROP it if the client hasn't authenticated within `handshake` — a
@@ -406,7 +432,7 @@ pub async fn serve_with_timeout<T>(
         r.compat(),
         w.compat_write(),
         rpc_twoparty_capnp::Side::Server,
-        Default::default(),
+        reader_options(),
     );
     let auth: authenticator::Client = capnp_rpc::new_client(AuthImpl {
         session,
@@ -441,7 +467,7 @@ where
         r.compat(),
         w.compat_write(),
         rpc_twoparty_capnp::Side::Client,
-        Default::default(),
+        reader_options(),
     );
     let mut rpc = RpcSystem::new(Box::new(net), None);
     let auth: authenticator::Client = rpc.bootstrap(rpc_twoparty_capnp::Side::Server);

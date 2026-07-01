@@ -14,6 +14,16 @@ use scylla_rpc::{serve_with_timeout, tls_acceptor, SharedSession};
 const USAGE: &str =
     "usage: scylla-rpc-serve <artifact.scylla> [host:port]   (default 127.0.0.1:9000)";
 
+/// Decrements the active-connection counter when a connection task ends, on ANY exit path (normal
+/// return, early return, or panic) — a manual decrement leaks the slot if the task ever unwinds.
+struct SlotGuard(Rc<std::cell::Cell<usize>>);
+
+impl Drop for SlotGuard {
+    fn drop(&mut self) {
+        self.0.set(self.0.get().saturating_sub(1));
+    }
+}
+
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let Some(artifact) = args.next() else {
@@ -59,7 +69,8 @@ fn main() -> ExitCode {
         std::env::var("SCYLLA_RPC_HANDSHAKE_SEC")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(10),
+            .unwrap_or(10)
+            .max(1), // a 0-second window would abort every connection (login needs a round-trip)
     );
     // Optional TLS (DD-035): with SCYLLA_RPC_TLS_CERT + SCYLLA_RPC_TLS_KEY (PEM), the wire is
     // encrypted so the token + the model never cross the network in the clear. Unset = plaintext.
@@ -81,7 +92,21 @@ fn main() -> ExitCode {
                 std::process::exit(1);
             }))
         }
-        _ => None,
+        (None, None) => None,
+        // Fail CLOSED: one of the pair set without the other would silently serve plaintext, putting
+        // the token + model on the wire in the clear — the opposite of what enabling TLS intended.
+        (cert, _) => {
+            let missing = if cert.is_some() {
+                "SCYLLA_RPC_TLS_KEY"
+            } else {
+                "SCYLLA_RPC_TLS_CERT"
+            };
+            eprintln!(
+                "scylla-rpc-serve: TLS is half-configured — {missing} is not set. Refusing to serve \
+                 plaintext; set both or neither."
+            );
+            return ExitCode::FAILURE;
+        }
     };
 
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -104,7 +129,17 @@ fn main() -> ExitCode {
             listener.local_addr()?
         );
         loop {
-            let (stream, _peer) = listener.accept().await?;
+            let (stream, _peer) = match listener.accept().await {
+                Ok(pair) => pair,
+                // A per-connection accept error (ECONNABORTED from a peer that reset before we
+                // accepted; EMFILE/ENFILE from fd exhaustion) must NOT terminate the server. Log,
+                // back off briefly so a persistent error can't busy-spin the loop, and keep serving.
+                Err(e) => {
+                    eprintln!("scylla-rpc-serve: accept error (continuing): {e}");
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    continue;
+                }
+            };
             if active.get() >= max_conn {
                 drop(stream); // at capacity — refuse the surplus connection
                 continue;
@@ -114,17 +149,21 @@ fn main() -> ExitCode {
             let counter = active.clone();
             let (sess, tok, acc) = (shared.clone(), token.clone(), acceptor.clone());
             tokio::task::spawn_local(async move {
+                // Free the connection slot on EVERY exit path (normal, early return, or panic).
+                let _slot = SlotGuard(counter);
                 match acc {
-                    // Wrap the connection in TLS before the RPC handshake; a failed TLS handshake
-                    // just drops the connection.
+                    // Wrap the connection in TLS before the RPC handshake, bounded by the SAME
+                    // handshake window: a stalled TLS handshake must not squat a counted slot forever
+                    // (that would defeat the connection cap). A failed/timed-out handshake just drops.
                     Some(a) => {
-                        if let Ok(tls) = a.accept(stream).await {
+                        if let Ok(Ok(tls)) =
+                            tokio::time::timeout(handshake, a.accept(stream)).await
+                        {
                             serve_with_timeout(sess, tok, handshake, tls).await;
                         }
                     }
                     None => serve_with_timeout(sess, tok, handshake, stream).await,
                 }
-                counter.set(counter.get() - 1);
             });
         }
     });

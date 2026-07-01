@@ -16,6 +16,7 @@
 //!   POST /api/diff                 — body = a .scylla; → {matched, renamed, modified, added, removed}
 //!   GET  /api/export               — download the resident model, INCLUDING your annotations, as a .scylla
 
+use std::io::Read;
 use std::process::ExitCode;
 
 use scylla_model::{FactKind, Program, StableId};
@@ -24,6 +25,69 @@ use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const USAGE: &str = "usage: scylla-http <artifact.scylla> [host:port]   (default 127.0.0.1:8800)";
+
+/// Reject a request body larger than this — `read_to_end` is otherwise unbounded, so one POST can
+/// OOM the process. 64 MiB matches the artifact loader's traversal ceiling.
+const MAX_BODY: u64 = 64 * 1024 * 1024;
+
+/// Constant-time byte comparison: no early exit on the first differing byte and length folded in, so
+/// response timing leaks neither the token's length nor a matching prefix (the bearer-token oracle).
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    let mut diff = (a.len() ^ b.len()) as u64;
+    let n = a.len().max(b.len());
+    for i in 0..n {
+        diff |= u64::from(a.get(i).copied().unwrap_or(0) ^ b.get(i).copied().unwrap_or(0));
+    }
+    diff == 0
+}
+
+/// Read a request body capped at [`MAX_BODY`]: `Err` on an unreadable body (400) or one over the cap
+/// (413), instead of the unbounded `read_to_end` that a hostile client can use to exhaust memory.
+fn read_body_capped(req: &mut Request) -> Result<Vec<u8>, (u16, String)> {
+    let mut buf = Vec::new();
+    if req.as_reader().take(MAX_BODY + 1).read_to_end(&mut buf).is_err() {
+        return Err((400, json!({"error": "could not read the request body"}).to_string()));
+    }
+    if buf.len() as u64 > MAX_BODY {
+        return Err((413, json!({"error": "request body too large"}).to_string()));
+    }
+    Ok(buf)
+}
+
+/// Minimal percent-decoding for query values (`%20`/`+` -> space); invalid escapes pass through.
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'%' if i + 2 < b.len() => {
+                match (
+                    (b[i + 1] as char).to_digit(16),
+                    (b[i + 2] as char).to_digit(16),
+                ) {
+                    (Some(h), Some(l)) => {
+                        out.push((h * 16 + l) as u8);
+                        i += 3;
+                    }
+                    _ => {
+                        out.push(b'%');
+                        i += 1;
+                    }
+                }
+            }
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            c => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
 
 /// A routed response: a JSON document (the common case) or the raw model bytes (`/api/export`).
 enum Reply {
@@ -69,9 +133,15 @@ fn main() -> ExitCode {
     // Access is gated by SCYLLA_HTTP_TOKEN (DD-035): every request must carry
     // `Authorization: Bearer <token>`. Unset = OPEN (anyone can query) — fine for a loopback dev
     // gateway, announced loudly otherwise.
-    let token = std::env::var("SCYLLA_HTTP_TOKEN")
-        .ok()
-        .filter(|t| !t.is_empty());
+    let raw_token = std::env::var("SCYLLA_HTTP_TOKEN").ok();
+    if raw_token.as_deref().is_some_and(|t| t.trim().is_empty()) {
+        eprintln!(
+            "scylla-http: SCYLLA_HTTP_TOKEN is set but empty/blank — the server stays OPEN. Set a \
+             non-empty token to gate access, or unset it deliberately."
+        );
+    }
+    // A blank/whitespace-only value is treated as unset (never as a real — trivially weak — token).
+    let token = raw_token.filter(|t| !t.trim().is_empty());
 
     // Optional TLS (DD-035): with SCYLLA_HTTP_TLS_CERT + SCYLLA_HTTP_TLS_KEY (PEM), serve HTTPS so
     // the token + the model don't cross the wire in the clear. (Many deployments TLS-terminate at a
@@ -91,7 +161,22 @@ fn main() -> ExitCode {
             });
             Some((cert, key))
         }
-        _ => None,
+        (None, None) => None,
+        // Fail CLOSED: one of the pair set without the other is a misconfiguration. Silently serving
+        // plaintext here would put the token + the whole model on the wire in the clear — exactly
+        // what enabling TLS was meant to prevent.
+        (cert, _) => {
+            let missing = if cert.is_some() {
+                "SCYLLA_HTTP_TLS_KEY"
+            } else {
+                "SCYLLA_HTTP_TLS_CERT"
+            };
+            eprintln!(
+                "scylla-http: TLS is half-configured — {missing} is not set. Refusing to serve \
+                 plaintext; set both or neither."
+            );
+            return ExitCode::FAILURE;
+        }
     };
 
     let scheme = if tls.is_some() { "https" } else { "http" };
@@ -121,9 +206,17 @@ fn main() -> ExitCode {
         "scylla-http: {artifact} on {scheme}://{addr}/  — {auth} (DD-017 JSON gateway; Ctrl-C to stop)"
     );
 
+    // Precompute the expected Authorization value once (not per request); compared in constant time.
+    let expected_bearer = token.as_ref().map(|t| format!("Bearer {t}"));
+
     for mut request in server.incoming_requests() {
-        let reply = if authorized(&request, &token) {
-            handle(&mut session, &mut request)
+        let reply = if authorized(&request, &expected_bearer) {
+            // A panic in a route handler must not take the whole (single-threaded) server down —
+            // return 500 for this one request and keep serving.
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                handle(&mut session, &mut request)
+            }))
+            .unwrap_or_else(|_| Reply::Json(500, json!({"error": "internal error"}).to_string()))
         } else {
             Reply::Json(
                 401,
@@ -134,10 +227,14 @@ fn main() -> ExitCode {
             Reply::Json(s, b) => (s, "application/json", b.into_bytes()),
             Reply::Octet(b) => (200, "application/octet-stream", b),
         };
-        let header = Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes()).unwrap();
+        let ctype_header = Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes())
+            .expect("a static Content-Type header is always valid");
+        let nosniff = Header::from_bytes(&b"X-Content-Type-Options"[..], &b"nosniff"[..])
+            .expect("a static header is always valid");
         let resp = Response::from_data(body)
             .with_status_code(status)
-            .with_header(header);
+            .with_header(ctype_header)
+            .with_header(nosniff);
         let _ = request.respond(resp);
     }
     ExitCode::SUCCESS
@@ -145,14 +242,14 @@ fn main() -> ExitCode {
 
 /// True if the request is allowed: the server is open (`token` is `None`) or the request carries a
 /// matching `Authorization: Bearer <token>` header.
-fn authorized(req: &Request, token: &Option<String>) -> bool {
-    let Some(t) = token else {
-        return true;
+fn authorized(req: &Request, expected_bearer: &Option<String>) -> bool {
+    let Some(want) = expected_bearer else {
+        return true; // OPEN mode (no token configured)
     };
-    let want = format!("Bearer {t}");
-    req.headers()
-        .iter()
-        .any(|h| h.field.equiv("Authorization") && h.value.as_str() == want)
+    req.headers().iter().any(|h| {
+        h.field.equiv("Authorization")
+            && constant_time_eq(h.value.as_str().as_bytes(), want.as_bytes())
+    })
 }
 
 fn zoom_of(q: Option<&str>) -> Zoom {
@@ -179,13 +276,7 @@ fn parse_id(id: &str) -> Result<StableId, (u16, String)> {
 
 /// Read a POST body and parse it as JSON, or a `400` on an unreadable / malformed body.
 fn json_body(req: &mut Request) -> Result<Value, (u16, String)> {
-    let mut buf = Vec::new();
-    if req.as_reader().read_to_end(&mut buf).is_err() {
-        return Err((
-            400,
-            json!({"error": "could not read the request body"}).to_string(),
-        ));
-    }
+    let buf = read_body_capped(req)?;
     serde_json::from_slice(&buf).map_err(|e| {
         (
             400,
@@ -226,7 +317,7 @@ fn handle(session: &mut Session, req: &mut Request) -> Reply {
         (Method::Get, ["api", "functions"]) => Reply::Json(200, functions(session, zoom)),
         (Method::Get, ["api", "search"]) => Reply::Json(
             200,
-            search(session, query_param(query, "q").unwrap_or(""), zoom),
+            search(session, &percent_decode(query_param(query, "q").unwrap_or("")), zoom),
         ),
         (Method::Get, ["api", "functions", id]) => view(session, id, zoom).into(),
         (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id).into(),
@@ -329,13 +420,10 @@ fn callers(session: &Session, id: &str) -> (u16, String) {
 }
 
 fn diff(session: &Session, req: &mut Request) -> (u16, String) {
-    let mut bytes = Vec::new();
-    if req.as_reader().read_to_end(&mut bytes).is_err() {
-        return (
-            400,
-            json!({"error": "could not read the request body"}).to_string(),
-        );
-    }
+    let bytes = match read_body_capped(req) {
+        Ok(b) => b,
+        Err(e) => return e,
+    };
     let other = match Session::from_artifact(&bytes) {
         Ok(s) => s,
         Err(e) => {

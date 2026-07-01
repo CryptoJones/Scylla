@@ -72,6 +72,15 @@ fn load(path: &str) -> Result<Session, String> {
 /// Set up the alternate-screen raw-mode terminal, run the event loop, and ALWAYS restore the
 /// terminal afterwards (even if the loop errored) — a TUI that leaves the shell wedged is a bug.
 fn run(mut app: App) -> io::Result<()> {
+    // Restore the terminal even on a PANIC: unwinding skips the sequential teardown below, so a crash
+    // in draw/handle_key would otherwise leave the user's shell in raw mode on the alternate screen.
+    let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        prev_hook(info);
+    }));
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -82,6 +91,7 @@ fn run(mut app: App) -> io::Result<()> {
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
+    let _ = std::panic::take_hook(); // drop our hook now that the terminal is restored
     outcome
 }
 

@@ -8,6 +8,8 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 // The WASM head, baked in (the committed prebuilt assets). One binary, no external files.
@@ -74,37 +76,62 @@ fn main() {
 
     let artifact: &'static [u8] = Box::leak(artifact.into_boxed_slice());
     let compare: Option<&'static [u8]> = compare.map(|c| &*Box::leak(c.into_boxed_slice()));
+    // Cap concurrent handler threads so a localhost connection flood can't exhaust threads.
+    const MAX_CONN: usize = 64;
+    let inflight = Arc::new(AtomicUsize::new(0));
     for stream in listener.incoming().flatten() {
+        if inflight.load(Ordering::Relaxed) >= MAX_CONN {
+            drop(stream); // at capacity — refuse the surplus connection
+            continue;
+        }
+        inflight.fetch_add(1, Ordering::Relaxed);
+        let inflight = inflight.clone();
         thread::spawn(move || {
             let _ = handle(stream, artifact, compare);
+            inflight.fetch_sub(1, Ordering::Relaxed);
         });
     }
 }
 
 fn handle(mut stream: TcpStream, artifact: &[u8], compare: Option<&[u8]>) -> std::io::Result<()> {
-    let mut buf = [0u8; 2048];
-    let n = stream.read(&mut buf)?;
-    let req = String::from_utf8_lossy(&buf[..n]);
+    // Read until the end of the request line — a split TCP read (or a request line pushed past a
+    // single 2 KiB packet) otherwise mis-parses the path.
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 1024];
+    while !buf.windows(2).any(|w| w == b"\r\n") && buf.len() < 8 * 1024 {
+        let n = stream.read(&mut tmp)?;
+        if n == 0 {
+            break;
+        }
+        buf.extend_from_slice(&tmp[..n]);
+    }
+    let req = String::from_utf8_lossy(&buf);
+    let mut tokens = req.split_whitespace();
+    let method = tokens.next().unwrap_or("");
     // The request path is the 2nd token of the request line; strip any query string.
-    let path = req.split_whitespace().nth(1).unwrap_or("/");
+    let path = tokens.next().unwrap_or("/");
     let path = path.split('?').next().unwrap_or("/");
 
     // The head fetches `mathlib.scylla` (its baked default name) — serve the user's artifact there;
     // and `compare.scylla` when a second build was given (the head auto-diffs against it on boot).
-    let (status, ctype, body): (&str, &str, &[u8]) = match path {
-        "/" | "/index.html" => ("200 OK", "text/html; charset=utf-8", INDEX_HTML.as_bytes()),
-        "/scylla_wasm.wasm" => ("200 OK", "application/wasm", WASM),
-        "/mathlib.scylla" => ("200 OK", "application/octet-stream", artifact),
-        "/compare.scylla" => match compare {
-            Some(c) => ("200 OK", "application/octet-stream", c),
-            None => ("404 Not Found", "text/plain; charset=utf-8", b"not found"),
-        },
-        _ => ("404 Not Found", "text/plain; charset=utf-8", b"not found"),
+    let (status, ctype, body): (&str, &str, &[u8]) = if method != "GET" && method != "HEAD" {
+        ("405 Method Not Allowed", "text/plain; charset=utf-8", b"method not allowed")
+    } else {
+        match path {
+            "/" | "/index.html" => ("200 OK", "text/html; charset=utf-8", INDEX_HTML.as_bytes()),
+            "/scylla_wasm.wasm" => ("200 OK", "application/wasm", WASM),
+            "/mathlib.scylla" => ("200 OK", "application/octet-stream", artifact),
+            "/compare.scylla" => match compare {
+                Some(c) => ("200 OK", "application/octet-stream", c),
+                None => ("404 Not Found", "text/plain; charset=utf-8", b"not found"),
+            },
+            _ => ("404 Not Found", "text/plain; charset=utf-8", b"not found"),
+        }
     };
 
     let head = format!(
         "HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\n\
-         Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+         X-Content-Type-Options: nosniff\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream.write_all(head.as_bytes())?;

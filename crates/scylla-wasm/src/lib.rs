@@ -49,6 +49,14 @@ fn ret_bytes(bytes: Vec<u8>) -> u64 {
     let boxed: Box<[u8]> = bytes.into_boxed_slice();
     let len = boxed.len() as u64;
     let ptr = Box::into_raw(boxed) as *mut u8 as u64;
+    // This packing is sound ONLY on wasm32 (32-bit pointers). The crate is also an rlib whose tests
+    // run on a 64-bit host, where `ptr << 32` would shift live pointer bits away and `scylla_free`
+    // would later reclaim garbage (UB). Catch that in debug instead of corrupting silently — the
+    // exported ABI is wasm32-only.
+    debug_assert!(
+        ptr <= u64::from(u32::MAX) && len <= u64::from(u32::MAX),
+        "ret_bytes packing is wasm32-only (ptr/len must fit in 32 bits)"
+    );
     (ptr << 32) | len
 }
 
@@ -67,6 +75,12 @@ fn with_session(empty: &str, f: impl FnOnce(&Session) -> String) -> u64 {
 /// Exact-size (capacity == len) so [`scylla_free`]'s `(ptr, len)` reclaim matches the layout.
 #[no_mangle]
 pub extern "C" fn scylla_alloc(len: usize) -> *mut u8 {
+    // `len` is JS-controlled; refuse an absurd request (null) rather than trap the whole instance on
+    // an out-of-memory allocation. A real artifact is bounded by its file size, well under this.
+    const MAX_ALLOC: usize = 512 * 1024 * 1024;
+    if len > MAX_ALLOC {
+        return std::ptr::null_mut();
+    }
     let boxed: Box<[u8]> = vec![0u8; len].into_boxed_slice();
     Box::into_raw(boxed) as *mut u8
 }

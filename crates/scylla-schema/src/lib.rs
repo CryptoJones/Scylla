@@ -14,6 +14,10 @@ use scylla_model::{
     EdgeProvenance, FactKind, Function, Principal, Program, Provenance, StableId, UserFact,
 };
 
+const MAX_DECODED_FUNCTIONS: usize = 1_000_000;
+const MAX_DECODED_FACTS: usize = 1_000_000;
+const MAX_DECODED_LIST_ITEMS: usize = 1_000_000;
+
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     match k {
         FactKind::Rename(s) => (0, s),
@@ -27,6 +31,50 @@ fn fact_from_parts(kind: u16, value: &str) -> FactKind {
         0 => FactKind::Rename(value.to_owned()),
         1 => FactKind::Retype(value.to_owned()),
         _ => FactKind::Comment(value.to_owned()),
+    }
+}
+
+fn decode_error(description: impl Into<String>) -> capnp::Error {
+    capnp::Error::failed(description.into())
+}
+
+fn list_limit(bytes: &[u8], absolute_max: usize) -> usize {
+    absolute_max.min(bytes.len().max(1))
+}
+
+fn checked_list_len(field: &str, len: u32, max: usize) -> capnp::Result<usize> {
+    let len = len as usize;
+    if len > max {
+        Err(decode_error(format!(
+            "artifact {field} list length {len} exceeds decode cap {max}"
+        )))
+    } else {
+        Ok(len)
+    }
+}
+
+fn truncate_str_boundary(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+fn read_text(
+    text: capnp::text::Reader<'_>,
+    bounded: bool,
+    report: &mut LoadReport,
+) -> capnp::Result<String> {
+    let s = text.to_str()?;
+    if bounded && s.len() > MAX_STRING_LEN {
+        report.truncated_strings += 1;
+        Ok(truncate_str_boundary(s, MAX_STRING_LEN).to_owned())
+    } else {
+        Ok(s.to_owned())
     }
 }
 
@@ -82,7 +130,9 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
                 mc.set_count(*c);
             }
             // Per-edge provenance (DD-007), additive + sparse: empty on legacy models.
-            let mut ep = fb.reborrow().init_edge_provenance(f.edge_provenance.len() as u32);
+            let mut ep = fb
+                .reborrow()
+                .init_edge_provenance(f.edge_provenance.len() as u32);
             for (j, e) in f.edge_provenance.iter().enumerate() {
                 let mut eb = ep.reborrow().get(j as u32);
                 eb.set_target(e.target.0);
@@ -113,79 +163,116 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
 
 /// Deserialize the canonical artifact bytes back into a native Program.
 pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
+    let mut report = LoadReport::default();
+    decode_bytes(bytes, false, &mut report)
+}
+
+fn decode_bytes(
+    bytes: &[u8],
+    bounded_strings: bool,
+    report: &mut LoadReport,
+) -> capnp::Result<Program> {
     // Zero-copy: borrow the segments out of the already-in-memory slice instead of allocating owned
     // copies up to the traversal limit. This removes the full-buffer duplication AND refuses the
     // "20-byte artifact declaring a ~511 MiB segment" allocation — flat-slice validates each declared
     // segment against the actual buffer length rather than allocating it (DD-036 "never OOMs").
-    let reader =
-        capnp::serialize::read_message_from_flat_slice(&mut &bytes[..], reader_options())?;
+    let reader = capnp::serialize::read_message_from_flat_slice(&mut &bytes[..], reader_options())?;
     let p = reader.get_root::<model_capnp::program::Reader>()?;
+    let item_limit = list_limit(bytes, MAX_DECODED_LIST_ITEMS);
 
-    let mut functions = Vec::new();
-    for f in p.get_functions()?.iter() {
-        let mut callees = Vec::new();
-        for c in f.get_callees()?.iter() {
+    let functions_reader = p.get_functions()?;
+    let function_count = checked_list_len(
+        "functions",
+        functions_reader.len(),
+        list_limit(bytes, MAX_DECODED_FUNCTIONS),
+    )?;
+    let mut functions = Vec::with_capacity(function_count);
+    for f in functions_reader.iter() {
+        let callees_reader = f.get_callees()?;
+        let callee_count = checked_list_len("function.callees", callees_reader.len(), item_limit)?;
+        let mut callees = Vec::with_capacity(callee_count);
+        for c in callees_reader.iter() {
             callees.push(StableId(c));
         }
         functions.push(Function {
             id: StableId(f.get_id()),
             addr: f.get_addr(),
-            name: f.get_name()?.to_str()?.to_owned(),
+            name: read_text(f.get_name()?, bounded_strings, report)?,
             size: f.get_size(),
             bb_count: f.get_bb_count(),
             callees,
             fingerprint: f.get_fingerprint(),
             mnemonics: {
-                let mut h = Vec::new();
-                for mc in f.get_mnemonics()?.iter() {
-                    h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
+                let reader = f.get_mnemonics()?;
+                let len = checked_list_len("function.mnemonics", reader.len(), item_limit)?;
+                let mut h = Vec::with_capacity(len);
+                for mc in reader.iter() {
+                    h.push((
+                        read_text(mc.get_mnemonic()?, bounded_strings, report)?,
+                        mc.get_count(),
+                    ));
                 }
                 h
             },
             string_refs: {
-                let mut v = Vec::new();
-                for s in f.get_string_refs()?.iter() {
-                    v.push(s?.to_str()?.to_owned());
+                let reader = f.get_string_refs()?;
+                let len = checked_list_len("function.stringRefs", reader.len(), item_limit)?;
+                let mut v = Vec::with_capacity(len);
+                for s in reader.iter() {
+                    v.push(read_text(s?, bounded_strings, report)?);
                 }
                 v
             },
             imports: {
-                let mut v = Vec::new();
-                for s in f.get_imports()?.iter() {
-                    v.push(s?.to_str()?.to_owned());
+                let reader = f.get_imports()?;
+                let len = checked_list_len("function.imports", reader.len(), item_limit)?;
+                let mut v = Vec::with_capacity(len);
+                for s in reader.iter() {
+                    v.push(read_text(s?, bounded_strings, report)?);
                 }
                 v
             },
             callee_names: {
-                let mut v = Vec::new();
-                for s in f.get_callee_names()?.iter() {
-                    v.push(s?.to_str()?.to_owned());
+                let reader = f.get_callee_names()?;
+                let len = checked_list_len("function.calleeNames", reader.len(), item_limit)?;
+                let mut v = Vec::with_capacity(len);
+                for s in reader.iter() {
+                    v.push(read_text(s?, bounded_strings, report)?);
                 }
                 v
             },
             bsim_vector: {
-                let mut v = Vec::new();
-                for bf in f.get_bsim_vector()?.iter() {
+                let reader = f.get_bsim_vector()?;
+                let len = checked_list_len("function.bsimVector", reader.len(), item_limit)?;
+                let mut v = Vec::with_capacity(len);
+                for bf in reader.iter() {
                     v.push((bf.get_hash(), bf.get_weight()));
                 }
                 v
             },
             trigrams: {
-                let mut h = Vec::new();
-                for mc in f.get_trigrams()?.iter() {
-                    h.push((mc.get_mnemonic()?.to_str()?.to_owned(), mc.get_count()));
+                let reader = f.get_trigrams()?;
+                let len = checked_list_len("function.trigrams", reader.len(), item_limit)?;
+                let mut h = Vec::with_capacity(len);
+                for mc in reader.iter() {
+                    h.push((
+                        read_text(mc.get_mnemonic()?, bounded_strings, report)?,
+                        mc.get_count(),
+                    ));
                 }
                 h
             },
             // Per-edge provenance (DD-007), additive: an old artifact yields an empty list (capnp
             // default) → no per-edge provenance recorded, exactly right.
             edge_provenance: {
-                let mut v = Vec::new();
-                for e in f.get_edge_provenance()?.iter() {
+                let reader = f.get_edge_provenance()?;
+                let len = checked_list_len("function.edgeProvenance", reader.len(), item_limit)?;
+                let mut v = Vec::with_capacity(len);
+                for e in reader.iter() {
                     v.push(EdgeProvenance {
                         target: StableId(e.get_target()),
                         provenance: Provenance {
-                            producer: e.get_producer()?.to_str()?.to_owned(),
+                            producer: read_text(e.get_producer()?, bounded_strings, report)?,
                             confidence: e.get_confidence(),
                         },
                     });
@@ -195,22 +282,31 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
         });
     }
 
-    let mut facts = Vec::new();
-    for fact in p.get_facts()?.iter() {
-        let author = fact.get_author()?.to_str()?;
+    let facts_reader = p.get_facts()?;
+    let fact_count = checked_list_len(
+        "facts",
+        facts_reader.len(),
+        list_limit(bytes, MAX_DECODED_FACTS),
+    )?;
+    let mut facts = Vec::with_capacity(fact_count);
+    for fact in facts_reader.iter() {
+        let author = read_text(fact.get_author()?, bounded_strings, report)?;
+        let producer = read_text(fact.get_producer()?, bounded_strings, report)?;
         facts.push(UserFact {
             target: StableId(fact.get_target()),
-            kind: fact_from_parts(fact.get_kind(), fact.get_value()?.to_str()?),
-            author: (!author.is_empty()).then(|| Principal(author.to_owned())),
+            kind: fact_from_parts(
+                fact.get_kind(),
+                &read_text(fact.get_value()?, bounded_strings, report)?,
+            ),
+            author: (!author.is_empty()).then_some(Principal(author)),
             // Provenance (DD-007), back-compat: an EMPTY producer means a legacy artifact (the
             // field didn't exist) — default to a certain user fact; else trust the stamped values.
             provenance: {
-                let producer = fact.get_producer()?.to_str()?;
                 if producer.is_empty() {
                     Provenance::default()
                 } else {
                     Provenance {
-                        producer: producer.to_owned(),
+                        producer,
                         confidence: fact.get_confidence(),
                     }
                 }
@@ -219,8 +315,8 @@ pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
     }
 
     Ok(Program {
-        name: p.get_name()?.to_str()?.to_owned(),
-        language: p.get_language()?.to_str()?.to_owned(),
+        name: read_text(p.get_name()?, bounded_strings, report)?,
+        language: read_text(p.get_language()?, bounded_strings, report)?,
         functions,
         facts,
     })
@@ -345,7 +441,8 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         // then bound the untrusted producer string.
         let callee_set: HashSet<StableId> = func.callees.iter().copied().collect();
         let ep_before = func.edge_provenance.len();
-        func.edge_provenance.retain(|e| callee_set.contains(&e.target));
+        func.edge_provenance
+            .retain(|e| callee_set.contains(&e.target));
         report.dropped_dangling_edge_provenance += ep_before - func.edge_provenance.len();
         for e in &mut func.edge_provenance {
             if truncate_to(&mut e.provenance.producer, MAX_STRING_LEN) {
@@ -532,7 +629,11 @@ mod tests {
             },
         });
         let back = from_bytes(&to_bytes(&prog)).expect("decode");
-        let main_back = back.functions.iter().find(|f| f.name == "main").expect("main back");
+        let main_back = back
+            .functions
+            .iter()
+            .find(|f| f.name == "main")
+            .expect("main back");
         assert_eq!(
             main_back.edge_provenance_of(gcd_id),
             Some(&Provenance {
@@ -569,17 +670,28 @@ mod tests {
     fn load_truncates_an_over_long_mnemonic() {
         // The mnemonic histogram is untrusted too — an absurd mnemonic string is truncated, counted.
         let mut p = sample();
-        p.functions[0].mnemonics.push(("Z".repeat(MAX_STRING_LEN + 16), 1));
+        p.functions[0]
+            .mnemonics
+            .push(("Z".repeat(MAX_STRING_LEN + 16), 1));
         let bytes = to_bytes(&p);
         let (prog, report) = load(&bytes).expect("load");
-        assert!(report.truncated_strings >= 1, "the over-long mnemonic must be truncated");
-        assert!(prog.functions[0].mnemonics.iter().all(|(m, _)| m.len() <= MAX_STRING_LEN));
+        assert!(
+            report.truncated_strings >= 1,
+            "the over-long mnemonic must be truncated"
+        );
+        assert!(prog.functions[0]
+            .mnemonics
+            .iter()
+            .all(|(m, _)| m.len() <= MAX_STRING_LEN));
     }
 
     #[test]
     fn load_drops_a_fact_with_a_dangling_target() {
         let mut p = sample();
-        p.facts.push(UserFact::new(StableId(88888), FactKind::Comment("ghost".into())));
+        p.facts.push(UserFact::new(
+            StableId(88888),
+            FactKind::Comment("ghost".into()),
+        ));
         let bytes = to_bytes(&p);
         let (_, report) = load(&bytes).expect("load");
         assert_eq!(report.dropped_dangling_facts, 1);
@@ -590,12 +702,20 @@ mod tests {
         // The program name/language and the ordered trigrams are untrusted engine output too.
         let mut p = sample();
         p.name = "N".repeat(MAX_STRING_LEN + 8);
-        p.functions[0].trigrams.push(("T".repeat(MAX_STRING_LEN + 8), 1));
+        p.functions[0]
+            .trigrams
+            .push(("T".repeat(MAX_STRING_LEN + 8), 1));
         let bytes = to_bytes(&p);
         let (prog, report) = load(&bytes).expect("load");
-        assert!(report.truncated_strings >= 2, "program name and the trigram are both truncated");
+        assert!(
+            report.truncated_strings >= 2,
+            "program name and the trigram are both truncated"
+        );
         assert!(prog.name.len() <= MAX_STRING_LEN);
-        assert!(prog.functions[0].trigrams.iter().all(|(m, _)| m.len() <= MAX_STRING_LEN));
+        assert!(prog.functions[0]
+            .trigrams
+            .iter()
+            .all(|(m, _)| m.len() <= MAX_STRING_LEN));
     }
 
     #[test]
@@ -604,12 +724,18 @@ mod tests {
         let mut p = sample();
         p.functions[1].edge_provenance.push(EdgeProvenance {
             target: StableId(99999), // not among main's callees
-            provenance: Provenance { producer: "ghidra".into(), confidence: 90 },
+            provenance: Provenance {
+                producer: "ghidra".into(),
+                confidence: 90,
+            },
         });
         let bytes = to_bytes(&p);
         let (prog, report) = load(&bytes).expect("load");
         assert_eq!(report.dropped_dangling_edge_provenance, 1);
-        assert!(prog.functions[1].edge_provenance.iter().all(|e| e.target != StableId(99999)));
+        assert!(prog.functions[1]
+            .edge_provenance
+            .iter()
+            .all(|e| e.target != StableId(99999)));
     }
 
     #[test]
@@ -629,8 +755,33 @@ mod tests {
     #[test]
     fn load_is_total_on_garbage() {
         // arbitrary non-capnp bytes -> typed error, never a panic
-        assert!(matches!(load(&[0xde, 0xad, 0xbe, 0xef, 0x00, 0x01]), Err(LoadError::Decode(_))));
+        assert!(matches!(
+            load(&[0xde, 0xad, 0xbe, 0xef, 0x00, 0x01]),
+            Err(LoadError::Decode(_))
+        ));
         assert!(load(&[]).is_err());
+    }
+
+    #[test]
+    fn load_rejects_huge_declared_function_list_before_allocating() {
+        // Fuzz regression: a 92-byte Cap'n Proto-shaped artifact declared an enormous function list,
+        // which used to make from_bytes grow Vec<Function> until libFuzzer killed it for OOM.
+        let bytes = vec![
+            0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x18, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+            0x00, 0x00, 0x00, 0x08, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+        ];
+        let Err(LoadError::Decode(err)) = load(&bytes) else {
+            panic!("hostile list length must be rejected as a typed decode error");
+        };
+        assert!(
+            err.contains("decode cap"),
+            "hostile list length should trip a decode cap, got: {err}"
+        );
     }
 
     #[test]

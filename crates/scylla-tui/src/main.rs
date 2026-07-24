@@ -12,10 +12,10 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use ratatui::crossterm::execute;
 use ratatui::prelude::*;
 
 use scylla_port::Session;

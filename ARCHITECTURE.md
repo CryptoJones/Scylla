@@ -63,7 +63,9 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
    (strings/imports) → BSim feature vector → fuzzy mnemonic + ordered-trigram cosine — the *same*
    matcher the merge uses, fail-closed (`WRONG=0`).
 
-The client port is driven by **nine heads** today, each projecting the same verbs: `scylla-mcp`
+The client port is driven by **nine heads** today. They share the body and its domain vocabulary,
+but each projects the capabilities appropriate to its protocol rather than claiming verb-for-verb
+parity: `scylla-mcp`
 (agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`
 (the browser, client-side), `scylla-serve` (the native binary serving it), `scylla-cli` (the
 terminal), `scylla-rpc` (a remote consumer over Cap'n Proto promise-pipelining RPC, DD-002),

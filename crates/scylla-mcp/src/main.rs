@@ -2,6 +2,7 @@
 //! that lets an agent drive a reverse-engineering session over the client port.
 
 use std::io::{BufRead, Read, Write};
+use std::path::PathBuf;
 
 fn main() {
     let path = match std::env::args().nth(1) {
@@ -19,6 +20,26 @@ fn main() {
         eprintln!("error: decoding artifact: {e}");
         std::process::exit(1);
     });
+    let root = std::env::var_os("SCYLLA_MCP_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::current_dir().unwrap_or_else(|_| {
+                eprintln!("scylla-mcp: cannot determine the server working directory");
+                std::process::exit(1);
+            })
+        });
+    let root = root.canonicalize().unwrap_or_else(|_| {
+        eprintln!("scylla-mcp: SCYLLA_MCP_ROOT is unavailable or not a directory");
+        std::process::exit(1);
+    });
+    if !root.is_dir() {
+        eprintln!("scylla-mcp: SCYLLA_MCP_ROOT is not a directory");
+        std::process::exit(1);
+    }
+    eprintln!(
+        "scylla-mcp: filesystem tools confined to {}",
+        root.display()
+    );
 
     // Cap a single JSON-RPC line so a newline-less flood can't drive an unbounded allocation (OOM).
     const MAX_LINE: u64 = 16 * 1024 * 1024;
@@ -52,7 +73,7 @@ fn main() {
         if req.get("id").is_none() {
             continue;
         }
-        let resp = scylla_mcp::dispatch(&mut session, &req);
+        let resp = scylla_mcp::dispatch_in_root(&mut session, &req, &root);
         // If the client closed its end, stop instead of spinning on a dead pipe.
         if writeln!(out, "{resp}").is_err() || out.flush().is_err() {
             break;

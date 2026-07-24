@@ -11,9 +11,9 @@ name = "scylla-http"
 path = "src/main.rs"
 
 [dependencies]
-# A small, sync HTTP/1.1 server (handles parsing + bodies) — no async runtime. `ssl-rustls` adds
-# optional TLS (rustls/ring — needs a C compiler, like the RPC head).
-tiny_http = { version = "0.12", features = ["ssl-rustls"] }
+# A small, sync HTTP/1.1 server (handles parsing + bodies) — no async runtime. `ssl-openssl` adds
+# optional TLS without tiny_http's abandoned rustls 0.20/ring 0.16 dependency chain.
+tiny_http = { version = "0.12", features = ["ssl-openssl"] }
 serde_json = "1"
 # A REMOTE-ish read head, consuming the client port (DD-017) over HTTP/JSON.
 scylla-port = { path = "../scylla-port" }

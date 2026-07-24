@@ -254,8 +254,11 @@ fn propagate_best(
         .flatten()
         .filter_map(|c| subject_to_other.get(c).copied())
         .collect();
-    let callee_imgs: Vec<StableId> =
-        s.callees.iter().filter_map(|c| subject_to_other.get(c).copied()).collect();
+    let callee_imgs: Vec<StableId> = s
+        .callees
+        .iter()
+        .filter_map(|c| subject_to_other.get(c).copied())
+        .collect();
     if caller_imgs.is_empty() && callee_imgs.is_empty() {
         return None; // not reachable from any confirmed anchor yet
     }
@@ -277,13 +280,26 @@ fn propagate_best(
         if other_claimed.contains(&cand) {
             continue;
         }
-        let Some(cf) = other_by_id.get(&cand) else { continue };
+        let Some(cf) = other_by_id.get(&cand) else {
+            continue;
+        };
         let caller_agree = caller_imgs
             .iter()
-            .filter(|ci| other_by_id.get(ci).is_some_and(|f| f.callees.contains(&cand)))
+            .filter(|ci| {
+                other_by_id
+                    .get(ci)
+                    .is_some_and(|f| f.callees.contains(&cand))
+            })
             .count();
-        let callee_agree = callee_imgs.iter().filter(|ei| cf.callees.contains(ei)).count();
-        let recursion = if s_recursive && cf.callees.contains(&cand) { 1.0 } else { 0.0 };
+        let callee_agree = callee_imgs
+            .iter()
+            .filter(|ei| cf.callees.contains(ei))
+            .count();
+        let recursion = if s_recursive && cf.callees.contains(&cand) {
+            1.0
+        } else {
+            0.0
+        };
         let score = caller_agree as f64 + callee_agree as f64 + PROP_RECURSION_WEIGHT * recursion;
         if score > best_s {
             second_s = best_s;
@@ -324,12 +340,18 @@ fn propagate_match(
     old_callers: &HashMap<StableId, Vec<StableId>>,
     new_callers: &HashMap<StableId, Vec<StableId>>,
 ) -> Option<StableId> {
-    let cand =
-        propagate_best(b_id, matched, old_by_id, old_callers, new_by_id, new_callers, claimed)?;
+    let cand = propagate_best(
+        b_id,
+        matched,
+        old_by_id,
+        old_callers,
+        new_by_id,
+        new_callers,
+        claimed,
+    )?;
     // Reciprocal-best gate: the candidate's own best old propagation-source must be `b_id`. `matched`
     // is injective (each new id is `claimed` at most once), so inverting it is unambiguous.
-    let rev_matched: HashMap<StableId, StableId> =
-        matched.iter().map(|(o, n)| (*n, *o)).collect();
+    let rev_matched: HashMap<StableId, StableId> = matched.iter().map(|(o, n)| (*n, *o)).collect();
     let no_claims = HashSet::new();
     let back = propagate_best(
         cand,
@@ -352,8 +374,10 @@ fn bsim_similarity(a: &[(u32, u32)], b: &[(u32, u32)]) -> f64 {
     if a.is_empty() || b.is_empty() {
         return 0.0;
     }
-    let am: HashMap<u32, f64> =
-        a.iter().map(|(h, w)| (*h, f64::from(f32::from_bits(*w)))).collect();
+    let am: HashMap<u32, f64> = a
+        .iter()
+        .map(|(h, w)| (*h, f64::from(f32::from_bits(*w))))
+        .collect();
     let (mut dot, mut nb) = (0.0, 0.0);
     for (h, w) in b {
         let w = f64::from(f32::from_bits(*w));
@@ -438,10 +462,8 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     for f in &old.functions {
         old_by_sig.entry(signature(f)).or_default().push(f.id);
     }
-    let old_by_id: HashMap<StableId, &Function> =
-        old.functions.iter().map(|f| (f.id, f)).collect();
-    let new_by_id: HashMap<StableId, &Function> =
-        new.functions.iter().map(|f| (f.id, f)).collect();
+    let old_by_id: HashMap<StableId, &Function> = old.functions.iter().map(|f| (f.id, f)).collect();
+    let new_by_id: HashMap<StableId, &Function> = new.functions.iter().map(|f| (f.id, f)).collect();
     let old_callers = caller_map(&old.functions);
     let new_callers = caller_map(&new.functions);
 
@@ -494,7 +516,9 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     // signal. WRONG=0 holds — it is a unique-feature match, never a guess.
     let mut deferred2: Vec<StableId> = Vec::new();
     for t in deferred {
-        let Some(oldf) = old_by_id.get(&t).copied() else { continue };
+        let Some(oldf) = old_by_id.get(&t).copied() else {
+            continue;
+        };
         let aset = anchor_set(oldf);
         if aset.len() < ANCHOR_MIN_FEATURES {
             deferred2.push(t); // too few arch-independent features to anchor on — try fuzzy
@@ -538,7 +562,9 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
     // one-directional false positive; the stub's real reciprocal is its own twin, so it is rejected.
     let mut deferred3: Vec<StableId> = Vec::new();
     for t in deferred2 {
-        let Some(oldf) = old_by_id.get(&t).copied() else { continue };
+        let Some(oldf) = old_by_id.get(&t).copied() else {
+            continue;
+        };
         let (mut best, mut best_s, mut second_s): (Option<&Function>, f64, f64) =
             (None, -1.0, -1.0);
         for nf in &new.functions {
@@ -581,7 +607,13 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
                 continue;
             }
             if let Some(id) = propagate_match(
-                *t, &matched, &claimed, &old_by_id, &new_by_id, &old_callers, &new_callers,
+                *t,
+                &matched,
+                &claimed,
+                &old_by_id,
+                &new_by_id,
+                &old_callers,
+                &new_callers,
             ) {
                 matched.insert(*t, id);
                 claimed.insert(id);
@@ -609,7 +641,9 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
         if matched.contains_key(t) {
             continue;
         }
-        let Some(oldf) = old_by_id.get(t).copied() else { continue };
+        let Some(oldf) = old_by_id.get(t).copied() else {
+            continue;
+        };
         if oldf.bsim_vector.len() < BSIM_MIN_FEATURES {
             continue;
         }
@@ -656,7 +690,10 @@ pub fn reanchor_facts(old: &Program, new: &Program) -> (Vec<UserFact>, Vec<UserF
 /// Carry `old`'s user facts onto `new` in place; returns the merge report.
 pub fn merge_into(old: &Program, new: &mut Program) -> MergeReport {
     let (mut merged, flagged) = reanchor_facts(old, new);
-    let report = MergeReport { merged: merged.len(), flagged: flagged.len() };
+    let report = MergeReport {
+        merged: merged.len(),
+        flagged: flagged.len(),
+    };
     new.facts.append(&mut merged);
     report
 }
@@ -805,8 +842,12 @@ fn propagate_round(
     left_a: &mut Vec<StableId>,
     left_b: &mut Vec<StableId>,
 ) {
-    let a2b: HashMap<StableId, StableId> =
-        diff.matched.iter().chain(diff.changed.iter()).copied().collect();
+    let a2b: HashMap<StableId, StableId> = diff
+        .matched
+        .iter()
+        .chain(diff.changed.iter())
+        .copied()
+        .collect();
     let matched_b: HashSet<StableId> = a2b.values().copied().collect();
     let mut a_callers: HashMap<StableId, BTreeSet<StableId>> = HashMap::new();
     for f in &a.functions {
@@ -825,12 +866,20 @@ fn propagate_round(
         }
     }
     let key_a = |id: &StableId| -> Neighbourhood {
-        let callees = a_fn[id].callees.iter().filter_map(|c| a2b.get(c).copied()).collect();
+        let callees = a_fn[id]
+            .callees
+            .iter()
+            .filter_map(|c| a2b.get(c).copied())
+            .collect();
         (callees, a_callers.get(id).cloned().unwrap_or_default())
     };
     let key_b = |id: &StableId| -> Neighbourhood {
-        let callees =
-            b_fn[id].callees.iter().filter(|c| matched_b.contains(c)).copied().collect();
+        let callees = b_fn[id]
+            .callees
+            .iter()
+            .filter(|c| matched_b.contains(c))
+            .copied()
+            .collect();
         (callees, b_callers.get(id).cloned().unwrap_or_default())
     };
     let nonempty = |k: &Neighbourhood| !k.0.is_empty() || !k.1.is_empty();
@@ -877,28 +926,52 @@ fn feature_round(
     margin: f64,
     method: MatchMethod,
 ) {
-    let a_elig: Vec<StableId> = left_a.iter().copied().filter(|id| eligible(a_fn[id])).collect();
-    let b_elig: Vec<StableId> = left_b.iter().copied().filter(|id| eligible(b_fn[id])).collect();
+    let a_elig: Vec<StableId> = left_a
+        .iter()
+        .copied()
+        .filter(|id| eligible(a_fn[id]))
+        .collect();
+    let b_elig: Vec<StableId> = left_b
+        .iter()
+        .copied()
+        .filter(|id| eligible(b_fn[id]))
+        .collect();
     if a_elig.is_empty() || b_elig.is_empty() {
         return;
     }
     let mut paired_a: HashSet<StableId> = HashSet::new();
     let mut paired_b: HashSet<StableId> = HashSet::new();
     for &aid in &a_elig {
-        let Some(bid) =
-            best_unique(&b_elig, |bid| score(a_fn[&aid], b_fn[&bid]), threshold, margin)
-        else {
+        let Some(bid) = best_unique(
+            &b_elig,
+            |bid| score(a_fn[&aid], b_fn[&bid]),
+            threshold,
+            margin,
+        ) else {
             continue;
         };
         if paired_b.contains(&bid) {
             continue;
         }
         // reciprocal-best (symmetric match): `aid` must also be `bid`'s unique best.
-        let recip = best_unique(&a_elig, |aid2| score(b_fn[&bid], a_fn[&aid2]), threshold, margin);
+        let recip = best_unique(
+            &a_elig,
+            |aid2| score(b_fn[&bid], a_fn[&aid2]),
+            threshold,
+            margin,
+        );
         if recip != Some(aid) {
             continue;
         }
-        record_pair(diff, a_fn, b_fn, aid, bid, method, score(a_fn[&aid], b_fn[&bid]));
+        record_pair(
+            diff,
+            a_fn,
+            b_fn,
+            aid,
+            bid,
+            method,
+            score(a_fn[&aid], b_fn[&bid]),
+        );
         paired_a.insert(aid);
         paired_b.insert(bid);
     }
@@ -938,7 +1011,8 @@ pub fn diff_programs(a: &Program, b: &Program) -> ProgramDiff {
         match b_by_sig.get(&sig) {
             Some(ids) if a_unique && ids.len() == 1 => {
                 diff.matched.push((f.id, ids[0]));
-                diff.provenance.push((f.id, MatchInfo::new(MatchMethod::Exact, 1.0)));
+                diff.provenance
+                    .push((f.id, MatchInfo::new(MatchMethod::Exact, 1.0)));
                 claimed_b.insert(ids[0]);
             }
             _ => left_a.push(f.id),
@@ -1094,7 +1168,8 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
                     // The higher-confidence incoming fact takes over (recorded; deferred swap).
                     to_replace.push(fact.retarget(tid));
                     report.resolved_by_confidence += 1;
-                } else if base_conf > incoming_conf && base_conf - incoming_conf > CONFIDENCE_MARGIN {
+                } else if base_conf > incoming_conf && base_conf - incoming_conf > CONFIDENCE_MARGIN
+                {
                     // Base is the clear winner — keep it, drop the lower-confidence incoming.
                     report.resolved_by_confidence += 1;
                 } else {
@@ -1141,14 +1216,19 @@ mod tests {
     fn annotate(p: &mut Program) {
         let gcd = p.functions.iter().find(|f| f.name == "gcd").unwrap().id;
         let fib = p.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        p.facts.push(UserFact::new(gcd, FactKind::Rename("euclid_gcd".into())));
-        p.facts.push(UserFact::new(fib, FactKind::Comment("recursive".into())));
+        p.facts
+            .push(UserFact::new(gcd, FactKind::Rename("euclid_gcd".into())));
+        p.facts
+            .push(UserFact::new(fib, FactKind::Comment("recursive".into())));
     }
 
     /// Every merged fact must sit on the correctly-named function (names = ground truth).
     fn assert_zero_wrong(p: &Program) {
         let name_of = |id: StableId| {
-            p.functions.iter().find(|f| f.id == id).map(|f| f.name.clone())
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .map(|f| f.name.clone())
         };
         for fact in &p.facts {
             match &fact.kind {
@@ -1166,8 +1246,15 @@ mod tests {
     #[test]
     fn cosine_is_one_for_identical_mix_zero_for_disjoint() {
         let a = vec![("MOV".to_string(), 2), ("RET".to_string(), 1)];
-        assert!((cosine(&a, &a) - 1.0).abs() < 1e-9, "identical instruction mix -> 1.0");
-        assert_eq!(cosine(&a, &[("ADD".to_string(), 3)]), 0.0, "disjoint mix -> 0");
+        assert!(
+            (cosine(&a, &a) - 1.0).abs() < 1e-9,
+            "identical instruction mix -> 1.0"
+        );
+        assert_eq!(
+            cosine(&a, &[("ADD".to_string(), 3)]),
+            0.0,
+            "disjoint mix -> 0"
+        );
         assert_eq!(cosine(&a, &[]), 0.0, "no histogram -> no signal");
     }
 
@@ -1177,7 +1264,10 @@ mod tests {
         annotate(&mut v1);
         let mut fresh = scylla_ingest::snapshot_to_program(V1).unwrap(); // fresh ids
         let report = merge_into(&v1, &mut fresh);
-        assert!(report.merged >= 1, "unchanged functions must re-anchor on re-analysis");
+        assert!(
+            report.merged >= 1,
+            "unchanged functions must re-anchor on re-analysis"
+        );
         assert_zero_wrong(&fresh);
     }
 
@@ -1187,7 +1277,10 @@ mod tests {
         annotate(&mut v1);
         let mut v2 = scylla_ingest::snapshot_to_program(V2).unwrap(); // lcm inserted
         let report = merge_into(&v1, &mut v2);
-        assert!(report.merged >= 1, "gcd/fib (unchanged) should survive the edit");
+        assert!(
+            report.merged >= 1,
+            "gcd/fib (unchanged) should survive the edit"
+        );
         assert_zero_wrong(&v2);
     }
 
@@ -1223,8 +1316,10 @@ mod tests {
             facts: Vec::new(),
         };
         let (alpha, beta) = (old.functions[0].id, old.functions[1].id);
-        old.facts.push(UserFact::new(alpha, FactKind::Rename("ALPHA".into())));
-        old.facts.push(UserFact::new(beta, FactKind::Rename("BETA".into())));
+        old.facts
+            .push(UserFact::new(alpha, FactKind::Rename("ALPHA".into())));
+        old.facts
+            .push(UserFact::new(beta, FactKind::Rename("BETA".into())));
         let mut new = Program {
             name: "lib".into(),
             language: "x86:LE:64:default".into(),
@@ -1232,9 +1327,18 @@ mod tests {
             facts: Vec::new(),
         };
         let report = merge_into(&old, &mut new);
-        assert_eq!(report.merged, 0, "two old twins sharing a signature must NOT both claim one new function");
-        assert_eq!(report.flagged, 2, "both indistinguishable facts are flagged for review");
-        assert!(new.facts.is_empty(), "nothing may be mis-attached to the survivor (WRONG=0)");
+        assert_eq!(
+            report.merged, 0,
+            "two old twins sharing a signature must NOT both claim one new function"
+        );
+        assert_eq!(
+            report.flagged, 2,
+            "both indistinguishable facts are flagged for review"
+        );
+        assert!(
+            new.facts.is_empty(),
+            "nothing may be mis-attached to the survivor (WRONG=0)"
+        );
     }
 
     /// WRONG=0 regression (MERGE-P0-2): the ANCHOR pass must be RECIPROCAL. A deleted, fact-carrying
@@ -1276,8 +1380,10 @@ mod tests {
         };
         let (ghost, real) = (old.functions[0].id, old.functions[1].id);
         // ghost's fact is FIRST — the order that triggers the pre-fix hijack.
-        old.facts.push(UserFact::new(ghost, FactKind::Rename("GHOST".into())));
-        old.facts.push(UserFact::new(real, FactKind::Rename("REAL".into())));
+        old.facts
+            .push(UserFact::new(ghost, FactKind::Rename("GHOST".into())));
+        old.facts
+            .push(UserFact::new(real, FactKind::Rename("REAL".into())));
         let mut new = Program {
             name: "lib".into(),
             language: "x86:LE:64:default".into(),
@@ -1292,11 +1398,29 @@ mod tests {
             new.facts
                 .iter()
                 .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == label))
-                .map(|f| new.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone())
+                .map(|f| {
+                    new.functions
+                        .iter()
+                        .find(|fn_| fn_.id == f.target)
+                        .unwrap()
+                        .name
+                        .clone()
+                })
         };
-        assert_eq!(report.merged, 1, "only real's fact re-anchors; ghost is flagged");
-        assert_eq!(landed("REAL").as_deref(), Some("real_rebuilt"), "real's fact lands on its true image");
-        assert_eq!(landed("GHOST"), None, "the deleted ghost must NOT hijack the image (WRONG=0)");
+        assert_eq!(
+            report.merged, 1,
+            "only real's fact re-anchors; ghost is flagged"
+        );
+        assert_eq!(
+            landed("REAL").as_deref(),
+            Some("real_rebuilt"),
+            "real's fact lands on its true image"
+        );
+        assert_eq!(
+            landed("GHOST"),
+            None,
+            "the deleted ghost must NOT hijack the image (WRONG=0)"
+        );
     }
 
     /// WRONG=0 regression (MERGE-P1-2): `collaborate` must require signature uniqueness on BOTH
@@ -1337,25 +1461,52 @@ mod tests {
             facts: Vec::new(),
         };
         let (a, b) = (incoming.functions[0].id, incoming.functions[1].id);
-        incoming.facts.push(UserFact::new(a, FactKind::Rename("RA".into())));
-        incoming.facts.push(UserFact::new(b, FactKind::Rename("RB".into())));
+        incoming
+            .facts
+            .push(UserFact::new(a, FactKind::Rename("RA".into())));
+        incoming
+            .facts
+            .push(UserFact::new(b, FactKind::Rename("RB".into())));
         let (report, conflicts) = collaborate(&mut base, &incoming);
-        assert_eq!(report.merged, 0, "ambiguous incoming twins must not re-anchor");
+        assert_eq!(
+            report.merged, 0,
+            "ambiguous incoming twins must not re-anchor"
+        );
         assert_eq!(report.flagged, 2, "both incoming facts are flagged");
-        assert!(conflicts.is_empty(), "no conflict is manufactured by collapsing distinct facts");
-        assert!(base.facts.is_empty(), "nothing mis-attributed onto the base function (WRONG=0)");
+        assert!(
+            conflicts.is_empty(),
+            "no conflict is manufactured by collapsing distinct facts"
+        );
+        assert!(
+            base.facts.is_empty(),
+            "nothing mis-attributed onto the base function (WRONG=0)"
+        );
     }
 
     #[test]
     fn jaccard_is_set_overlap_and_empty_is_no_signal() {
         let a: HashSet<&str> = ["printf", "atoi", "fmt"].into_iter().collect();
         let b: HashSet<&str> = ["printf", "atoi", "fmt"].into_iter().collect();
-        assert!((jaccard(&a, &b) - 1.0).abs() < 1e-9, "identical sets -> 1.0");
+        assert!(
+            (jaccard(&a, &b) - 1.0).abs() < 1e-9,
+            "identical sets -> 1.0"
+        );
         let c: HashSet<&str> = ["printf"].into_iter().collect();
-        assert!((jaccard(&a, &c) - 1.0 / 3.0).abs() < 1e-9, "1 shared of 3 -> 1/3");
+        assert!(
+            (jaccard(&a, &c) - 1.0 / 3.0).abs() < 1e-9,
+            "1 shared of 3 -> 1/3"
+        );
         let empty: HashSet<&str> = HashSet::new();
-        assert_eq!(jaccard(&a, &empty), 0.0, "empty side -> no signal (NOT a match)");
-        assert_eq!(jaccard(&empty, &empty), 0.0, "two empties are not 'identical' here");
+        assert_eq!(
+            jaccard(&a, &empty),
+            0.0,
+            "empty side -> no signal (NOT a match)"
+        );
+        assert_eq!(
+            jaccard(&empty, &empty),
+            0.0,
+            "two empties are not 'identical' here"
+        );
     }
 
     /// DD-041: a function's annotation re-anchors ACROSS ARCHITECTURES (x86-64 -> aarch64) — the
@@ -1366,19 +1517,37 @@ mod tests {
     fn cross_architecture_anchor_reanchors_main_and_is_zero_wrong() {
         let mut x86 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let main_id = x86.functions.iter().find(|f| f.name == "main").unwrap().id;
-        x86.facts.push(UserFact::new(main_id, FactKind::Rename("entrypoint".into())));
+        x86.facts.push(UserFact::new(
+            main_id,
+            FactKind::Rename("entrypoint".into()),
+        ));
 
         let mut aarch64 = scylla_ingest::snapshot_to_program(V1_AARCH64).unwrap();
         let report = merge_into(&x86, &mut aarch64);
 
-        assert_eq!(report.merged, 1, "main re-anchors across the ISA via its string/import set");
+        assert_eq!(
+            report.merged, 1,
+            "main re-anchors across the ISA via its string/import set"
+        );
         // and it landed on the aarch64 `main`, not some structural look-alike (zero-wrong).
         let landed = aarch64
             .facts
             .iter()
             .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "entrypoint"))
-            .map(|f| aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
-        assert_eq!(landed.as_deref(), Some("main"), "cross-arch fact must sit on aarch64 main");
+            .map(|f| {
+                aarch64
+                    .functions
+                    .iter()
+                    .find(|fn_| fn_.id == f.target)
+                    .unwrap()
+                    .name
+                    .clone()
+            });
+        assert_eq!(
+            landed.as_deref(),
+            Some("main"),
+            "cross-arch fact must sit on aarch64 main"
+        );
     }
 
     /// DD-041 propagation: cross-arch, `fib` has NO strings/imports (can't anchor) and ~0 mnemonic
@@ -1391,9 +1560,14 @@ mod tests {
         let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
         let fib = id_of(&x86, "fib");
         let gcd = id_of(&x86, "gcd");
-        x86.facts.push(UserFact::new(id_of(&x86, "main"), FactKind::Rename("entry".into())));
-        x86.facts.push(UserFact::new(fib, FactKind::Comment("recursive".into())));
-        x86.facts.push(UserFact::new(gcd, FactKind::Rename("euclid".into())));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "main"),
+            FactKind::Rename("entry".into()),
+        ));
+        x86.facts
+            .push(UserFact::new(fib, FactKind::Comment("recursive".into())));
+        x86.facts
+            .push(UserFact::new(gcd, FactKind::Rename("euclid".into())));
 
         let mut aarch64 = scylla_ingest::snapshot_to_program(V1_AARCH64).unwrap();
         merge_into(&x86, &mut aarch64);
@@ -1403,15 +1577,32 @@ mod tests {
                 .facts
                 .iter()
                 .find(|f| marker_pred(&f.kind))
-                .map(|f| aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone())
+                .map(|f| {
+                    aarch64
+                        .functions
+                        .iter()
+                        .find(|fn_| fn_.id == f.target)
+                        .unwrap()
+                        .name
+                        .clone()
+                })
         };
         // fib re-anchors via propagation (recursion), onto aarch64 fib — zero-wrong.
         let fib_land = name_on(&|k| matches!(k, FactKind::Comment(c) if c == "recursive"));
-        assert_eq!(fib_land.as_deref(), Some("fib"), "fib propagates from main across the ISA");
+        assert_eq!(
+            fib_land.as_deref(),
+            Some("fib"),
+            "fib propagates from main across the ISA"
+        );
         // gcd (a symmetric non-recursive leaf) is NOT guessed — its marker stays off the new model.
-        let gcd_present =
-            aarch64.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "euclid"));
-        assert!(!gcd_present, "ambiguous leaf gcd must orphan, never mis-attach (WRONG=0)");
+        let gcd_present = aarch64
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "euclid"));
+        assert!(
+            !gcd_present,
+            "ambiguous leaf gcd must orphan, never mis-attach (WRONG=0)"
+        );
     }
 
     /// DD-044 end-to-end (real data): with the producer now emitting BSim vectors into the
@@ -1424,9 +1615,18 @@ mod tests {
     fn cross_architecture_bsim_recovers_leaves_end_to_end() {
         let mut x86 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
-        x86.facts.push(UserFact::new(id_of(&x86, "factorial"), FactKind::Rename("fact".into())));
-        x86.facts.push(UserFact::new(id_of(&x86, "sum_to"), FactKind::Rename("sum".into())));
-        x86.facts.push(UserFact::new(id_of(&x86, "gcd"), FactKind::Rename("euclid".into())));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "factorial"),
+            FactKind::Rename("fact".into()),
+        ));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "sum_to"),
+            FactKind::Rename("sum".into()),
+        ));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "gcd"),
+            FactKind::Rename("euclid".into()),
+        ));
 
         let mut aarch64 = scylla_ingest::snapshot_to_program(V1_AARCH64).unwrap();
         merge_into(&x86, &mut aarch64);
@@ -1437,15 +1637,32 @@ mod tests {
                 .iter()
                 .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == marker))
                 .map(|f| {
-                    aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone()
+                    aarch64
+                        .functions
+                        .iter()
+                        .find(|fn_| fn_.id == f.target)
+                        .unwrap()
+                        .name
+                        .clone()
                 })
         };
         // factorial + sum_to re-anchor cross-arch via BSim — onto their correctly-named twins, where
         // nothing else could place them (strings/imports/callee-names empty, cosine ~0, leaves).
-        assert_eq!(name_on("fact").as_deref(), Some("factorial"), "BSim recovers factorial cross-arch");
-        assert_eq!(name_on("sum").as_deref(), Some("sum_to"), "BSim recovers sum_to cross-arch");
+        assert_eq!(
+            name_on("fact").as_deref(),
+            Some("factorial"),
+            "BSim recovers factorial cross-arch"
+        );
+        assert_eq!(
+            name_on("sum").as_deref(),
+            Some("sum_to"),
+            "BSim recovers sum_to cross-arch"
+        );
         // gcd (modulo) is cross-arch-distinct under BSim too -> stays flagged, never mis-attached.
-        assert!(name_on("euclid").is_none(), "gcd stays flagged cross-arch (WRONG=0)");
+        assert!(
+            name_on("euclid").is_none(),
+            "gcd stays flagged cross-arch (WRONG=0)"
+        );
     }
 
     /// DD-043: a Go function carries no C strings and no dynamic imports, but its set of
@@ -1455,22 +1672,23 @@ mod tests {
     #[test]
     fn callee_names_anchor_recovers_go_function_cross_arch() {
         use scylla_model::{Function, IdMinter};
-        let go = |minter: &mut IdMinter, name: &str, mnem: &str, callee_names: Vec<&str>| Function {
-            id: minter.mint(),
-            addr: 0,
-            name: name.into(),
-            size: 100,
-            bb_count: 3,
-            callees: vec![],
-            fingerprint: 0,
-            mnemonics: vec![(mnem.into(), 5)],
-            trigrams: vec![],
-            string_refs: vec![],
-            imports: vec![],
-            callee_names: callee_names.into_iter().map(String::from).collect(),
-            bsim_vector: vec![],
-            edge_provenance: vec![],
-        };
+        let go =
+            |minter: &mut IdMinter, name: &str, mnem: &str, callee_names: Vec<&str>| Function {
+                id: minter.mint(),
+                addr: 0,
+                name: name.into(),
+                size: 100,
+                bb_count: 3,
+                callees: vec![],
+                fingerprint: 0,
+                mnemonics: vec![(mnem.into(), 5)],
+                trigrams: vec![],
+                string_refs: vec![],
+                imports: vec![],
+                callee_names: callee_names.into_iter().map(String::from).collect(),
+                bsim_vector: vec![],
+                edge_provenance: vec![],
+            };
         let prog = |mnem: &str| {
             let mut m = IdMinter::new();
             Program {
@@ -1478,26 +1696,52 @@ mod tests {
                 language: "x86:LE:64:default:golang".into(),
                 // `main.main` has a rich qualified callee-name set; a noise leaf has none.
                 functions: vec![
-                    go(&mut m, "main.main", mnem,
-                       vec!["fmt.Fprintf", "strconv.Atoi", "runtime.convT64", "main.fib"]),
+                    go(
+                        &mut m,
+                        "main.main",
+                        mnem,
+                        vec!["fmt.Fprintf", "strconv.Atoi", "runtime.convT64", "main.fib"],
+                    ),
                     go(&mut m, "runtime.noise", mnem, vec![]),
                 ],
                 facts: Vec::new(),
             }
         };
         let mut amd64 = prog("MOV"); // x86 mnemonics
-        let main_id = amd64.functions.iter().find(|f| f.name == "main.main").unwrap().id;
-        amd64.facts.push(UserFact::new(main_id, FactKind::Rename("entry".into())));
+        let main_id = amd64
+            .functions
+            .iter()
+            .find(|f| f.name == "main.main")
+            .unwrap()
+            .id;
+        amd64
+            .facts
+            .push(UserFact::new(main_id, FactKind::Rename("entry".into())));
         let mut arm64 = prog("ldr"); // aarch64 mnemonics — cosine(amd64,arm64) == 0
 
         let report = merge_into(&amd64, &mut arm64);
-        assert_eq!(report.merged, 1, "main.main re-anchors via its callee-name set, cosine aside");
+        assert_eq!(
+            report.merged, 1,
+            "main.main re-anchors via its callee-name set, cosine aside"
+        );
         let landed = arm64
             .facts
             .iter()
             .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "entry"))
-            .map(|f| arm64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
-        assert_eq!(landed.as_deref(), Some("main.main"), "callee-name anchor lands on main.main");
+            .map(|f| {
+                arm64
+                    .functions
+                    .iter()
+                    .find(|fn_| fn_.id == f.target)
+                    .unwrap()
+                    .name
+                    .clone()
+            });
+        assert_eq!(
+            landed.as_deref(),
+            Some("main.main"),
+            "callee-name anchor lands on main.main"
+        );
     }
 
     /// Ordered trigrams add discrimination the order-INDEPENDENT mnemonic histogram can't: two
@@ -1552,7 +1796,8 @@ mod tests {
                 facts: Vec::new(),
             };
             let tid = old.functions[0].id;
-            old.facts.push(UserFact::new(tid, FactKind::Rename("KEEP".into())));
+            old.facts
+                .push(UserFact::new(tid, FactKind::Rename("KEEP".into())));
             let mut new = Program {
                 name: "lib".into(),
                 language: "x86:LE:64:default".into(),
@@ -1567,20 +1812,33 @@ mod tests {
                 .facts
                 .iter()
                 .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == "KEEP"))
-                .map(|f| new.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone());
+                .map(|f| {
+                    new.functions
+                        .iter()
+                        .find(|fn_| fn_.id == f.target)
+                        .unwrap()
+                        .name
+                        .clone()
+                });
             (report.merged, landed)
         };
 
         // WITHOUT trigrams: the two rebuild candidates are indistinguishable (same histogram +
         // structure) — a near-tie the fuzzy margin refuses to guess, so the fact stays flagged.
         let (merged_without, landed_without) = run(false);
-        assert_eq!(merged_without, 0, "no trigrams: the tie is flagged, not guessed");
+        assert_eq!(
+            merged_without, 0,
+            "no trigrams: the tie is flagged, not guessed"
+        );
         assert_eq!(landed_without, None);
 
         // WITH trigrams: the order-preserving candidate's trigrams match the target's, breaking the
         // tie — the rename re-anchors onto it, never onto the reordered decoy (WRONG=0).
         let (merged_with, landed_with) = run(true);
-        assert_eq!(merged_with, 1, "trigrams break the tie, the fact re-anchors");
+        assert_eq!(
+            merged_with, 1,
+            "trigrams break the tie, the fact re-anchors"
+        );
         assert_eq!(
             landed_with.as_deref(),
             Some("FUN_same_order"),
@@ -1604,7 +1862,11 @@ mod tests {
         };
         // An isolated leaf: no strings/imports/callee-names, no callees, ISA-specific mnemonics, a
         // cross-arch-distinct signature — so exact/anchor/fuzzy/propagation all defer to BSim.
-        let leaf = |m: &mut IdMinter, name: &str, bb: u32, size: u64, mnem: &str,
+        let leaf = |m: &mut IdMinter,
+                    name: &str,
+                    bb: u32,
+                    size: u64,
+                    mnem: &str,
                     bsim: Vec<(u32, u32)>| Function {
             id: m.mint(),
             addr: 0,
@@ -1639,9 +1901,18 @@ mod tests {
             facts: vec![],
         };
         let id_of = |p: &Program, n: &str| p.functions.iter().find(|f| f.name == n).unwrap().id;
-        x86.facts.push(UserFact::new(id_of(&x86, "factorial"), FactKind::Rename("fact".into())));
-        x86.facts.push(UserFact::new(id_of(&x86, "sum_to"), FactKind::Rename("sum".into())));
-        x86.facts.push(UserFact::new(id_of(&x86, "gcd"), FactKind::Rename("euclid".into())));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "factorial"),
+            FactKind::Rename("fact".into()),
+        ));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "sum_to"),
+            FactKind::Rename("sum".into()),
+        ));
+        x86.facts.push(UserFact::new(
+            id_of(&x86, "gcd"),
+            FactKind::Rename("euclid".into()),
+        ));
 
         // aarch64: same source, different ISA — distinct sizes/bb + mnemonics (so exact/fuzzy defer),
         // identical BSim vectors for the twins (the ISA-abstracting signal), distinct for gcd.
@@ -1659,22 +1930,37 @@ mod tests {
 
         let report = merge_into(&x86, &mut aarch64);
         // factorial + sum_to recover via BSim; gcd flags (fail-closed).
-        assert_eq!(report.merged, 2, "BSim recovers the two accumulator leaves cross-arch");
-        assert_eq!(report.flagged, 1, "gcd (cross-arch-distinct vector) stays flagged");
+        assert_eq!(
+            report.merged, 2,
+            "BSim recovers the two accumulator leaves cross-arch"
+        );
+        assert_eq!(
+            report.flagged, 1,
+            "gcd (cross-arch-distinct vector) stays flagged"
+        );
         let name_on = |marker: &str| {
             aarch64
                 .facts
                 .iter()
                 .find(|f| matches!(&f.kind, FactKind::Rename(n) if n == marker))
                 .map(|f| {
-                    aarch64.functions.iter().find(|fn_| fn_.id == f.target).unwrap().name.clone()
+                    aarch64
+                        .functions
+                        .iter()
+                        .find(|fn_| fn_.id == f.target)
+                        .unwrap()
+                        .name
+                        .clone()
                 })
         };
         // zero-wrong: each recovered fact sits on its correctly-named twin.
         assert_eq!(name_on("fact").as_deref(), Some("factorial"));
         assert_eq!(name_on("sum").as_deref(), Some("sum_to"));
         // gcd's marker did NOT carry (fail-closed) — never mis-attached to a leaf look-alike.
-        assert!(name_on("euclid").is_none(), "gcd must flag, never mis-attach (WRONG=0)");
+        assert!(
+            name_on("euclid").is_none(),
+            "gcd must flag, never mis-attach (WRONG=0)"
+        );
     }
 
     /// DD-017 `diff`: `diff_programs` pairs functions by STRUCTURAL signature, not address — so a
@@ -1685,21 +1971,37 @@ mod tests {
     fn diff_programs_is_address_independent_and_flags_new_functions() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let again = scylla_ingest::snapshot_to_program(V1).unwrap(); // fresh ids, same binary
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         let d = diff_programs(&v1, &again);
         for (a_id, b_id) in &d.matched {
-            assert_eq!(name(&v1, *a_id), name(&again, *b_id), "a matched pair must be the same function");
+            assert_eq!(
+                name(&v1, *a_id),
+                name(&again, *b_id),
+                "a matched pair must be the same function"
+            );
         }
         let matched_names: Vec<String> = d.matched.iter().map(|(a, _)| name(&v1, *a)).collect();
         for fnname in ["gcd", "fib", "factorial", "sum_to", "main"] {
-            assert!(matched_names.contains(&fnname.to_string()), "{fnname} should pair with itself");
+            assert!(
+                matched_names.contains(&fnname.to_string()),
+                "{fnname} should pair with itself"
+            );
         }
         // The edit (v2 inserts `lcm`): lcm is new, so it lands only on the v2 side.
         let v2 = scylla_ingest::snapshot_to_program(V2).unwrap();
         let d2 = diff_programs(&v1, &v2);
         let only_b: Vec<String> = d2.only_b.iter().map(|id| name(&v2, *id)).collect();
-        assert!(only_b.contains(&"lcm".to_string()), "lcm is new in v2 -> only_b");
+        assert!(
+            only_b.contains(&"lcm".to_string()),
+            "lcm is new in v2 -> only_b"
+        );
     }
 
     /// DD-017 `diff`, call-graph propagation (the module header's "next lever"): a function whose
@@ -1710,8 +2012,14 @@ mod tests {
     fn diff_programs_detects_a_modified_body_via_call_graph_propagation() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap(); // same binary, fresh ids…
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         // …except gcd's body is edited: bump CFG/size/fingerprint so its EXACT signature differs,
         // but leave its call edges intact so the call-graph neighbourhood is preserved.
         {
@@ -1724,13 +2032,20 @@ mod tests {
         assert_eq!(d.changed.len(), 1, "exactly gcd is modified");
         let (ca, cb) = d.changed[0];
         assert_eq!(name(&v1, ca), "gcd");
-        assert_eq!(name(&v2, cb), "gcd", "no-wrong: the modified pair is the same function");
+        assert_eq!(
+            name(&v2, cb),
+            "gcd",
+            "no-wrong: the modified pair is the same function"
+        );
         // gcd is reported ONCE, as changed — never double-counted as removed + added.
         assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
         assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
         // everything else still exact-matched.
         for n in ["main", "fib", "factorial", "sum_to"] {
-            assert!(d.matched.iter().any(|(a, _)| name(&v1, *a) == n), "{n} exact-matched");
+            assert!(
+                d.matched.iter().any(|(a, _)| name(&v1, *a) == n),
+                "{n} exact-matched"
+            );
         }
     }
 
@@ -1741,8 +2056,14 @@ mod tests {
     fn diff_records_match_provenance_per_pair() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         {
             let g = v2.functions.iter_mut().find(|f| f.name == "gcd").unwrap();
             g.bb_count += 3;
@@ -1756,16 +2077,35 @@ mod tests {
             "exactly one method per matched/changed pair"
         );
         let info_of = |fn_name: &str| -> Option<MatchInfo> {
-            d.provenance.iter().find(|(aid, _)| name(&v1, *aid) == fn_name).map(|(_, i)| *i)
+            d.provenance
+                .iter()
+                .find(|(aid, _)| name(&v1, *aid) == fn_name)
+                .map(|(_, i)| *i)
         };
         // gcd's body changed but its call edges held -> recovered by call-graph propagation (a
         // structural certainty, so 100% confidence).
-        assert_eq!(info_of("gcd").map(|i| i.method), Some(MatchMethod::Propagation), "gcd via propagation");
-        assert_eq!(info_of("gcd").map(|i| i.confidence), Some(100), "propagation is certain");
+        assert_eq!(
+            info_of("gcd").map(|i| i.method),
+            Some(MatchMethod::Propagation),
+            "gcd via propagation"
+        );
+        assert_eq!(
+            info_of("gcd").map(|i| i.confidence),
+            Some(100),
+            "propagation is certain"
+        );
         // the untouched functions matched on their exact signature.
         for n in ["main", "fib", "factorial", "sum_to"] {
-            assert_eq!(info_of(n).map(|i| i.method), Some(MatchMethod::Exact), "{n} via exact");
-            assert_eq!(info_of(n).map(|i| i.confidence), Some(100), "exact is certain");
+            assert_eq!(
+                info_of(n).map(|i| i.method),
+                Some(MatchMethod::Exact),
+                "{n} via exact"
+            );
+            assert_eq!(
+                info_of(n).map(|i| i.confidence),
+                Some(100),
+                "exact is certain"
+            );
         }
     }
 
@@ -1774,7 +2114,11 @@ mod tests {
         // The feature-rung score (0.0..=1.0) becomes a 0..=100 percentage; certainties are 100.
         assert_eq!(MatchInfo::new(MatchMethod::Exact, 1.0).confidence, 100);
         assert_eq!(MatchInfo::new(MatchMethod::Fuzzy, 0.87).confidence, 87);
-        assert_eq!(MatchInfo::new(MatchMethod::Bsim, 0.755).confidence, 76, "rounds");
+        assert_eq!(
+            MatchInfo::new(MatchMethod::Bsim, 0.755).confidence,
+            76,
+            "rounds"
+        );
         assert_eq!(MatchInfo::new(MatchMethod::Anchor, 0.0).confidence, 0);
         // out-of-range scores clamp into 0..=100 (never a panicking cast).
         assert_eq!(MatchInfo::new(MatchMethod::Fuzzy, 1.5).confidence, 100);
@@ -1789,8 +2133,14 @@ mod tests {
     fn diff_propagation_chains_through_freshly_matched_anchors() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         {
             let m = v2.functions.iter_mut().find(|f| f.name == "main").unwrap();
             m.bb_count += 2;
@@ -1804,9 +2154,15 @@ mod tests {
         let d = diff_programs(&v1, &v2);
         let changed: Vec<String> = d.changed.iter().map(|(a, _)| name(&v1, *a)).collect();
         // main recovered in round 1 (anchored by fib/factorial/sum_to)…
-        assert!(changed.contains(&"main".to_string()), "main recovered (round 1)");
+        assert!(
+            changed.contains(&"main".to_string()),
+            "main recovered (round 1)"
+        );
         // …then gcd recovered in round 2, now that main is an anchor (single round could not).
-        assert!(changed.contains(&"gcd".to_string()), "gcd recovered (round 2, chained off main)");
+        assert!(
+            changed.contains(&"gcd".to_string()),
+            "gcd recovered (round 2, chained off main)"
+        );
         assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "gcd"));
         assert!(!d.only_b.iter().any(|id| name(&v2, *id) == "gcd"));
     }
@@ -1819,8 +2175,14 @@ mod tests {
     fn diff_never_guesses_a_function_changed_past_every_discriminator() {
         let v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         let fib_id = v2.functions.iter().find(|f| f.name == "fib").unwrap().id;
         {
             let g = v2.functions.iter_mut().find(|f| f.name == "gcd").unwrap();
@@ -1847,8 +2209,14 @@ mod tests {
     fn diff_anchor_pass_matches_by_unique_features() {
         let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         let mut iso = v1.functions[0].clone();
         iso.name = "string_keyed".into();
         iso.callees.clear();
@@ -1886,8 +2254,14 @@ mod tests {
     fn diff_fuzzy_pass_matches_by_mnemonic_mix() {
         let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         let mut iso = v1.functions[0].clone();
         iso.name = "mnemonic_keyed".into();
         iso.callees.clear();
@@ -1909,9 +2283,9 @@ mod tests {
         v2.functions.push(iso2);
         let d = diff_programs(&v1, &v2);
         assert!(
-            d.changed
-                .iter()
-                .any(|(x, y)| name(&v1, *x) == "mnemonic_keyed" && name(&v2, *y) == "mnemonic_keyed"),
+            d.changed.iter().any(
+                |(x, y)| name(&v1, *x) == "mnemonic_keyed" && name(&v2, *y) == "mnemonic_keyed"
+            ),
             "fuzzy pass should re-identify by mnemonic mix"
         );
         assert!(!d.only_a.iter().any(|id| name(&v1, *id) == "mnemonic_keyed"));
@@ -1926,8 +2300,14 @@ mod tests {
     fn diff_bsim_pass_matches_by_feature_vector() {
         let mut v1 = scylla_ingest::snapshot_to_program(V1).unwrap();
         let mut v2 = scylla_ingest::snapshot_to_program(V1).unwrap();
-        let name =
-            |p: &Program, id: StableId| p.functions.iter().find(|f| f.id == id).unwrap().name.clone();
+        let name = |p: &Program, id: StableId| {
+            p.functions
+                .iter()
+                .find(|f| f.id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
         let mut iso = v1.functions[0].clone();
         iso.name = "vector_keyed".into();
         iso.callees.clear();
@@ -1935,8 +2315,8 @@ mod tests {
         iso.callee_names.clear();
         iso.string_refs.clear(); // deny anchor
         iso.mnemonics.clear(); // deny mnemonic-fuzzy
-        // A BSim feature vector (feature id, f32-bits weight), >= BSIM_MIN_FEATURES entries, identical
-        // in both builds → weighted cosine 1.0.
+                               // A BSim feature vector (feature id, f32-bits weight), >= BSIM_MIN_FEATURES entries, identical
+                               // in both builds → weighted cosine 1.0.
         iso.bsim_vector = vec![
             (10, 1.0f32.to_bits()),
             (20, 2.5f32.to_bits()),
@@ -1976,12 +2356,17 @@ mod tests {
         let mut b = b_src;
         let a_main = a.functions.iter().find(|f| f.name == "main").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact::new(a_main, FactKind::Rename("entrypoint".into())));
-        b.facts.push(UserFact::new(b_fib, FactKind::Comment("recursive".into())));
+        a.facts
+            .push(UserFact::new(a_main, FactKind::Rename("entrypoint".into())));
+        b.facts
+            .push(UserFact::new(b_fib, FactKind::Comment("recursive".into())));
         let (report, conflicts) = collaborate(&mut a, &b);
         assert_eq!(conflicts.len(), 0);
         assert_eq!(report.merged, 1, "fib's comment should merge in");
-        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Comment(c) if c == "recursive")));
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Comment(c) if c == "recursive")));
     }
 
     #[test]
@@ -1990,14 +2375,22 @@ mod tests {
         let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
         let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_a".into())));
-        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_b".into())));
+        a.facts
+            .push(UserFact::new(a_fib, FactKind::Rename("fib_a".into())));
+        b.facts
+            .push(UserFact::new(b_fib, FactKind::Rename("fib_b".into())));
         let (report, conflicts) = collaborate(&mut a, &b);
         assert_eq!(report.conflicts, 1);
         assert_eq!(conflicts.len(), 1);
         // base keeps its own value — incoming never silently overwrites it
-        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
-        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_b")));
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
+        assert!(!a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_b")));
     }
 
     #[test]
@@ -2007,17 +2400,37 @@ mod tests {
         let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
         let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_guess".into())).with_provenance(
-            Provenance { producer: "engine".into(), confidence: 45 },
-        ));
-        b.facts.push(UserFact::new(b_fib, FactKind::Rename("recursive".into())).with_provenance(
-            Provenance { producer: "user".into(), confidence: 100 },
-        ));
+        a.facts.push(
+            UserFact::new(a_fib, FactKind::Rename("fib_guess".into())).with_provenance(
+                Provenance {
+                    producer: "engine".into(),
+                    confidence: 45,
+                },
+            ),
+        );
+        b.facts.push(
+            UserFact::new(b_fib, FactKind::Rename("recursive".into())).with_provenance(
+                Provenance {
+                    producer: "user".into(),
+                    confidence: 100,
+                },
+            ),
+        );
         let (report, conflicts) = collaborate(&mut a, &b);
-        assert_eq!(conflicts.len(), 0, "a clear confidence winner is not a conflict");
+        assert_eq!(
+            conflicts.len(),
+            0,
+            "a clear confidence winner is not a conflict"
+        );
         assert_eq!(report.resolved_by_confidence, 1);
-        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
-        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
+        assert!(!a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
     }
 
     #[test]
@@ -2027,16 +2440,32 @@ mod tests {
         let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
         let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact::new(a_fib, FactKind::Rename("recursive".into())));
-        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_guess".into())).with_provenance(
-            Provenance { producer: "engine".into(), confidence: 40 },
-        ));
+        a.facts
+            .push(UserFact::new(a_fib, FactKind::Rename("recursive".into())));
+        b.facts.push(
+            UserFact::new(b_fib, FactKind::Rename("fib_guess".into())).with_provenance(
+                Provenance {
+                    producer: "engine".into(),
+                    confidence: 40,
+                },
+            ),
+        );
         let (report, conflicts) = collaborate(&mut a, &b);
-        assert_eq!(conflicts.len(), 0, "base clearly more confident — resolved, not flagged");
+        assert_eq!(
+            conflicts.len(),
+            0,
+            "base clearly more confident — resolved, not flagged"
+        );
         assert_eq!(report.resolved_by_confidence, 1);
         // base keeps its confident value; the low-confidence incoming is dropped.
-        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
-        assert!(!a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "recursive")));
+        assert!(!a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_guess")));
     }
 
     #[test]
@@ -2046,16 +2475,28 @@ mod tests {
         let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
         let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
         let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
-        a.facts.push(UserFact::new(a_fib, FactKind::Rename("fib_a".into())).with_provenance(
-            Provenance { producer: "analyzer_a".into(), confidence: 85 },
-        ));
-        b.facts.push(UserFact::new(b_fib, FactKind::Rename("fib_b".into())).with_provenance(
-            Provenance { producer: "analyzer_b".into(), confidence: 90 },
-        ));
+        a.facts.push(
+            UserFact::new(a_fib, FactKind::Rename("fib_a".into())).with_provenance(Provenance {
+                producer: "analyzer_a".into(),
+                confidence: 85,
+            }),
+        );
+        b.facts.push(
+            UserFact::new(b_fib, FactKind::Rename("fib_b".into())).with_provenance(Provenance {
+                producer: "analyzer_b".into(),
+                confidence: 90,
+            }),
+        );
         let (report, conflicts) = collaborate(&mut a, &b);
-        assert_eq!(report.conflicts, 1, "a near-tie is flagged, never auto-resolved");
+        assert_eq!(
+            report.conflicts, 1,
+            "a near-tie is flagged, never auto-resolved"
+        );
         assert_eq!(report.resolved_by_confidence, 0);
         assert_eq!(conflicts.len(), 1);
-        assert!(a.facts.iter().any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
     }
 }

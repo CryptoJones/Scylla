@@ -23,7 +23,8 @@ use tiny_http::{Header, Method, Request, Response, Server};
 
 use crate::schema::{schema, Context, Schema};
 
-const USAGE: &str = "usage: scylla-graphql <artifact.scylla> [host:port]   (default 127.0.0.1:8801)";
+const USAGE: &str =
+    "usage: scylla-graphql <artifact.scylla> [host:port]   (default 127.0.0.1:8801)";
 
 /// Reject a request body larger than this — `read_to_end` is otherwise unbounded (OOM DoS).
 const MAX_BODY: u64 = 64 * 1024 * 1024;
@@ -177,7 +178,9 @@ fn main() -> ExitCode {
             }
         }));
         if handled.is_err() {
-            eprintln!("scylla-graphql: a request handler panicked — connection dropped, server continues");
+            eprintln!(
+                "scylla-graphql: a request handler panicked — connection dropped, server continues"
+            );
         }
     }
     ExitCode::SUCCESS
@@ -188,7 +191,12 @@ fn main() -> ExitCode {
 /// (even one whose resolvers errored) is `200` with the errors in the body — the GraphQL contract.
 fn execute(mut request: Request, root: &Schema, context: &Context) {
     let mut body = Vec::new();
-    if request.as_reader().take(MAX_BODY + 1).read_to_end(&mut body).is_err() {
+    if request
+        .as_reader()
+        .take(MAX_BODY + 1)
+        .read_to_end(&mut body)
+        .is_err()
+    {
         respond_json(
             request,
             400,

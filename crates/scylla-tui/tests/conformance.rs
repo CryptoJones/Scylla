@@ -8,7 +8,10 @@
 use scylla_port::{Session, Zoom};
 use scylla_tui::app::App;
 
-const ARTIFACT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/mathlib.scylla");
+const ARTIFACT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scylla-wasm/web/mathlib.scylla"
+);
 
 fn load() -> Session {
     Session::from_artifact(&std::fs::read(ARTIFACT).expect("read artifact")).expect("load artifact")
@@ -18,10 +21,17 @@ fn load() -> Session {
 fn browse_list_is_the_ports_functions() {
     let app = App::new(load());
     let p = load();
-    let mut expected: Vec<String> = p.functions(Zoom::Domain).into_iter().map(|f| f.name).collect();
+    let mut expected: Vec<String> = p
+        .functions(Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
     expected.sort();
     let got: Vec<String> = app.visible().iter().map(|f| f.name.clone()).collect();
-    assert_eq!(got, expected, "the browse list is exactly the port's functions, sorted");
+    assert_eq!(
+        got, expected,
+        "the browse list is exactly the port's functions, sorted"
+    );
 }
 
 #[test]
@@ -38,7 +48,10 @@ fn live_filter_is_the_ports_search() {
         .collect();
     expected.sort();
     let got: Vec<String> = app.visible().iter().map(|f| f.name.clone()).collect();
-    assert_eq!(got, expected, "the filtered list is exactly the port's search()");
+    assert_eq!(
+        got, expected,
+        "the filtered list is exactly the port's search()"
+    );
 }
 
 #[test]

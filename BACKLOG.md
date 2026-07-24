@@ -384,3 +384,83 @@ Tracked "later / someday" items that aren't on the current sprint path
   `sign-engine-image` job also builds the **engine-service sandbox image** (the security-critical
   artifact), pushes it to `ghcr.io`, and keyless-signs the pushed digest (`cosign sign`). Both
   verified per SECURITY.md.
+
+## Architecture Review — 2026-07-11
+
+Findings from the four-dimension architecture review ([ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)) — Performance, Security, Usability, Scalability — each promoted to a Codeberg issue (the authoritative forge). `#TBD` marks an issue still being filed by the rate-limited `~/.scylla-issue-cron` backfill job (one per 15 min); the `<!-- ISSUE:ID -->` marker lets that job drop in the real number.
+
+_Status: 29/46 issues filed (#119–#147)._
+
+### Performance
+
+- [ ] **[PERF-P1-1]** diff_programs is O(rounds·N²) with a fresh allocation per comparison — [#119](https://codeberg.org/CryptoJones/Scylla/issues/119) <!-- ISSUE:PERF-P1-1 -->
+- [ ] **[PERF-P2-1]** reanchor_facts/merge recompute features per pair and rebuild rev_matched per call — [#120](https://codeberg.org/CryptoJones/Scylla/issues/120) <!-- ISSUE:PERF-P2-1 -->
+- [ ] **[PERF-P2-2]** Port query paths do full-artifact scans per call with no cached index — [#121](https://codeberg.org/CryptoJones/Scylla/issues/121) <!-- ISSUE:PERF-P2-2 -->
+- [ ] **[PERF-P2-3]** Session::search materializes every function's full view before filtering — [#122](https://codeberg.org/CryptoJones/Scylla/issues/122) <!-- ISSUE:PERF-P2-3 -->
+- [ ] **[PERF-P2-4]** Java cold materialize is the default and pays full JVM+Ghidra init per request — [#123](https://codeberg.org/CryptoJones/Scylla/issues/123) <!-- ISSUE:PERF-P2-4 -->
+- [ ] **[PERF-P2-5]** No pagination on any list verb — full-model responses everywhere — [#124](https://codeberg.org/CryptoJones/Scylla/issues/124) <!-- ISSUE:PERF-P2-5 -->
+- [ ] **[PERF-P3-1]** Loader allocates a per-function HashSet even when edge_provenance is empty — [#125](https://codeberg.org/CryptoJones/Scylla/issues/125) <!-- ISSUE:PERF-P3-1 -->
+- [ ] **[PERF-P3-2]** The "zero-copy" load claim is segment-level only — [#126](https://codeberg.org/CryptoJones/Scylla/issues/126) <!-- ISSUE:PERF-P3-2 -->
+- [ ] **[PERF-P3-3]** wasm links the full merge engine + serde_json; connect_engine re-dials per call — [#127](https://codeberg.org/CryptoJones/Scylla/issues/127) <!-- ISSUE:PERF-P3-3 -->
+
+### Security
+
+- [ ] **[SEC-P1-1]** collaborate derives trust from an untrusted artifact's self-asserted confidence — [#128](https://codeberg.org/CryptoJones/Scylla/issues/128) <!-- ISSUE:SEC-P1-1 -->
+- [ ] **[SEC-P1-2]** GraphQL has no depth/complexity/alias limit — diff resolver is alias-amplifiable — [#129](https://codeberg.org/CryptoJones/Scylla/issues/129) <!-- ISSUE:SEC-P1-2 -->
+- [ ] **[SEC-P2-1]** neutralize_fence is case-sensitive — envelope re-opens with a case/whitespace variant — [#130](https://codeberg.org/CryptoJones/Scylla/issues/130) <!-- ISSUE:SEC-P2-1 -->
+- [ ] **[SEC-P2-2]** Engine TCP mode is unauthenticated, plaintext, binds all interfaces, is the Docker default — [#131](https://codeberg.org/CryptoJones/Scylla/issues/131) <!-- ISSUE:SEC-P2-2 -->
+- [ ] **[SEC-P2-3]** Engine gRPC socket is world-accessible (chmod 777) with no channel auth — [#132](https://codeberg.org/CryptoJones/Scylla/issues/132) <!-- ISSUE:SEC-P2-3 -->
+- [ ] **[SEC-P2-4]** DD-034 containment is advisory, not code-enforced — [#133](https://codeberg.org/CryptoJones/Scylla/issues/133) <!-- ISSUE:SEC-P2-4 -->
+- [ ] **[SEC-P2-5]** No cargo-deny/advisory gate; OIDC-privileged release lane uses unpinned actions — [#134](https://codeberg.org/CryptoJones/Scylla/issues/134) <!-- ISSUE:SEC-P2-5 -->
+- [ ] **[SEC-P3-1]** LSP documentSymbol surfaces binary-derived names unwrapped — [#135](https://codeberg.org/CryptoJones/Scylla/issues/135) <!-- ISSUE:SEC-P3-1 -->
+- [ ] **[SEC-P3-2]** GraphQL session Mutex poisoning is a latent permanent DoS — [#136](https://codeberg.org/CryptoJones/Scylla/issues/136) <!-- ISSUE:SEC-P3-2 -->
+- [ ] **[SEC-P3-3]** Token env handling inconsistent — whitespace token is "set" on RPC, "unset" on http/graphql — [#137](https://codeberg.org/CryptoJones/Scylla/issues/137) <!-- ISSUE:SEC-P3-3 -->
+- [ ] **[SEC-P3-4]** producer provenance is unauthenticated free text — [#138](https://codeberg.org/CryptoJones/Scylla/issues/138) <!-- ISSUE:SEC-P3-4 -->
+- [ ] **[SEC-P3-5]** Fail-open is the default posture and the threat model is stale — [#139](https://codeberg.org/CryptoJones/Scylla/issues/139) <!-- ISSUE:SEC-P3-5 -->
+
+### Usability
+
+- [ ] **[USE-P1-1]** A fresh clone fails to build on undocumented native prerequisites — [#140](https://codeberg.org/CryptoJones/Scylla/issues/140) <!-- ISSUE:USE-P1-1 -->
+- [ ] **[USE-P1-2]** engine-service (primary materialize path) has no setup docs and ships a hardcoded personal path — [#141](https://codeberg.org/CryptoJones/Scylla/issues/141) <!-- ISSUE:USE-P1-2 -->
+- [ ] **[USE-P1-3]** LoadReport quarantine warnings are silently dropped on every head — [#142](https://codeberg.org/CryptoJones/Scylla/issues/142) <!-- ISSUE:USE-P1-3 -->
+- [ ] **[USE-P2-1]** The CLI cannot annotate at all, despite the "same verbs" claim — [#143](https://codeberg.org/CryptoJones/Scylla/issues/143) <!-- ISSUE:USE-P2-1 -->
+- [ ] **[USE-P2-2]** merge is missing from 7 of 9 heads — [#144](https://codeberg.org/CryptoJones/Scylla/issues/144) <!-- ISSUE:USE-P2-2 -->
+- [ ] **[USE-P2-3]** The advertised collaborate (git-for-RE) verb is reachable from no head — [#145](https://codeberg.org/CryptoJones/Scylla/issues/145) <!-- ISSUE:USE-P2-3 -->
+- [ ] **[USE-P2-4]** MCP has no info tool — [#146](https://codeberg.org/CryptoJones/Scylla/issues/146) <!-- ISSUE:USE-P2-4 -->
+- [ ] **[USE-P2-5]** Same concept, different verb name across heads — [#147](https://codeberg.org/CryptoJones/Scylla/issues/147) <!-- ISSUE:USE-P2-5 -->
+- [ ] **[USE-P2-6]** Config sprawl — ~20 SCYLLA_* env vars, documented in no single place — [#148](https://codeberg.org/CryptoJones/Scylla/issues/148) <!-- ISSUE:USE-P2-6 -->
+- [ ] **[USE-P2-7]** No schema version field — an incompatible artifact yields garbage or a bare "decode error" — [#149](https://codeberg.org/CryptoJones/Scylla/issues/149) <!-- ISSUE:USE-P2-7 -->
+- [ ] **[USE-P2-8]** Endpoint scheme mismatch between the docs and the only working recipe — [#150](https://codeberg.org/CryptoJones/Scylla/issues/150) <!-- ISSUE:USE-P2-8 -->
+- [ ] **[USE-P2-9]** ARCHITECTURE claims the warm engine is "not built yet" but it is fully implemented — [#151](https://codeberg.org/CryptoJones/Scylla/issues/151) <!-- ISSUE:USE-P2-9 -->
+- [ ] **[USE-P3-1]** CLI has no real --help/--version — [#152](https://codeberg.org/CryptoJones/Scylla/issues/152) <!-- ISSUE:USE-P3-1 -->
+- [ ] **[USE-P3-2]** Annotate-verb param names and id types diverge — [#153](https://codeberg.org/CryptoJones/Scylla/issues/153) <!-- ISSUE:USE-P3-2 -->
+- [ ] **[USE-P3-3]** MCP zoom input schemas don't enumerate valid values — [#154](https://codeberg.org/CryptoJones/Scylla/issues/154) <!-- ISSUE:USE-P3-3 -->
+
+### Scalability
+
+- [ ] **[SCALE-P1-1]** Every server head is single-threaded / single-shared-session — [#155](https://codeberg.org/CryptoJones/Scylla/issues/155) <!-- ISSUE:SCALE-P1-1 -->
+- [ ] **[SCALE-P1-2]** The 512 MiB traversal ceiling caps the whole artifact — a large target fails to load — [#156](https://codeberg.org/CryptoJones/Scylla/issues/156) <!-- ISSUE:SCALE-P1-2 -->
+- [ ] **[SCALE-P1-3]** Warm-engine throughput is a hard single-digit ceiling; no horizontal scale-out — [#157](https://codeberg.org/CryptoJones/Scylla/issues/157) <!-- ISSUE:SCALE-P1-3 -->
+- [ ] **[SCALE-P2-1]** Whole-artifact rewrite on every save — no atomic write, no locking — [#158](https://codeberg.org/CryptoJones/Scylla/issues/158) <!-- ISSUE:SCALE-P2-1 -->
+- [ ] **[SCALE-P2-2]** No multi-artifact / corpus capability — every head is exactly one resident .scylla — [#159](https://codeberg.org/CryptoJones/Scylla/issues/159) <!-- ISSUE:SCALE-P2-2 -->
+- [ ] **[SCALE-P2-3]** In-memory decode fully materializes an owned Program — footprint is a multiple of file size — [#160](https://codeberg.org/CryptoJones/Scylla/issues/160) <!-- ISSUE:SCALE-P2-3 -->
+- [ ] **[SCALE-P2-4]** collaborate existing-fact lookup is O(F_incoming · F_base) — [#161](https://codeberg.org/CryptoJones/Scylla/issues/161) <!-- ISSUE:SCALE-P2-4 -->
+- [ ] **[SCALE-P3-1]** 1,000,000-function/-fact hard decode caps reject a very large corpus binary — [#162](https://codeberg.org/CryptoJones/Scylla/issues/162) <!-- ISSUE:SCALE-P3-1 -->
+- [ ] **[SCALE-P3-2]** 64 KiB string truncation can silently collide long symbols (untrusted path only) — [#163](https://codeberg.org/CryptoJones/Scylla/issues/163) <!-- ISSUE:SCALE-P3-2 -->
+- [ ] **[SCALE-P3-3]** No multi-user server primitives — the growth path is blocked by three things at once — [#164](https://codeberg.org/CryptoJones/Scylla/issues/164) <!-- ISSUE:SCALE-P3-3 -->
+
+*Proudly Made in Nebraska. Go Big Red! 🌽 <https://xkcd.com/2347/>*
+
+## Code Review — 2026-07-24 (GitHub issues)
+
+Confirmed findings from the top-to-bottom code review, promoted to the GitHub issue tracker per
+user request. Items that overlap the existing Codeberg-backed architecture review are called out as
+mirrors so we do not lose the cross-forge linkage.
+
+- [x] **[GH-SEC-1]** MCP allows arbitrary filesystem read/write via agent-supplied paths — [#3](https://github.com/CryptoJones/Scylla/issues/3)
+- [x] **[GH-SEC-2]** HTTP/GraphQL heads ship vulnerable `rustls`/`ring` TLS deps and CI does not gate advisories — [#4](https://github.com/CryptoJones/Scylla/issues/4) _(mirror of Codeberg `SEC-P2-5`)_
+- [x] **[GH-ROB-1]** `scylla-lsp` swallows malformed `Content-Length` / JSON instead of returning parse errors — [#5](https://github.com/CryptoJones/Scylla/issues/5)
+- [x] **[GH-DOC-1]** `THREAT-MODEL.md` is stale and still describes networked heads as future work — [#6](https://github.com/CryptoJones/Scylla/issues/6) _(mirror of Codeberg `SEC-P3-5`)_
+- [x] **[GH-DOC-2]** `README` / `ARCHITECTURE` overclaim verb parity across all nine heads — [#7](https://github.com/CryptoJones/Scylla/issues/7) _(mirror of Codeberg `USE-P2-1` / `USE-P2-2` / `USE-P2-5`)_
+- [x] **[GH-CI-1]** CI does not enforce `rustfmt`, and the current tracked tree is not fmt-clean — [#8](https://github.com/CryptoJones/Scylla/issues/8)
+- [x] **[GH-USE-1]** `engine-service/run-sandboxed.sh` ships a machine-specific `GHIDRA_DIST` default — [#9](https://github.com/CryptoJones/Scylla/issues/9) _(mirror of Codeberg `USE-P1-2`)_

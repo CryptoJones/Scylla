@@ -45,8 +45,16 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /// (413), instead of the unbounded `read_to_end` that a hostile client can use to exhaust memory.
 fn read_body_capped(req: &mut Request) -> Result<Vec<u8>, (u16, String)> {
     let mut buf = Vec::new();
-    if req.as_reader().take(MAX_BODY + 1).read_to_end(&mut buf).is_err() {
-        return Err((400, json!({"error": "could not read the request body"}).to_string()));
+    if req
+        .as_reader()
+        .take(MAX_BODY + 1)
+        .read_to_end(&mut buf)
+        .is_err()
+    {
+        return Err((
+            400,
+            json!({"error": "could not read the request body"}).to_string(),
+        ));
     }
     if buf.len() as u64 > MAX_BODY {
         return Err((413, json!({"error": "request body too large"}).to_string()));
@@ -317,7 +325,11 @@ fn handle(session: &mut Session, req: &mut Request) -> Reply {
         (Method::Get, ["api", "functions"]) => Reply::Json(200, functions(session, zoom)),
         (Method::Get, ["api", "search"]) => Reply::Json(
             200,
-            search(session, &percent_decode(query_param(query, "q").unwrap_or("")), zoom),
+            search(
+                session,
+                &percent_decode(query_param(query, "q").unwrap_or("")),
+                zoom,
+            ),
         ),
         (Method::Get, ["api", "functions", id]) => view(session, id, zoom).into(),
         (Method::Get, ["api", "functions", id, "callers"]) => callers(session, id).into(),

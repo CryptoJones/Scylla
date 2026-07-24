@@ -90,7 +90,10 @@ fn info(path: &str, json: bool) -> ExitCode {
             "language": p.language,
             "functions": p.functions.len(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
     } else {
         println!("name:      {}", p.name);
         println!("language:  {}", p.language);
@@ -139,7 +142,10 @@ fn functions(path: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly")
+        );
     } else {
         for f in &fns {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -166,7 +172,10 @@ fn search(path: &str, query: &str, zoom_arg: Option<&str>, json: bool) -> ExitCo
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly")
+        );
     } else {
         for f in &hits {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -209,7 +218,10 @@ fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>, json: bool) -> ExitCod
             "callees": v.callees,
             "callers": v.callers,
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
         return ExitCode::SUCCESS;
     }
     let list = |xs: &[String]| {
@@ -368,7 +380,10 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
                 })
                 .collect::<serde_json::Map<String, serde_json::Value>>(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
     } else {
         println!("scylla diff: {a_path}  vs  {b_path}");
         println!(

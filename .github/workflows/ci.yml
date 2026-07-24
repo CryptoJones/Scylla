@@ -17,13 +17,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-          components: clippy
+          components: clippy, rustfmt
+
+      - name: Rustfmt
+        run: cargo fmt --all -- --check
 
       - name: Clippy (deny warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test workspace (locked)
         run: cargo test --workspace --locked
+
+      - name: Audit dependencies
+        run: |
+          cargo install cargo-audit --locked --version 0.22.2
+          cargo audit
 
       - name: Consume-side core builds for WASM (DD-028)
         run: cargo build --target wasm32-unknown-unknown -p scylla-port

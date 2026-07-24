@@ -115,7 +115,11 @@ fn handle(mut stream: TcpStream, artifact: &[u8], compare: Option<&[u8]>) -> std
     // The head fetches `mathlib.scylla` (its baked default name) — serve the user's artifact there;
     // and `compare.scylla` when a second build was given (the head auto-diffs against it on boot).
     let (status, ctype, body): (&str, &str, &[u8]) = if method != "GET" && method != "HEAD" {
-        ("405 Method Not Allowed", "text/plain; charset=utf-8", b"method not allowed")
+        (
+            "405 Method Not Allowed",
+            "text/plain; charset=utf-8",
+            b"method not allowed",
+        )
     } else {
         match path {
             "/" | "/index.html" => ("200 OK", "text/html; charset=utf-8", INDEX_HTML.as_bytes()),

@@ -268,7 +268,11 @@ fn build_diff(this: &Session, other: &Session) -> DiffData {
         }
     }
     for (a, b) in &d.changed {
-        let name = if a == b { a.clone() } else { format!("{a} → {b}") };
+        let name = if a == b {
+            a.clone()
+        } else {
+            format!("{a} → {b}")
+        };
         let detail = prov
             .get(a)
             .map(|i| format!("({} {}%)", i.method.as_str(), i.confidence))
@@ -306,8 +310,7 @@ mod tests {
     const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/");
 
     fn load(name: &str) -> Session {
-        Session::from_artifact(&std::fs::read(format!("{DIR}{name}")).expect("read"))
-            .expect("load")
+        Session::from_artifact(&std::fs::read(format!("{DIR}{name}")).expect("read")).expect("load")
     }
 
     #[test]
@@ -344,7 +347,11 @@ mod tests {
         let mut app = App::new(load("mathlib.scylla"));
         assert!(!app.has_diff());
         app.toggle_screen();
-        assert_eq!(app.screen(), Screen::Functions, "no second artifact → no diff pane");
+        assert_eq!(
+            app.screen(),
+            Screen::Functions,
+            "no second artifact → no diff pane"
+        );
         assert!(app.diff_data().is_none());
     }
 
@@ -357,7 +364,11 @@ mod tests {
         let p = load("mathlib.scylla");
         let pd = p.diff(&load("mathlib_patched.scylla"));
         let renamed = pd.matched.iter().filter(|(a, b)| a != b).count();
-        assert_eq!(d.matched, pd.matched.len() - renamed, "matched-unchanged count");
+        assert_eq!(
+            d.matched,
+            pd.matched.len() - renamed,
+            "matched-unchanged count"
+        );
         assert_eq!(d.renamed, renamed, "renamed count");
         assert_eq!(d.modified, pd.changed.len(), "modified count");
         assert_eq!(d.added, pd.only_there.len(), "added count");

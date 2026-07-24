@@ -68,8 +68,9 @@ what shipped when is in [CHANGELOG.md](CHANGELOG.md).
 ## The heads
 
 One body — the durable RE domain model (`scylla-model`) and the client port over it
-(`scylla-port`) — and **nine heads** today, each a thin adapter projecting the *same* verbs
-(navigate / annotate / **diff** / merge / export):
+(`scylla-port`) — and **nine heads** today. Each is a thin adapter over the same body, but exposes
+the subset that fits its protocol: every head navigates; mutation, diff, merge, and export support
+varies by head and is called out below.
 
 - **Browser (WASM)** — `crates/scylla-wasm`: the client port compiled to `wasm32`, so a browser
   navigates / annotates / **diffs** a `.scylla` model-artifact entirely client-side — no server,

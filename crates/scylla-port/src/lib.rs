@@ -225,8 +225,12 @@ impl Session {
     /// A precomputed `id -> display name` map (the FIRST rename per target wins, matching
     /// [`scylla_model::Program::display_name`]) so the batch verbs resolve names in O(1).
     fn display_name_index(&self) -> HashMap<StableId, String> {
-        let mut names: HashMap<StableId, String> =
-            self.program.functions.iter().map(|f| (f.id, f.name.clone())).collect();
+        let mut names: HashMap<StableId, String> = self
+            .program
+            .functions
+            .iter()
+            .map(|f| (f.id, f.name.clone()))
+            .collect();
         let mut renamed: HashSet<StableId> = HashSet::new();
         for fact in &self.program.facts {
             if let FactKind::Rename(n) = &fact.kind {
@@ -242,7 +246,9 @@ impl Session {
     pub fn view(&self, id: StableId, zoom: Zoom) -> Result<FunctionView, PortError> {
         let f = self.func(id)?;
         let callers = self.callers(id);
-        Ok(Self::assemble_view(f, zoom, &callers, &|id| self.name_of(id)))
+        Ok(Self::assemble_view(f, zoom, &callers, &|id| {
+            self.name_of(id)
+        }))
     }
 
     /// List all functions at a zoom altitude. O(N + E): a caller adjacency and a display-name map are
@@ -317,8 +323,10 @@ impl Session {
 
     /// Coarse-grained diff against another session: ids present only here / only there, by
     /// structural identity. (A first taste of DD-017's `diff` verb.)
-    #[deprecated(note = "superseded by `diff` (structural identity); kept only as the coarse \
-                         address-set taste — do not build on it")]
+    #[deprecated(
+        note = "superseded by `diff` (structural identity); kept only as the coarse \
+                         address-set taste — do not build on it"
+    )]
     pub fn diff_function_addrs(&self, other: &Session) -> (BTreeSet<u64>, BTreeSet<u64>) {
         let mine: BTreeSet<u64> = self.program.functions.iter().map(|f| f.addr).collect();
         let theirs: BTreeSet<u64> = other.program.functions.iter().map(|f| f.addr).collect();

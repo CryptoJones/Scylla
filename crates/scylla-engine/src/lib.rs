@@ -305,9 +305,16 @@ mod tests {
         ];
         let prog = assemble("p", "l", &chunks);
         let id = |n: &str| prog.functions.iter().find(|f| f.name == n).unwrap().id;
-        assert_ne!(id("a"), id("b"), "duplicate entry addresses must not share a stable id");
+        assert_ne!(
+            id("a"),
+            id("b"),
+            "duplicate entry addresses must not share a stable id"
+        );
         let caller = prog.functions.iter().find(|f| f.name == "caller").unwrap();
-        assert!(caller.callees.is_empty(), "a call to the ambiguous address resolves to nothing");
+        assert!(
+            caller.callees.is_empty(),
+            "a call to the ambiguous address resolves to nothing"
+        );
     }
 
     #[test]

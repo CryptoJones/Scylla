@@ -1,0 +1,23 @@
+# mcp-conformance target config for the scylla-mcp head.
+# Build first (`cargo build -p scylla-mcp`), then from the repo root:
+#   /path/to/mcp-conformance/.venv/bin/mcp-conformance run
+#
+# scylla-mcp takes a .scylla artifact to load; the bundled mathlib sample is a
+# safe, checked-in fixture. SCYLLA_MCP_ROOT confines the filesystem tools.
+# The probes are read-only navigation tools (list_functions, search); the
+# mutating/exporting tools (rename, export, merge, ...) are intentionally not
+# probed.
+command = ["target/debug/scylla-mcp", "crates/scylla-wasm/web/mathlib.scylla"]
+env = { SCYLLA_MCP_ROOT = "." }
+
+[[probe]]
+tool = "list_functions"
+
+[[probe]]
+tool = "search"
+args = { query = "gcd" }
+
+[expect]
+max_output_chars = 200000
+# scylla-mcp WRAPS binary-derived output in an <untrusted-data> envelope (DD-035)
+# rather than flagging injection in its own inputs, so expect.injection is omitted.

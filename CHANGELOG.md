@@ -7,6 +7,20 @@ All notable changes to Scylla are recorded here. The format follows
 The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md) (44 DDs); the
 *what* is mapped in [ARCHITECTURE.md](ARCHITECTURE.md). This file is the *when*.
 
+## [Unreleased]
+
+### Changed
+
+- **`scylla-mcp` now speaks MCP revision `2026-07-28` (the stateless revision).**
+  The hand-rolled JSON-RPC head implements the mandatory `server/discover` RPC
+  (advertising `2026-07-28`, with `serverInfo` in the result `_meta`), stamps
+  every result with `resultType`, and adds the `CacheableResult` envelope
+  (`ttlMs` + `cacheScope`) to `tools/list`. `ping` — removed in this revision —
+  is now rejected (`-32601`) alongside `logging/setLevel` and
+  `resources/subscribe`. The `initialize` handshake is retained (now advertising
+  `2025-06-18`) so pre-2026 clients still connect; a 2026 client discovers first
+  and never reaches it. Verified against `mcp-conformance` 0.2.0 (17 contracts).
+
 ## [0.7.0] — 2026-07-01
 
 A security- and robustness-hardening pass across the whole platform — the fixes from a full code

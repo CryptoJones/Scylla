@@ -22,6 +22,9 @@ use serde_json::{json, Value};
 /// over-marks, never under-marks.
 const STATUS_ONLY_TOOLS: &[&str] = &["rename", "retype", "comment", "export", "merge"];
 
+/// The MCP protocol revision this head speaks (the stateless revision).
+const PROTOCOL_VERSION: &str = "2026-07-28";
+
 /// Wrap binary-derived content so an agent treats it as data, never instructions (DD-035).
 fn wrap_untrusted(text: String) -> String {
     format!(
@@ -207,14 +210,34 @@ pub fn dispatch(session: &mut Session, req: &Value) -> Value {
     let method = req.get("method").and_then(Value::as_str).unwrap_or("");
     let params = req.get("params").cloned().unwrap_or_else(|| json!({}));
     match method {
+        // MCP 2026-07-28 (the stateless revision): a client picks the protocol by
+        // probing `server/discover` — a MUST — instead of the removed
+        // `initialize` handshake. We advertise exactly this revision; `serverInfo`
+        // rides in the result `_meta` (it moved out of the body in 2026-07-28).
+        "server/discover" => json!({"jsonrpc": "2.0", "id": id, "result": {
+            "supportedVersions": [PROTOCOL_VERSION],
+            "capabilities": {"tools": {}},
+            "resultType": "complete",
+            "ttlMs": 0,
+            "cacheScope": "public",
+            "_meta": {"io.modelcontextprotocol/serverInfo":
+                {"name": "scylla-mcp", "version": env!("CARGO_PKG_VERSION")}}
+        }}),
+        // Retained for pre-2026 clients that still open with the handshake. The
+        // 2026-07-28 client never reaches this — it discovers first.
         "initialize" => json!({"jsonrpc": "2.0", "id": id, "result": {
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": "2025-06-18",
             "serverInfo": {"name": "scylla-mcp", "version": env!("CARGO_PKG_VERSION")},
             "capabilities": {"tools": {}}
         }}),
-        "tools/list" => json!({"jsonrpc": "2.0", "id": id, "result": {"tools": tools()}}),
-        // MCP keepalive: an empty result (a client's `ping` must not get method-not-found).
-        "ping" => json!({"jsonrpc": "2.0", "id": id, "result": {}}),
+        // List results carry the CacheableResult envelope (resultType + ttlMs +
+        // cacheScope). The tool list is process-stable and public, so it caches.
+        "tools/list" => json!({"jsonrpc": "2.0", "id": id, "result": {
+            "tools": tools(),
+            "resultType": "complete",
+            "ttlMs": 0,
+            "cacheScope": "public"
+        }}),
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
@@ -228,11 +251,13 @@ pub fn dispatch(session: &mut Session, req: &Value) -> Value {
                         wrap_untrusted(v.to_string())
                     };
                     json!({"jsonrpc": "2.0", "id": id, "result": {
-                        "content": [{"type": "text", "text": text}]
+                        "content": [{"type": "text", "text": text}],
+                        "resultType": "complete"
                     }})
                 }
                 Err(e) => json!({"jsonrpc": "2.0", "id": id, "result": {
-                    "content": [{"type": "text", "text": e}], "isError": true
+                    "content": [{"type": "text", "text": e}], "isError": true,
+                    "resultType": "complete"
                 }}),
             }
         }
@@ -424,6 +449,49 @@ mod tests {
         let mut s = session();
         let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 9, "method": "nope"}));
         assert_eq!(resp["error"]["code"], -32601);
+    }
+
+    #[test]
+    fn discover_advertises_the_2026_revision() {
+        // MCP 2026-07-28: server/discover is a MUST and is how a client selects a
+        // version without the (removed) initialize handshake.
+        let mut s = session();
+        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}));
+        let versions = resp["result"]["supportedVersions"].as_array().unwrap();
+        assert!(
+            versions.iter().any(|v| v == "2026-07-28"),
+            "discover must advertise 2026-07-28, got {versions:?}"
+        );
+        assert_eq!(resp["result"]["resultType"], "complete");
+    }
+
+    #[test]
+    fn list_result_carries_the_cacheable_envelope() {
+        // Every result carries resultType; list results also carry ttlMs + cacheScope.
+        let mut s = session();
+        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}));
+        assert_eq!(resp["result"]["resultType"], "complete");
+        assert!(resp["result"]["ttlMs"].is_number(), "tools/list must carry ttlMs");
+        assert_eq!(resp["result"]["cacheScope"], "public");
+    }
+
+    #[test]
+    fn call_result_carries_result_type() {
+        let mut s = session();
+        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "list_functions", "arguments": {}}}));
+        assert_eq!(resp["result"]["resultType"], "complete");
+    }
+
+    #[test]
+    fn ping_is_removed_in_2026() {
+        // ping / logging/setLevel / resources/subscribe were removed in 2026-07-28;
+        // a server that still answers them is serving a protocol it does not speak.
+        let mut s = session();
+        for method in ["ping", "logging/setLevel", "resources/subscribe"] {
+            let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": method}));
+            assert_eq!(resp["error"]["code"], -32601, "{method} must be rejected");
+        }
     }
 
     #[test]

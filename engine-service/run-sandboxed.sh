@@ -6,7 +6,7 @@
 set -euo pipefail
 
 if [[ -z "${GHIDRA_DIST:-}" ]]; then
-  echo "error: GHIDRA_DIST is required; set it to the unpacked GayHydra distribution" >&2
+  echo "error: GHIDRA_DIST is required; set it to an unpacked Ghidra or GayHydra distribution" >&2
   echo "       (the directory containing support/analyzeHeadless)" >&2
   exit 2
 fi
@@ -42,17 +42,17 @@ exec docker run --rm \
   --cap-drop ALL \
   --security-opt no-new-privileges \
   --memory 4g --cpus 2 --pids-limit 512 \
-  -e HOME=/tmp -e GHIDRA_DIST=/opt/gayhydra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
+  -e HOME=/tmp -e GHIDRA_DIST=/opt/ghidra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
   -e SCYLLA_ENGINE_WARM="${SCYLLA_ENGINE_WARM:-}" \
   -e SCYLLA_ENGINE_WARM_POOL="${SCYLLA_ENGINE_WARM_POOL:-}" \
   -e SCYLLA_ENGINE_TIMEOUT_SEC="${SCYLLA_ENGINE_TIMEOUT_SEC:-}" \
   -e SCYLLA_ENGINE_COLD_CONCURRENCY="${SCYLLA_ENGINE_COLD_CONCURRENCY:-}" \
-  -v "$GHIDRA_DIST":/opt/gayhydra:ro \
+  -v "$GHIDRA_DIST":/opt/ghidra:ro \
   -v "$SOCK_DIR":/run/scylla:rw \
   scylla-engine-service:dev
 
 # WARM ENGINE (DD-040), opt-in: run with `SCYLLA_ENGINE_WARM=1 ./run-sandboxed.sh` to keep resident
-# GayHydra JVM(s) warm in-process (~2s/call vs ~6s cold). `SCYLLA_ENGINE_WARM_POOL=N` runs N workers
+# engine JVM(s) warm in-process (~2s/call vs ~6s cold). `SCYLLA_ENGINE_WARM_POOL=N` runs N workers
 # for N-way CONCURRENT materialize (default 1) — each worker is a full Ghidra JVM, so size N to the
 # `--memory` budget below (the default 4g comfortably holds 1–2). It compiles + runs entirely inside
 # the locked-down container — the worker classes land on the writable, exec, RAM-backed /tmp tmpfs

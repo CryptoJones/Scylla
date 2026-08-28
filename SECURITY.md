@@ -12,12 +12,13 @@ Scylla parses **adversarial input** — the binaries it analyzes are hostile by 
 architecture contains that risk at the seams rather than trusting the parser:
 
 - **Sandbox the engine producer (DD-014).** The component that actually parses a binary is the
-  engine (GayHydra / Ghidra), run as a separate, sandboxed **producer**. The durable Rust core
+  engine (a Ghidra / GayHydra distribution, selected by `GHIDRA_DIST`), run as a separate,
+  sandboxed **producer**. The durable Rust core
   sits *outside* that blast radius — a malformed binary can crash or abuse the engine without
   reaching the model, the ports, or the heads.
-- **Inherit GayHydra's hardening (DD-029).** Scylla wraps the hardened fork, which carries the
-  Rec 18/19 deserialization fixes and the Rec 33/34 IPC modernization. We do not re-introduce
-  the un-hardened paths.
+- **Prefer the hardened fork (DD-029).** When `GHIDRA_DIST` points at GayHydra, the engine
+  carries the Rec 18/19 deserialization fixes and the Rec 33/34 IPC modernization. We do not
+  re-introduce the un-hardened paths.
 - **The model artifact is data, not code.** The Cap'n Proto `.scylla` artifact is parse-on-read
   with bounds; loading one never executes it.
 - **Signed releases (keyless).** Release artifacts are signed with **Sigstore keyless cosign**

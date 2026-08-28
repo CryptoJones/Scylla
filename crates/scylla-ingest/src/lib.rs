@@ -1,4 +1,4 @@
-//! First materialization path (Sprint 4): a GayHydra headless **snapshot** (the JSON the
+//! First materialization path (Sprint 4): a Ghidra headless **snapshot** (the JSON the
 //! prototype harness already emits) → the native [`scylla_model::Program`].
 //!
 //! This is the producer side of the engine-port narrow waist (DD-009) in its simplest form:
@@ -126,11 +126,11 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
 mod tests {
     use super::*;
 
-    // A real GayHydra headless snapshot produced by prototype/harness/snapshot.sh.
+    // A real engine headless snapshot (committed under prototype/snapshots/).
     const MATHLIB: &str = include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
 
     #[test]
-    fn ingests_a_real_gayhydra_snapshot() {
+    fn ingests_a_real_headless_snapshot() {
         let prog = snapshot_to_program(MATHLIB).expect("parse snapshot");
         assert_eq!(prog.name, "mathlib.x86-64.O0.elf");
         let gcd = prog

@@ -45,11 +45,11 @@ application {
     mainClass = 'dev.scylla.engine.EngineServer'
 }
 
-// Ship dump_model.java (the GayHydra post-script) AND ScyllaWarmWorker.java (the warm-engine
+// Ship dump_model.java (the engine post-script) AND ScyllaWarmWorker.java (the warm-engine
 // worker, DD-040) WITH the service: they land at <install>/scripts/ and <install>/warm-worker/,
 // which EngineServer resolves relative to its own jar. The warm worker is SOURCE (compiled at
 // startup against the mounted dist, like the de-risk spike — it can't be precompiled here because
-// it links the external ~890MB GayHydra dist, not a build dependency). The service no longer
+// it links the external ~890MB engine dist (GHIDRA_DIST), not a build dependency). The service no longer
 // reaches into prototype/harness at run time (DD-040 config-ify).
 distributions {
     main {

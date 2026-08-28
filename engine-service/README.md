@@ -1,18 +1,27 @@
 # Scylla engine service
 
-The engine service is Scylla's primary binary-to-model producer. It runs GayHydra in a locked-down
-container and exposes gRPC over a Unix-domain socket; the Rust CLI consumes that socket and writes
-the resulting `.scylla` artifact.
+The engine service is Scylla's primary binary-to-model producer. It runs a Ghidra engine
+distribution in a locked-down container and exposes gRPC over a Unix-domain socket; the Rust
+CLI consumes that socket and writes the resulting `.scylla` artifact.
+
+## The engine is an environment variable
+
+Scylla ships no engine. The engine is any unpacked Ghidra distribution containing an executable
+`support/analyzeHeadless`, pointed at by `GHIDRA_DIST`:
+
+- stock Ghidra — https://github.com/NationalSecurityAgency/ghidra
+- GayHydra (hardened fork) — https://github.com/CryptoJones/GayHydra
+
+Build either locally and set `GHIDRA_DIST` to the unpacked distribution itself (not the archive
+or its parent directory). There is intentionally no machine-specific default; the service fails
+fast when it is unset or wrong.
 
 ## Prerequisites
 
 - JDK 21 and Gradle, to build the Java service
 - Docker, to run the DD-034 sandbox
-- An unpacked GayHydra distribution containing an executable `support/analyzeHeadless`
+- An unpacked Ghidra or GayHydra distribution (see above)
 - The Rust workspace built if you want to invoke the `scylla` CLI
-
-`GHIDRA_DIST` must point to the unpacked distribution itself, not the archive or its parent
-directory. There is intentionally no machine-specific default.
 
 ## Build
 
@@ -31,7 +40,7 @@ the service, scripts, or warm-worker sources change.
 Start the sandbox and leave it running:
 
 ```sh
-GHIDRA_DIST=/absolute/path/to/gayhydra-distribution ./run-sandboxed.sh
+GHIDRA_DIST=/absolute/path/to/ghidra-or-gayhydra-distribution ./run-sandboxed.sh
 ```
 
 The launcher prints the generated endpoint, for example
@@ -48,16 +57,16 @@ Set `SOCK_DIR` when a stable socket location is preferable:
 
 ```sh
 SOCK_DIR=/absolute/path/to/private/socket-dir \
-GHIDRA_DIST=/absolute/path/to/gayhydra-distribution \
+GHIDRA_DIST=/absolute/path/to/ghidra-or-gayhydra-distribution \
 ./run-sandboxed.sh
 ```
 
 ## Runtime options
 
-- `SCYLLA_ENGINE_WARM=1` keeps a GayHydra JVM resident for lower per-call latency.
+- `SCYLLA_ENGINE_WARM=1` keeps a resident engine JVM warm for lower per-call latency.
 - `SCYLLA_ENGINE_WARM_POOL=N` selects the number of resident workers.
 - `SCYLLA_ENGINE_TIMEOUT_SEC=N` bounds one materialization; the service default is 300 seconds.
-- `SCYLLA_ENGINE_COLD_CONCURRENCY=N` caps concurrent cold GayHydra processes.
+- `SCYLLA_ENGINE_COLD_CONCURRENCY=N` caps concurrent cold engine processes.
 
 Each worker is a full JVM. Size the warm pool and concurrency for the launcher's 4 GiB memory and
 2-CPU limits, or adjust those explicit container limits locally.
@@ -66,5 +75,5 @@ Each worker is a full JVM. Size the warm pool and concurrency for the launcher's
 
 `run-sandboxed.sh` launches with no network, a read-only root filesystem, dropped capabilities,
 `no-new-privileges`, resource limits, a non-root user, and a temporary writable filesystem. The
-GayHydra distribution is mounted read-only. Do not bypass this launcher for hostile binaries
+engine distribution is mounted read-only. Do not bypass this launcher for hostile binaries
 unless an equivalent isolation boundary is in place.

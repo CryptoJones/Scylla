@@ -1,6 +1,6 @@
 [package]
 name = "scylla-ingest"
-description = "Materialize a GayHydra headless snapshot into the Scylla model artifact (DD-009 first path)."
+description = "Materialize a Ghidra headless snapshot into the Scylla model artifact (DD-009 first path)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

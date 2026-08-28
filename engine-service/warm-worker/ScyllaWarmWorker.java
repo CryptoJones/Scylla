@@ -1,6 +1,6 @@
 // Scylla WARM ENGINE worker (DD-040). A STANDALONE Java program — NOT a Ghidra script, so it can
 // use the full ghidra.app.util.importer / ghidra.app.plugin.core.analysis API (the OSGi script
-// compiler can't). The engine-service compiles this at run time against the mounted GayHydra dist
+// compiler can't). The engine-service compiles this at run time against the mounted engine dist (GHIDRA_DIST)
 // and runs it as ONE resident subprocess: Ghidra's application + SLEIGH + decompiler init once,
 // then a serve loop imports + analyzes + dumps each requested binary IN THE WARM JVM, so only the
 // first call pays the cold init (~6s host) and the rest are ~2s.

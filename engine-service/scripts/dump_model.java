@@ -1,5 +1,6 @@
 /* Scylla prototype — model-snapshot dumper (Java GhidraScript).
- * Runs in GayHydra/Ghidra headless with no PyGhidra needed:
+ * Runs in the engine dist's headless analyzer (stock Ghidra or GayHydra, via
+ * GHIDRA_DIST), no PyGhidra needed:
  *   analyzeHeadless ... -postScript dump_model.java <out.json>
  * Emits a normalized JSON snapshot (functions, call edges, BB counts, mnemonic
  * fingerprints, arch-independent string/import sets) — the v1/v2 inputs the

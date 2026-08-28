@@ -1,4 +1,4 @@
-//! `scylla-ingest <snapshot.json> <out.scylla>` — materialize a GayHydra headless snapshot
+//! `scylla-ingest <snapshot.json> <out.scylla>` — materialize a Ghidra headless snapshot
 //! into a canonical Cap'n Proto model artifact.
 
 use std::process::ExitCode;

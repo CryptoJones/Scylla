@@ -1,8 +1,8 @@
 # Scylla engine-as-service (DD-034) — the adversarial-binary parser, packaged for sandboxing.
-# Small image: a JDK + the service. The ~890MB GayHydra dist is a READ-ONLY mount at runtime,
-# never baked in. ALWAYS GayHydra.
+# Small image: a JDK + the service. The ~890MB engine dist is a READ-ONLY mount at runtime,
+# never baked in. GHIDRA_DIST selects the engine: stock Ghidra or the GayHydra fork.
 #
-# A JDK, not a JRE: GayHydra's launcher hunts for a real JDK, and Scylla COMPILES Java at run time —
+# A JDK, not a JRE: Ghidra's launcher hunts for a real JDK, and Scylla COMPILES Java at run time —
 # the cold post-script (scripts/dump_model.java) and, when SCYLLA_ENGINE_WARM is set, the warm
 # worker (warm-worker/ScyllaWarmWorker.java, compiled against the mounted dist) — so javac must be
 # on board.
@@ -12,7 +12,7 @@ FROM eclipse-temurin:21-jdk
 # the writable /tmp tmpfs. Otherwise Ghidra's launcher dies writing its JDK-detection save file
 # under the read-only rootfs (FileNotFoundException: user home directory does not exist).
 RUN useradd -r -u 10001 -d /tmp scylla
-# The install carries the service AND its GayHydra post-script (scripts/dump_model.java) AND the
+# The install carries the service AND its engine post-script (scripts/dump_model.java) AND the
 # warm worker (warm-worker/ScyllaWarmWorker.java) — EngineServer resolves both relative to its own
 # jar, so no script/worker mount is needed at run time.
 COPY build/install/scylla-engine-service /opt/engine-service

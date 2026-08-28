@@ -168,7 +168,8 @@ pub async fn connect_engine(
 }
 
 /// The engine-port path: connect to the engine-service, materialize a binary over gRPC, and
-/// assemble the native model. This is the Rust core driving GayHydra over the DD-040 contract.
+/// assemble the native model. This is the Rust core driving the engine (any Ghidra/GayHydra
+/// dist behind the service) over the DD-040 contract.
 /// The stream is a `ProgramInfo` header (name/language) then one `FunctionChunk` per function;
 /// `name` is the fallback program name if the engine sends none.
 pub async fn materialize(

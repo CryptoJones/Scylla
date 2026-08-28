@@ -11,7 +11,7 @@ sandbox and a provenance model the static path doesn't yet need. Do the static p
 
 ## What dynamic analysis actually buys (that static can't)
 
-Static analysis (GayHydra) reasons about the bytes as written. A running process reveals what the
+Static analysis (the Ghidra/GayHydra engine) reasons about the bytes as written. A running process reveals what the
 bytes *do*:
 
 - **Real imports.** Packed/obfuscated binaries resolve their IAT at runtime; static sees a stub,

@@ -23,7 +23,8 @@ code on `main`, filed in [BACKLOG.md](BACKLOG.md), and labelled honestly rather 
 - The **container runtime / kernel is trusted** — a container *escape* is out of scope here; we
   raise the cost of needing one (DD-034) and treat the day it's needed as a kernel-CVE problem,
   not a Scylla one.
-- **GayHydra inherits upstream hardening** (DD-029 — Rec 18/19 deserialization, Rec 33/34 IPC).
+- **The engine dist may carry fork hardening** (DD-029 — Rec 18/19 deserialization, Rec 33/34
+  IPC — present in the GayHydra fork).
   We do not re-audit a 20-year C++/Java engine; we *contain* it (DD-039: sandbox what you wrap).
 - Local heads (including MCP over stdio) share the launching user's trust domain. The shipped
   HTTP, GraphQL, and Cap'n Proto RPC heads are network-reachable, single-session services with
@@ -50,7 +51,7 @@ Everything downstream is a defense of one of these:
         │
         ▼  ╔═══════════ DD-034 sandbox (separate process, container) ═══════════╗
    ┌─────────┐  S1     ║  ro-rootfs · cap-drop ALL · no-new-privs · non-root     ║
-   │ GayHydra│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
+   │  engine│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
    │ headless│  parses ║  --network none + UDS (no egress) · wall-clock deadline ║
    └────┬────┘         ╚═══════════════════════════════════════════════════════╝
         │ S2: gRPC Materialize stream (engine output is UNTRUSTED — DD-039)

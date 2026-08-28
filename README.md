@@ -125,9 +125,9 @@ matched / renamed / **modified** / added / removed. Fail-closed throughout: a ne
 Cap'n Proto model-artifact) is built, with a structural binary-diff engine at parity with the
 identity-anchored merge. The heads above all run today over that one body — including a **remote
 RPC head** over the Cap'n Proto promise-pipelining surface (DD-002), the transport the format was
-chosen for; the heavy JVM engine is reached over gRPC as a droppable producer (DD-009/040). Sibling
-project to [GayHydra](https://github.com/CryptoJones/GayHydra) (a hardened fork of NSA Ghidra, which
-provides the proven engine Scylla wraps).
+chosen for; the heavy JVM engine is reached over gRPC as a droppable producer (DD-009/040) — Scylla
+ships no engine; `GHIDRA_DIST` points the service at any unpacked Ghidra distribution (stock
+NSA Ghidra or the [GayHydra](https://github.com/CryptoJones/GayHydra) hardened fork).
 
 ## Acknowledgements
 

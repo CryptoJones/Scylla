@@ -25,7 +25,7 @@ arch test in `scylla-mcp`).
 | `scylla-model`  | the domain model — stable synthetic ids, rich types, first-class durable user facts, the identity seam | DD-001 / 004 / 005 / 035 |
 | `scylla-schema` | the canonical Cap'n Proto artifact + the **total loader** (explicit caps, validate, quarantine) | DD-002 / 026 / 036 |
 | `scylla-engine` | the **engine port** (gRPC client to the sandboxed JVM engine-as-service) — the primary producer | DD-009 / 040 |
-| `scylla-ingest` | the offline producer — a GayHydra headless snapshot JSON → model (dev / corpus, no running service) | DD-009 |
+| `scylla-ingest` | the offline producer — a Ghidra headless snapshot JSON → model (dev / corpus, no running service) | DD-009 |
 | `scylla-cli`    | the `scylla` CLI head — `materialize` (engine port) + `diff` / `merge` / `info` / `functions` / `search` / `view` / `callers` (offline, over the client port) | DD-009 / 040 / 017 |
 | `scylla-merge`  | identity-anchored re-anchoring + collaboration merge + the **structural diff** (the binary-differ behind DD-017's `diff`) — `WRONG = 0` is the contract | DD-005 / 017 / 027 |
 | `scylla-port`   | the client port — model-primary navigation, semantic zoom, annotation, **diff / merge**, typed errors | DD-017 / 019 / 020 / 021 |
@@ -45,10 +45,12 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
 ## Data flow
 
 1. **Materialize** a binary into a `.scylla` artifact. Primary path — the engine port:
-   `scylla materialize <endpoint> <binary>` → the sandboxed engine-service (DD-034) runs GayHydra
-   over gRPC → the `Materialize` stream is assembled core-side into the model (id mint + callee
-   resolution in `scylla_engine::assemble`). Offline alternative (no service):
-   `prototype/harness/materialize.sh <binary>` → GayHydra headless → snapshot JSON → `scylla-ingest`.
+   `scylla materialize <endpoint> <binary>` → the sandboxed engine-service (DD-034) runs the
+   engine dist — stock Ghidra or GayHydra, selected by `GHIDRA_DIST` — over gRPC → the
+   `Materialize` stream is assembled core-side into the model (id mint + callee
+   resolution in `scylla_engine::assemble`). Offline alternative (no service): run the dist's
+   `support/analyzeHeadless` with `engine-service/scripts/dump_model.java` → snapshot JSON →
+   `scylla-ingest`.
 2. `scylla-port::Session::from_artifact` loads it through `scylla-schema::load` — the **total
    loader** (never panics, never OOMs; soft faults quarantined, structural corruption rejected).
 3. An agent drives `scylla-mcp` (newline-delimited JSON-RPC over stdio) → the client port →
@@ -63,7 +65,9 @@ The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-0
    (strings/imports) → BSim feature vector → fuzzy mnemonic + ordered-trigram cosine — the *same*
    matcher the merge uses, fail-closed (`WRONG=0`).
 
-The client port is driven by **nine heads** today, each projecting the same verbs: `scylla-mcp`
+The client port is driven by **nine heads** today. They share the body and its domain vocabulary,
+but each projects the capabilities appropriate to its protocol rather than claiming verb-for-verb
+parity: `scylla-mcp`
 (agents, JSON-RPC over stdio — all surfaced content untrusted, never instructions), `scylla-wasm`
 (the browser, client-side), `scylla-serve` (the native binary serving it), `scylla-cli` (the
 terminal), `scylla-rpc` (a remote consumer over Cap'n Proto promise-pipelining RPC, DD-002),

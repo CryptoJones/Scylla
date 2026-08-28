@@ -216,7 +216,10 @@ impl Query {
     /// Functions whose display name contains `query` (case-insensitive); empty `query` = all.
     fn search(context: &Context, query: String, zoom: Option<Zoom>) -> Vec<FunctionSummary> {
         let s = context.session.lock().expect("session lock");
-        s.search(&query, port_zoom(zoom)).iter().map(summary).collect()
+        s.search(&query, port_zoom(zoom))
+            .iter()
+            .map(summary)
+            .collect()
     }
 
     /// One function's view at `zoom` (default `DOMAIN`); `null` if no such id, error on a bad id.
@@ -256,8 +259,7 @@ impl Query {
         if !prog.functions.iter().any(|f| f.id == sid) {
             return Err(ferr(format!("no function with id {}", sid.0)));
         }
-        Ok(s
-            .callers(sid)
+        Ok(s.callers(sid)
             .into_iter()
             .map(|c| Caller {
                 id: c.0.to_string(),
@@ -271,7 +273,8 @@ impl Query {
         let bytes = B64
             .decode(artifact_base64.as_bytes())
             .map_err(|e| ferr(format!("artifactBase64 is not valid base64: {e}")))?;
-        let other = Session::from_artifact(&bytes).map_err(|e| ferr(format!("invalid .scylla: {e}")))?;
+        let other =
+            Session::from_artifact(&bytes).map_err(|e| ferr(format!("invalid .scylla: {e}")))?;
         let s = context.session.lock().expect("session lock");
         let d = s.diff(&other);
         let renamed: Vec<Pair> = d

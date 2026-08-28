@@ -33,17 +33,18 @@ import scylla.engine.v1.MaterializeRequest;
 import scylla.engine.v1.ProgramInfo;
 
 /**
- * Scylla engine-as-service (DD-040) — STANDALONE JVM gRPC server fronting GayHydra.
+ * Scylla engine-as-service (DD-040) — STANDALONE JVM gRPC server fronting the engine — an external Ghidra distribution (stock Ghidra or the GayHydra
+ * fork), selected by GHIDRA_DIST.
  *
- * <p>{@code Materialize} has two paths behind the SAME RPC (DD-040). COLD (default): run GayHydra's
+ * <p>{@code Materialize} has two paths behind the SAME RPC (DD-040). COLD (default): run the engine dist's
  * {@code analyzeHeadless} as a subprocess with the shared dump-model post-script, then stream the
- * result — GayHydra runs under its own launcher (a clean separate process), grpc-netty-shaded lives
+ * result — the engine runs under its own launcher (a clean separate process), grpc-netty-shaded lives
  * in this JVM, they never share a classloader, and every call pays fresh JVM+Ghidra init (~6s host).
- * WARM (opt-in, {@code SCYLLA_ENGINE_WARM}): a POOL of resident GayHydra JVMs ({@link WarmEngine},
+ * WARM (opt-in, {@code SCYLLA_ENGINE_WARM}): a POOL of resident engine JVMs ({@link WarmEngine},
  * {@code SCYLLA_ENGINE_WARM_POOL} workers, default 1) inits the application + SLEIGH + decompiler
  * ONCE and imports+analyzes each binary in-process (~2s), up to pool-size CONCURRENTLY, with the cold
  * subprocess as the fallback if a warm call fails. Both paths emit the same snapshot JSON, so
- * {@link EngineImpl#streamSnapshot} is shared. ALWAYS GayHydra, never stock Ghidra.
+ * {@link EngineImpl#streamSnapshot} is shared. The dist (stock Ghidra or GayHydra) is selected by GHIDRA_DIST; the service never ships one.
  */
 public final class EngineServer {
 
@@ -83,7 +84,7 @@ public final class EngineServer {
         }
     }
 
-    /** Warm-engine pool size — the number of resident GayHydra workers for CONCURRENT materialize
+    /** Warm-engine pool size — the number of resident engine workers for CONCURRENT materialize
      *  ({@code SCYLLA_ENGINE_WARM_POOL}, default 1). Each worker is a full Ghidra JVM, so this is
      *  RAM-bound; capped at 16 to keep a typo from forking a hundred JVMs. */
     static int warmPoolSize() {
@@ -170,7 +171,7 @@ public final class EngineServer {
     }
 
     /**
-     * One resident GayHydra JVM ({@code ScyllaWarmWorker}): inits Ghidra's application + SLEIGH +
+     * One resident engine JVM ({@code ScyllaWarmWorker}): inits Ghidra's application + SLEIGH +
      * decompiler ONCE, then imports + analyzes each binary in-process (~2s after the ~6s cold init).
      * The worker is a STANDALONE program — NOT a Ghidra script (the OSGi script compiler can't see
      * {@code ProgramLoader} / {@code AutoAnalysisManager}) — run with the dist on its classpath, like
@@ -375,7 +376,7 @@ public final class EngineServer {
         @Override
         public void info(InfoRequest req, StreamObserver<InfoReply> resp) {
             String mode = warm != null ? "0.1-warm" : "0.1-subprocess";
-            resp.onNext(InfoReply.newBuilder().setEngine("GayHydra").setVersion(mode).build());
+            resp.onNext(InfoReply.newBuilder().setEngine("ghidra").setVersion(mode).build());
             resp.onCompleted();
         }
 
@@ -451,7 +452,7 @@ public final class EngineServer {
                     p.descendants().forEach(ProcessHandle::destroyForcibly);
                     p.destroyForcibly();
                     resp.onError(Status.DEADLINE_EXCEEDED
-                            .withDescription("GayHydra headless exceeded the " + timeoutSeconds()
+                            .withDescription("Engine headless exceeded the " + timeoutSeconds()
                                     + "s wall-clock limit — killed (a hostile or pathological binary).")
                             .asRuntimeException());
                     return;
@@ -462,7 +463,7 @@ public final class EngineServer {
                 if (code != 0 || !Files.exists(out) || Files.size(out) == 0) {
                     String tail = tail(new String(log, java.nio.charset.StandardCharsets.UTF_8), 1200);
                     resp.onError(Status.INTERNAL
-                            .withDescription("GayHydra headless failed (exit " + code + "): " + tail)
+                            .withDescription("Engine headless failed (exit " + code + "): " + tail)
                             .asRuntimeException());
                     return;
                 }
@@ -564,7 +565,7 @@ public final class EngineServer {
             // Not yet implemented — return UNIMPLEMENTED rather than a placeholder string a caller
             // can't distinguish from a real (empty) decompilation.
             resp.onError(Status.UNIMPLEMENTED
-                    .withDescription("decompile is not yet implemented (on-demand GayHydra call pending)")
+                    .withDescription("decompile is not yet implemented (on-demand engine call pending)")
                     .asRuntimeException());
         }
     }
@@ -580,20 +581,21 @@ public final class EngineServer {
             }
         }
 
-        // GHIDRA_DIST is REQUIRED — the GayHydra dist is an external ~890MB mount, never baked
+        // GHIDRA_DIST is REQUIRED — the engine dist (stock Ghidra or GayHydra) is an external
+        // ~890MB mount, never baked
         // into the image, and a hardcoded laptop path is a footgun that works on exactly one box.
         // Validate the whole config at START (fail-fast) rather than dying per-request with a
         // cryptic headless exit code.
         String dist = System.getenv("GHIDRA_DIST");
         if (dist == null || dist.isEmpty()) {
-            System.err.println("FATAL: GHIDRA_DIST is not set — point it at the GayHydra dist "
-                    + "(the directory containing support/analyzeHeadless). ALWAYS GayHydra.");
+            System.err.println("FATAL: GHIDRA_DIST is not set — point it at an unpacked Ghidra or GayHydra distribution "
+                    + "(the directory containing support/analyzeHeadless).");
             System.exit(2);
             return;
         }
         if (!Files.isExecutable(Path.of(dist, "support", "analyzeHeadless"))) {
             System.err.println("FATAL: no executable support/analyzeHeadless under GHIDRA_DIST="
-                    + dist + " — wrong path, or not a GayHydra dist.");
+                    + dist + " — wrong path, or not a Ghidra/GayHydra dist.");
             System.exit(2);
             return;
         }
@@ -605,7 +607,7 @@ public final class EngineServer {
             return;
         }
 
-        // WARM ENGINE (DD-040), opt-in via SCYLLA_ENGINE_WARM: stand up one resident GayHydra JVM at
+        // WARM ENGINE (DD-040), opt-in via SCYLLA_ENGINE_WARM: stand up one resident engine JVM at
         // startup (pays the cold init ONCE) so Materialize is ~2s instead of ~6s. Best-effort — if the
         // worker can't be built/warmed we log and run cold (the subprocess path is always present as
         // the fallback). Default OFF: cold-only is the proven, dependency-light path.
@@ -626,7 +628,7 @@ public final class EngineServer {
                     warm = new WarmEngine(dist, workerSrc, modelSrc, poolSize);
                     System.out.println("warm engine ready in "
                             + ((System.nanoTime() - t0) / 1_000_000L) + " ms (" + poolSize
-                            + " in-process GayHydra worker" + (poolSize == 1 ? "" : "s") + ")");
+                            + " in-process engine worker" + (poolSize == 1 ? "" : "s") + ")");
                 } catch (Exception e) {
                     System.err.println("WARN: warm engine failed to start (" + e.getMessage()
                             + "); running COLD.");
@@ -663,13 +665,13 @@ public final class EngineServer {
             } catch (Exception ignored) {
                 // best-effort; if the host runs the client as the same uid it isn't needed
             }
-            System.out.println("scylla-engine-service (GayHydra " + mode + ") on unix:" + uds
+            System.out.println("scylla-engine-service (" + mode + ") on unix:" + uds
                     + " | dist=" + dist + " | scripts=" + scriptDir);
         } else {
             server = ServerBuilder.forPort(port)
                     .maxInboundMessageSize(MAX_INBOUND_MESSAGE)
                     .addService(new EngineImpl(dist, scriptDir, warmEngine)).build().start();
-            System.out.println("scylla-engine-service (GayHydra " + mode + ") on " + port
+            System.out.println("scylla-engine-service (" + mode + ") on " + port
                     + " | dist=" + dist + " | scripts=" + scriptDir);
         }
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown));

@@ -121,7 +121,9 @@ fn hover(session: &Session, params: &Value) -> Value {
     let Some(v) = ordered.get(line) else {
         return Value::Null;
     };
-    let full = session.view(v.id, Zoom::Detail).unwrap_or_else(|_| v.clone());
+    let full = session
+        .view(v.id, Zoom::Detail)
+        .unwrap_or_else(|_| v.clone());
     json!({
         "contents": {"kind": "markdown", "value": wrap_untrusted(hover_markdown(&full))},
         "range": line_range(line, line_text(v).encode_utf16().count()),
@@ -256,10 +258,16 @@ mod tests {
             1,
             "only the real trailing fence may appear; the injected sentinel is neutralized"
         );
-        assert!(wrapped.contains("<\\/untrusted-data>"), "the injected sentinel is defused");
+        assert!(
+            wrapped.contains("<\\/untrusted-data>"),
+            "the injected sentinel is defused"
+        );
     }
 
-    const ARTIFACT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/mathlib.scylla");
+    const ARTIFACT: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../scylla-wasm/web/mathlib.scylla"
+    );
 
     fn load() -> Session {
         Session::from_artifact(&std::fs::read(ARTIFACT).expect("read")).expect("load")
@@ -272,7 +280,8 @@ mod tests {
     #[test]
     fn unknown_method_is_a_typed_error_and_notifications_are_silent() {
         let mut s = load();
-        let err = dispatch(&mut s, &rq("textDocument/nope", json!({}))).expect("request gets a reply");
+        let err =
+            dispatch(&mut s, &rq("textDocument/nope", json!({}))).expect("request gets a reply");
         assert_eq!(err["error"]["code"].as_i64(), Some(-32601));
         // A notification (no id) gets no response.
         assert!(dispatch(&mut s, &json!({"jsonrpc": "2.0", "method": "initialized"})).is_none());

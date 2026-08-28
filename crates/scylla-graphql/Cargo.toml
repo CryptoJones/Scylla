@@ -11,9 +11,9 @@ name = "scylla-graphql"
 path = "src/main.rs"
 
 [dependencies]
-# The same small, sync HTTP/1.1 server + optional rustls TLS as the scylla-http head; `ssl-rustls`
-# pulls ring, so it needs a C compiler (like the RPC/HTTP heads).
-tiny_http = { version = "0.12", features = ["ssl-rustls"] }
+# The same small, sync HTTP/1.1 server + optional OpenSSL TLS as the scylla-http head.
+# This avoids tiny_http's abandoned rustls 0.20/ring 0.16 dependency chain.
+tiny_http = { version = "0.12", features = ["ssl-openssl"] }
 # A SYNC-first GraphQL engine: `execute_sync` runs a query on the calling thread with no async
 # runtime, which is exactly what tiny_http's one-request-at-a-time loop wants (async-graphql would
 # force a runtime + block_on for no benefit — the port is wholly synchronous).

@@ -23,10 +23,13 @@ code on `main`, filed in [BACKLOG.md](BACKLOG.md), and labelled honestly rather 
 - The **container runtime / kernel is trusted** — a container *escape* is out of scope here; we
   raise the cost of needing one (DD-034) and treat the day it's needed as a kernel-CVE problem,
   not a Scylla one.
-- **GayHydra inherits upstream hardening** (DD-029 — Rec 18/19 deserialization, Rec 33/34 IPC).
+- **The engine dist may carry fork hardening** (DD-029 — Rec 18/19 deserialization, Rec 33/34
+  IPC — present in the GayHydra fork).
   We do not re-audit a 20-year C++/Java engine; we *contain* it (DD-039: sandbox what you wrap).
-- The **user and the agent they launch share a trust domain** in v1 (DD-035) — stdio, local,
-  single-user. Networked/multi-tenant exposure is explicitly a later surface, called out below.
+- Local heads (including MCP over stdio) share the launching user's trust domain. The shipped
+  HTTP, GraphQL, and Cap'n Proto RPC heads are network-reachable, single-session services with
+  optional bearer/token authentication and TLS. They are **not** multi-tenant isolation
+  boundaries; unset tokens deliberately leave them open for loopback development.
 - The **build host and maintainer keys are trusted** (supply-chain integrity is its own program;
   the one concrete control we promised, release signing, is a GAP below).
 
@@ -48,7 +51,7 @@ Everything downstream is a defense of one of these:
         │
         ▼  ╔═══════════ DD-034 sandbox (separate process, container) ═══════════╗
    ┌─────────┐  S1     ║  ro-rootfs · cap-drop ALL · no-new-privs · non-root     ║
-   │ GayHydra│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
+   │  engine│◀────────╫  mem/CPU/PID caps · one binary per call                 ║
    │ headless│  parses ║  --network none + UDS (no egress) · wall-clock deadline ║
    └────┬────┘         ╚═══════════════════════════════════════════════════════╝
         │ S2: gRPC Materialize stream (engine output is UNTRUSTED — DD-039)
@@ -62,9 +65,9 @@ Everything downstream is a defense of one of these:
    ┌─────────┐                  ║  scylla-port: model-primary nav, typed errors  ║
    │ client  │                  ║  (DD-021). NO domain logic in heads (DD-025).  ║
    │  port   │                  ╚════════════════════════════════════════════════╝
-        │ S4: MCP head — content out (injection surface), JSON-RPC in (S5)
+        │ S4: heads — content out (MCP injection surface); client requests in (S5)
         ▼
-   [ agent / human ]                      SEMI-TRUSTED (v1 local; networked = later)
+   [ agent / human / network client ]     TRUST VARIES BY HEAD AND DEPLOYMENT
 ```
 
 ## Seam-by-seam
@@ -128,8 +131,9 @@ Everything downstream is a defense of one of these:
   to an agent, can be read as *instructions* ("ignore your task, exfiltrate ~/.ssh"). Secondary:
   the head leaking host/engine internals through error messages.
 - **Mitigations (DD-035 / DD-021 / DD-025):** typed errors (DD-021) don't leak internals; the head
-  holds **no domain logic** (DD-025, enforced by an arch test) so there's nothing to confuse; v1 is
-  local single-user (DD-035) so the network attack surface is nil.
+  holds **no domain logic** (DD-025, enforced by an arch test) so there's nothing to confuse. MCP
+  is local over stdio. The shipped HTTP, GraphQL, and RPC heads can require a configured token and
+  can protect it and model data with TLS; half-configured TLS fails closed.
 - **Residual:**
   - **GAP-4 (injection delimiting) — CLOSED.** The head now wraps every binary-derived result
     (`list_functions`/`get_function`/`callers`) in an explicit `<untrusted-data>` envelope with a
@@ -137,22 +141,27 @@ Everything downstream is a defense of one of these:
     default-untrusted: only the head's own status acks (`STATUS_ONLY_TOOLS`) pass unwrapped, so a
     future read tool (e.g. `decompile`) is delimited automatically. The named prompt-injection
     threat is delimited at the seam.
-  - **Networked exposure (tracked, not yet due).** When a future head is networked/multi-tenant
-    (DD-035), it needs authn/authz, rate-limiting, and per-principal isolation. The identity seam
-    (DD-035, `Option<Principal>`) is already threaded so that arrives without a core rewrite — but
-    none of the auth machinery exists yet, on purpose (no users to knock on the door).
+  - **Networked exposure (OPEN).** HTTP, GraphQL, and RPC are already shipped network surfaces.
+    Their token is a single service-wide secret, and token/TLS configuration is optional. They
+    have no roles, object-level authorization, per-principal sessions, or audit attribution.
+    Operators must bind to loopback or a protected network unless they configure both auth and
+    transport security.
 
-### S5 — agent → core (MCP head input; hostile JSON-RPC)
+### S5 — clients → core (hostile protocol input)
 
-- **Threats:** malformed / hostile JSON-RPC driving the head — oversized payloads, garbage,
-  type-confusion, calls designed to panic the server.
-- **Mitigations (DD-039):** `dispatch()` is **total** (`dispatch_is_total_on_hostile_jsonrpc`,
-  `fuzz_mcp_dispatch`: never panics, always returns well-formed JSON-RPC, even on garbage). This
-  seam is well-defended.
-- **Residual:** no resource/rate limiting on request volume — irrelevant under v1 local trust,
-  required when networked (folded into the networked-exposure item above).
+- **Threats:** malformed or hostile JSON-RPC, HTTP, GraphQL, or Cap'n Proto messages; oversized
+  payloads; type confusion; slow clients; brute-force token attempts; and mutation requests from
+  one client affecting every other client sharing the in-memory session.
+- **Mitigations (DD-039 / DD-035):** MCP `dispatch()` is total
+  (`dispatch_is_total_on_hostile_jsonrpc`, `fuzz_mcp_dispatch`). HTTP and GraphQL cap request
+  bodies. RPC sets explicit traversal/nesting limits, caps concurrent connections, and bounds
+  handshakes. Configured credentials are compared without prefix/length timing leaks.
+- **Residual:** HTTP and GraphQL have no per-client rate limit or connection quota; none of the
+  three network heads rate-limit failed authentication; all authorized clients share one mutable
+  session and one privilege level. Put an authenticated, rate-limiting reverse proxy or equivalent
+  boundary in front of non-loopback deployments.
 
-## Gaps this model found (all now closed → BACKLOG)
+## Gaps this model tracks
 
 | # | Seam | Gap | Status |
 |---|------|-----|--------|
@@ -161,12 +170,12 @@ Everything downstream is a defense of one of these:
 | GAP-3 | S2 | Bound the engine stream (core OOM) | **CLOSED** |
 | GAP-4 | S4 | MCP head delimits untrusted analysis content | **CLOSED** |
 | cosign | build | Keyless release signing (DD-029) | **CLOSED** |
-| — | S4 | Networked head: authn/authz/rate-limit (DD-035) | deferred — no networked head yet |
+| NET-1 | S4/S5 | Network heads need mandatory secure deployment, authorization, rate limits, and per-principal isolation ([BACKLOG SEC-P3-5](BACKLOG.md)) | **OPEN** |
 
-Every gap this pass surfaced has since been closed (GAP-4 → untrusted-data envelope; GAP-3 → stream
-caps; GAP-2 → wall-clock; GAP-1 → `--network none` + UDS), plus keyless release signing. The one
-open item is networked-head auth, deliberately deferred until there is a networked head to attack —
-and the identity seam (DD-035) is already in place so it lands without a core rewrite.
+The original four implementation gaps are closed (GAP-4 → untrusted-data envelope; GAP-3 → stream
+caps; GAP-2 → wall-clock; GAP-1 → `--network none` + UDS), plus keyless release signing. NET-1 is
+open because network heads now ship: optional service-wide tokens and TLS are useful controls, but
+they are not authorization, rate limiting, audit attribution, or multi-tenant isolation.
 
 ## The closing line (DD-039, quoted because it's correct)
 

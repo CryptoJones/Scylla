@@ -120,7 +120,10 @@ pub fn mnemonic_histogram<S: AsRef<str>>(mnemonics: &[S]) -> Vec<(String, u32)> 
     for m in mnemonics {
         *counts.entry(m.as_ref()).or_default() += 1;
     }
-    counts.into_iter().map(|(m, c)| (m.to_string(), c)).collect()
+    counts
+        .into_iter()
+        .map(|(m, c)| (m.to_string(), c))
+        .collect()
 }
 
 /// The function's **ordered mnemonic trigrams** as a histogram: every length-3 window of the
@@ -272,10 +275,13 @@ impl Program {
     /// The effective display name of a function: a user rename (DD-005) wins over the
     /// engine's symbol — a tiny first taste of the identity-anchored merge.
     pub fn display_name(&self, id: StableId) -> Option<String> {
-        let renamed = self.facts.iter().find_map(|f| match (&f.kind, f.target == id) {
-            (FactKind::Rename(n), true) => Some(n.clone()),
-            _ => None,
-        });
+        let renamed = self
+            .facts
+            .iter()
+            .find_map(|f| match (&f.kind, f.target == id) {
+                (FactKind::Rename(n), true) => Some(n.clone()),
+                _ => None,
+            });
         renamed.or_else(|| {
             self.functions
                 .iter()
@@ -329,16 +335,26 @@ mod tests {
 
     #[test]
     fn fingerprint_is_order_independent_and_reserves_zero() {
-        assert_eq!(mnemonic_fingerprint::<&str>(&[]), 0, "no data -> 0 sentinel");
+        assert_eq!(
+            mnemonic_fingerprint::<&str>(&[]),
+            0,
+            "no data -> 0 sentinel"
+        );
         let a = mnemonic_fingerprint(&["MOV", "PUSH", "MOV", "RET"]);
         let b = mnemonic_fingerprint(&["MOV", "MOV", "RET", "PUSH"]); // same multiset, reordered
         assert_eq!(a, b, "the histogram is order-independent");
-        assert_ne!(a, 0, "non-empty input never collides with the no-data sentinel");
+        assert_ne!(
+            a, 0,
+            "non-empty input never collides with the no-data sentinel"
+        );
         // A different instruction mix is a different fingerprint.
         assert_ne!(a, mnemonic_fingerprint(&["MOV", "PUSH", "RET"]));
         // The histogram is the sorted multiset; the fingerprint is its hash.
         let h = mnemonic_histogram(&["MOV", "PUSH", "MOV", "RET"]);
-        assert_eq!(h, vec![("MOV".into(), 2), ("PUSH".into(), 1), ("RET".into(), 1)]);
+        assert_eq!(
+            h,
+            vec![("MOV".into(), 2), ("PUSH".into(), 1), ("RET".into(), 1)]
+        );
         assert_eq!(histogram_fingerprint(&h), a);
     }
 

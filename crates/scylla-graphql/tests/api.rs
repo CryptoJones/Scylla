@@ -9,7 +9,10 @@ use std::time::{Duration, Instant};
 
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/mathlib.scylla");
+const ARTIFACT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scylla-wasm/web/mathlib.scylla"
+);
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")

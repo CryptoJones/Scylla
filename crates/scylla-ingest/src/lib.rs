@@ -1,4 +1,4 @@
-//! First materialization path (Sprint 4): a GayHydra headless **snapshot** (the JSON the
+//! First materialization path (Sprint 4): a Ghidra headless **snapshot** (the JSON the
 //! prototype harness already emits) → the native [`scylla_model::Program`].
 //!
 //! This is the producer side of the engine-port narrow waist (DD-009) in its simplest form:
@@ -52,7 +52,10 @@ struct Snapshot {
 /// caller must not conflate an unparseable address with the real address `0`.
 fn parse_addr(s: &str) -> Option<u64> {
     let t = s.trim();
-    let t = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")).unwrap_or(t);
+    let t = t
+        .strip_prefix("0x")
+        .or_else(|| t.strip_prefix("0X"))
+        .unwrap_or(t);
     u64::from_str_radix(t, 16).ok()
 }
 
@@ -123,16 +126,23 @@ pub fn snapshot_to_program(json: &str) -> serde_json::Result<Program> {
 mod tests {
     use super::*;
 
-    // A real GayHydra headless snapshot produced by prototype/harness/snapshot.sh.
-    const MATHLIB: &str =
-        include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
+    // A real engine headless snapshot (committed under prototype/snapshots/).
+    const MATHLIB: &str = include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
 
     #[test]
-    fn ingests_a_real_gayhydra_snapshot() {
+    fn ingests_a_real_headless_snapshot() {
         let prog = snapshot_to_program(MATHLIB).expect("parse snapshot");
         assert_eq!(prog.name, "mathlib.x86-64.O0.elf");
-        let gcd = prog.functions.iter().find(|f| f.name == "gcd").expect("gcd");
-        let main = prog.functions.iter().find(|f| f.name == "main").expect("main");
+        let gcd = prog
+            .functions
+            .iter()
+            .find(|f| f.name == "gcd")
+            .expect("gcd");
+        let main = prog
+            .functions
+            .iter()
+            .find(|f| f.name == "main")
+            .expect("main");
         // main calls gcd: the call edge resolved onto gcd's stable id.
         assert!(main.callees.contains(&gcd.id), "main should call gcd");
         // identity is the minted id, not the address
@@ -159,9 +169,16 @@ mod tests {
         ]}"#;
         let prog = snapshot_to_program(json).expect("parse");
         let id = |n: &str| prog.functions.iter().find(|f| f.name == n).unwrap().id;
-        assert_ne!(id("a"), id("b"), "two functions sharing an entry address must not share an id");
+        assert_ne!(
+            id("a"),
+            id("b"),
+            "two functions sharing an entry address must not share an id"
+        );
         let caller = prog.functions.iter().find(|f| f.name == "caller").unwrap();
-        assert!(caller.callees.is_empty(), "a call to the ambiguous address resolves to nothing");
+        assert!(
+            caller.callees.is_empty(),
+            "a call to the ambiguous address resolves to nothing"
+        );
     }
 
     #[test]
@@ -192,13 +209,19 @@ mod tests {
         let names: Vec<&str> = prog.functions.iter().map(|f| f.name.as_str()).collect();
         assert!(names.contains(&"main"));
         // Ghidra demangles: the template instantiation comes through readable.
-        assert!(names.contains(&"max_of<int>"), "template instantiation should materialize");
+        assert!(
+            names.contains(&"max_of<int>"),
+            "template instantiation should materialize"
+        );
         // Both virtual area() overrides (Circle::area, Square::area), demangled to "area".
         assert!(
             names.iter().filter(|n| **n == "area").count() >= 2,
             "both vtable area() overrides should materialize"
         );
-        assert!(names.contains(&"Circle") && names.contains(&"Square"), "constructors present");
+        assert!(
+            names.contains(&"Circle") && names.contains(&"Square"),
+            "constructors present"
+        );
     }
 
     // DD-044: the snapshot carries the BSim feature vector as [[hash, f32_bits], …]; absent → empty.
@@ -209,11 +232,18 @@ mod tests {
              "bsim_vector":[[3735928559,1065353216],[4660,1056964608]]}
         ]}"#;
         let prog = snapshot_to_program(json).expect("parse snapshot with bsim_vector");
-        let f = prog.functions.iter().find(|f| f.name == "factorial").unwrap();
+        let f = prog
+            .functions
+            .iter()
+            .find(|f| f.name == "factorial")
+            .unwrap();
         // 0xDEADBEEF -> 1.0f32 bits, 0x1234 -> 0.5f32 bits — carried verbatim into the model.
         assert_eq!(
             f.bsim_vector,
-            vec![(0xDEAD_BEEFu32, 1.0f32.to_bits()), (0x1234u32, 0.5f32.to_bits())]
+            vec![
+                (0xDEAD_BEEFu32, 1.0f32.to_bits()),
+                (0x1234u32, 0.5f32.to_bits())
+            ]
         );
         // A snapshot without the field (the C++ SHAPES fixture isn't BSim-augmented) degrades
         // cleanly to empty — the cross-arch BSim pass simply won't fire for it.

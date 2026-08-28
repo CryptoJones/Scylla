@@ -5,7 +5,9 @@
 //! Expectations are derived from the port in-process; no frozen golden numbers (those live in the
 //! lib's own unit tests). A head drifting from the body — or mis-marshalling it — fails here.
 
-use scylla_mcp::dispatch;
+use std::path::Path;
+
+use scylla_mcp::dispatch_in_root;
 use scylla_port::{Session, Zoom};
 use serde_json::{json, Value};
 
@@ -17,6 +19,7 @@ const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
 );
+const WEB_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web");
 
 /// A session loaded the way the head's `main.rs` loads it — the source of truth for the contract.
 fn port(path: &str) -> Session {
@@ -25,10 +28,11 @@ fn port(path: &str) -> Session {
 
 /// Drive one `tools/call` and return the response.
 fn call(s: &mut Session, name: &str, args: Value) -> Value {
-    dispatch(
+    dispatch_in_root(
         s,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": {"name": name, "arguments": args}}),
+        Path::new(WEB_ROOT),
     )
 }
 
@@ -127,7 +131,11 @@ fn mcp_diff_matches_the_port() {
     let mut head = port(ARTIFACT);
     let d = p.diff(&port(PATCHED));
 
-    let resp = call(&mut head, "diff", json!({"artifact_path": PATCHED}));
+    let resp = call(
+        &mut head,
+        "diff",
+        json!({"artifact_path": "mathlib_patched.scylla"}),
+    );
     let v = payload(&resp);
     assert_eq!(
         v["matched"].as_u64().expect("matched number") as usize,
@@ -169,7 +177,10 @@ fn mcp_diff_matches_the_port() {
     );
     for entry in confidence.values() {
         assert!(entry["method"].is_string(), "each entry names a method");
-        assert!(entry["confidence"].is_u64(), "each entry has a confidence %");
+        assert!(
+            entry["confidence"].is_u64(),
+            "each entry has a confidence %"
+        );
     }
 }
 
@@ -194,5 +205,9 @@ fn mcp_search_matches_the_port() {
     got.sort();
 
     assert_eq!(got, expected, "the search tool == the port's search");
-    assert_eq!(got, vec!["gcd".to_string()], "narrows to gcd (case-insensitive)");
+    assert_eq!(
+        got,
+        vec!["gcd".to_string()],
+        "narrows to gcd (case-insensitive)"
+    );
 }

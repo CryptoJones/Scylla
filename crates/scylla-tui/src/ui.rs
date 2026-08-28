@@ -42,7 +42,9 @@ pub fn draw(f: &mut Frame, app: &App) {
                 let diff_hint = if app.has_diff() { " · d diff" } else { "" };
                 format!("  j/k or ↑/↓ move · g/G top/bottom · / search{diff_hint} · q quit  ")
             }
-            Mode::Search => "  type to filter · Enter apply · Esc clear & exit search  ".to_string(),
+            Mode::Search => {
+                "  type to filter · Enter apply · Esc clear & exit search  ".to_string()
+            }
         },
         Screen::Diff => "  j/k or ↑/↓ move · g/G top/bottom · d/Tab back · q quit  ".to_string(),
     };
@@ -148,7 +150,13 @@ fn detail(app: &App) -> Text<'static> {
     let Some(v) = app.selected_view() else {
         return Text::from("  (no function selected)");
     };
-    let dash = |s: &str| if s.is_empty() { "—".to_string() } else { s.to_string() };
+    let dash = |s: &str| {
+        if s.is_empty() {
+            "—".to_string()
+        } else {
+            s.to_string()
+        }
+    };
     let mut lines: Vec<Line> = vec![
         Line::from(Span::styled(v.name.clone(), Style::new().bold())),
         Line::raw(v.summary.clone()),

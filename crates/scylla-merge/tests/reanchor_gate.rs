@@ -15,7 +15,15 @@ use scylla_merge::merge_into;
 use scylla_model::{FactKind, StableId, UserFact};
 
 const SRC_FUNCS: &[&str] = &[
-    "gcd", "fib", "factorial", "sum_to", "main", "lcm", "my_strlen", "my_reverse", "count_vowels",
+    "gcd",
+    "fib",
+    "factorial",
+    "sum_to",
+    "main",
+    "lcm",
+    "my_strlen",
+    "my_reverse",
+    "count_vowels",
 ];
 
 const M_X64_O0: &str = include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
@@ -69,19 +77,32 @@ fn score(v1_json: &str, v2_json: &str) -> Score {
         .collect();
     for f in v1.functions.clone() {
         if SRC_FUNCS.contains(&f.name.as_str()) {
-            v1.facts.push(UserFact::new(f.id, FactKind::Rename(format!("ANCHOR::{}", f.name))));
+            v1.facts.push(UserFact::new(
+                f.id,
+                FactKind::Rename(format!("ANCHOR::{}", f.name)),
+            ));
         }
     }
 
     let mut merged = v2.clone();
     let _ = merge_into(&v1, &mut merged);
 
-    let name_of = |id: StableId| merged.functions.iter().find(|f| f.id == id).map(|f| f.name.clone());
+    let name_of = |id: StableId| {
+        merged
+            .functions
+            .iter()
+            .find(|f| f.id == id)
+            .map(|f| f.name.clone())
+    };
 
     let mut s = Score::default();
     for name in &anchors {
         let marker = format!("ANCHOR::{name}");
-        match merged.facts.iter().find(|f| matches!(&f.kind, FactKind::Rename(n) if *n == marker)) {
+        match merged
+            .facts
+            .iter()
+            .find(|f| matches!(&f.kind, FactKind::Rename(n) if *n == marker))
+        {
             Some(fact) => {
                 if name_of(fact.target).as_deref() == Some(name.as_str()) {
                     s.correct += 1;
@@ -122,23 +143,78 @@ fn reanchoring_release_gate() {
         // `my_strlen`/`my_reverse`/`count_vowels` (25%->100%). The floors below LOCK those in.
         // WRONG=0 holds by construction: exact is unique-match; anchor and propagation are unique
         // winner + margin; fuzzy AND BSim additionally require a reciprocal (symmetric) best match.
-        Class { name: "mathlib x86  O0->v2     (edit)        ", v1: M_X64_O0, v2: MV2_X64_O0, floor: Some(1.0) },
-        Class { name: "mathlib aarch64 O0->v2  (edit)        ", v1: M_A64_O0, v2: MV2_A64_O0, floor: Some(1.0) },
+        Class {
+            name: "mathlib x86  O0->v2     (edit)        ",
+            v1: M_X64_O0,
+            v2: MV2_X64_O0,
+            floor: Some(1.0),
+        },
+        Class {
+            name: "mathlib aarch64 O0->v2  (edit)        ",
+            v1: M_A64_O0,
+            v2: MV2_A64_O0,
+            floor: Some(1.0),
+        },
         // Recompile + cross-arch were "hard / track-only" until DD-041; the anchor+propagation passes
         // now make a deterministic, ratcheted recovery of `main` (strings/imports) and `fib`
         // (recursion) — a regression that loses either fails the build.
-        Class { name: "mathlib x86  O0->O2     (recompile)   ", v1: M_X64_O0, v2: M_X64_O2, floor: Some(0.40) },
-        Class { name: "strutil x86  O0->O2     (recompile)   ", v1: S_X64_O0, v2: S_X64_O2, floor: Some(0.25) },
-        Class { name: "mathlib x86  O0->v2 O2  (edit+opt)    ", v1: M_X64_O0, v2: MV2_X64_O2, floor: None },
-        Class { name: "mathlib x86 -> aarch64  (cross-arch)  ", v1: M_X64_O0, v2: M_A64_O0, floor: Some(0.80) },
-        Class { name: "strutil x86 -> aarch64  (cross-arch)  ", v1: S_X64_O0, v2: S_A64_O0, floor: Some(1.0) },
+        Class {
+            name: "mathlib x86  O0->O2     (recompile)   ",
+            v1: M_X64_O0,
+            v2: M_X64_O2,
+            floor: Some(0.40),
+        },
+        Class {
+            name: "strutil x86  O0->O2     (recompile)   ",
+            v1: S_X64_O0,
+            v2: S_X64_O2,
+            floor: Some(0.25),
+        },
+        Class {
+            name: "mathlib x86  O0->v2 O2  (edit+opt)    ",
+            v1: M_X64_O0,
+            v2: MV2_X64_O2,
+            floor: None,
+        },
+        Class {
+            name: "mathlib x86 -> aarch64  (cross-arch)  ",
+            v1: M_X64_O0,
+            v2: M_A64_O0,
+            floor: Some(0.80),
+        },
+        Class {
+            name: "strutil x86 -> aarch64  (cross-arch)  ",
+            v1: S_X64_O0,
+            v2: S_A64_O0,
+            floor: Some(1.0),
+        },
         // 32-bit (i386) — the matcher generalizes to a new ISA width unchanged: the edit class still
         // hits 100% (exact), and the anchor+propagation passes recover main+fib cross-arch (64->32)
         // and cross-opt, all WRONG=0. Floors ratcheted from measured reality.
-        Class { name: "mathlib i386 O0->v2     (edit-32)     ", v1: M_I386_O0, v2: MV2_I386_O0, floor: Some(1.0) },
-        Class { name: "mathlib i386 O0->O2     (recompile-32)", v1: M_I386_O0, v2: M_I386_O2, floor: Some(0.40) },
-        Class { name: "mathlib x86-64 -> i386  (cross-arch32)", v1: M_X64_O0, v2: M_I386_O0, floor: Some(0.40) },
-        Class { name: "strutil i386 O0->O2     (recompile-32)", v1: S_I386_O0, v2: S_I386_O2, floor: Some(0.25) },
+        Class {
+            name: "mathlib i386 O0->v2     (edit-32)     ",
+            v1: M_I386_O0,
+            v2: MV2_I386_O0,
+            floor: Some(1.0),
+        },
+        Class {
+            name: "mathlib i386 O0->O2     (recompile-32)",
+            v1: M_I386_O0,
+            v2: M_I386_O2,
+            floor: Some(0.40),
+        },
+        Class {
+            name: "mathlib x86-64 -> i386  (cross-arch32)",
+            v1: M_X64_O0,
+            v2: M_I386_O0,
+            floor: Some(0.40),
+        },
+        Class {
+            name: "strutil i386 O0->O2     (recompile-32)",
+            v1: S_I386_O0,
+            v2: S_I386_O2,
+            floor: Some(0.25),
+        },
     ];
 
     println!("\n=== DD-038 re-anchoring scoreboard ===");
@@ -147,24 +223,42 @@ fn reanchoring_release_gate() {
     let mut floor_break: Vec<String> = Vec::new();
     for c in &classes {
         let s = score(c.v1, c.v2);
-        let floor_s = c.floor.map_or("  —".to_string(), |f| format!("{:.0}%", f * 100.0));
+        let floor_s = c
+            .floor
+            .map_or("  —".to_string(), |f| format!("{:.0}%", f * 100.0));
         println!(
             "{:<38} {:3} {:5} {:4}  {:6.0}%   {}",
-            c.name, s.correct, s.wrong, s.orphaned, s.survival() * 100.0, floor_s
+            c.name,
+            s.correct,
+            s.wrong,
+            s.orphaned,
+            s.survival() * 100.0,
+            floor_s
         );
         if s.wrong > 0 {
             any_wrong = true;
         }
         if let Some(f) = c.floor {
             if s.survival() + 1e-9 < f {
-                floor_break.push(format!("{}: {:.0}% < floor {:.0}%", c.name.trim(), s.survival() * 100.0, f * 100.0));
+                floor_break.push(format!(
+                    "{}: {:.0}% < floor {:.0}%",
+                    c.name.trim(),
+                    s.survival() * 100.0,
+                    f * 100.0
+                ));
             }
         }
     }
     println!("=======================================\n");
 
     // HARD invariant: zero silent mis-attachment, every class (DD-005).
-    assert!(!any_wrong, "DD-005 VIOLATED: a class produced WRONG > 0 — silent mis-attachment");
+    assert!(
+        !any_wrong,
+        "DD-005 VIOLATED: a class produced WRONG > 0 — silent mis-attachment"
+    );
     // Ratcheted floors on the promised classes.
-    assert!(floor_break.is_empty(), "ratcheted survival floor broken: {floor_break:?}");
+    assert!(
+        floor_break.is_empty(),
+        "ratcheted survival floor broken: {floor_break:?}"
+    );
 }

@@ -9,7 +9,10 @@ use scylla_lsp::dispatch;
 use scylla_port::{Session, Zoom};
 use serde_json::{json, Value};
 
-const ARTIFACT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/mathlib.scylla");
+const ARTIFACT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scylla-wasm/web/mathlib.scylla"
+);
 
 fn load() -> Session {
     Session::from_artifact(&std::fs::read(ARTIFACT).expect("read artifact")).expect("load artifact")
@@ -52,7 +55,10 @@ fn document_symbols_are_the_ports_functions_in_address_order() {
     fns.sort_by(|a, b| a.addr.cmp(&b.addr).then_with(|| a.name.cmp(&b.name)));
     let expected: Vec<String> = fns.into_iter().map(|f| f.name).collect();
 
-    assert_eq!(got, expected, "documentSymbol is the port's functions, address-ordered");
+    assert_eq!(
+        got, expected,
+        "documentSymbol is the port's functions, address-ordered"
+    );
 }
 
 #[test]
@@ -67,7 +73,9 @@ fn hover_is_the_ports_view_and_is_untrusted_wrapped() {
         ),
     )
     .expect("response");
-    let md = resp["result"]["contents"]["value"].as_str().expect("hover markdown");
+    let md = resp["result"]["contents"]["value"]
+        .as_str()
+        .expect("hover markdown");
     assert!(md.contains("gcd"), "hover names the function");
     assert!(
         md.contains("<untrusted-data>"),
@@ -116,7 +124,11 @@ fn workspace_symbol_is_the_ports_search() {
     got.sort();
 
     let p = load();
-    let mut expected: Vec<String> = p.search("gc", Zoom::Domain).into_iter().map(|f| f.name).collect();
+    let mut expected: Vec<String> = p
+        .search("gc", Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
     expected.sort();
 
     assert_eq!(got, expected, "workspace/symbol == the port's search()");
@@ -144,7 +156,10 @@ fn rename_returns_a_workspace_edit_and_round_trips() {
         .iter()
         .map(|x| x["name"].as_str().unwrap().to_string())
         .collect();
-    assert!(names.contains(&"my_gcd".to_string()), "rename is visible on the next read");
+    assert!(
+        names.contains(&"my_gcd".to_string()),
+        "rename is visible on the next read"
+    );
     assert!(!names.contains(&"gcd".to_string()), "the old name is gone");
 }
 

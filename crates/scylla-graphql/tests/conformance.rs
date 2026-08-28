@@ -12,7 +12,10 @@ use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../scylla-wasm/web/mathlib.scylla");
+const ARTIFACT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../scylla-wasm/web/mathlib.scylla"
+);
 const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
@@ -87,13 +90,19 @@ fn graphql_head_conforms_to_the_port() {
     // info — function count matches the port.
     let info = gql("{ info { functions } }");
     assert_eq!(
-        info["info"]["functions"].as_i64().expect("functions number") as usize,
+        info["info"]["functions"]
+            .as_i64()
+            .expect("functions number") as usize,
         prog.functions.len(),
         "info function count matches the port"
     );
 
     // functions — the listed name set matches the port's.
-    let mut expected: Vec<String> = p.functions(Zoom::Domain).into_iter().map(|f| f.name).collect();
+    let mut expected: Vec<String> = p
+        .functions(Zoom::Domain)
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
     expected.sort();
     let d = gql("{ functions { name } }");
     let mut got: Vec<String> = d["functions"]
@@ -103,7 +112,10 @@ fn graphql_head_conforms_to_the_port() {
         .map(|f| f["name"].as_str().expect("name").to_string())
         .collect();
     got.sort();
-    assert_eq!(got, expected, "the graph lists exactly the port's functions");
+    assert_eq!(
+        got, expected,
+        "the graph lists exactly the port's functions"
+    );
 
     // function — gcd's name + callers match the port at DETAIL zoom.
     let gid = p

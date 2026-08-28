@@ -1,5 +1,6 @@
 //! `scylla` — the Scylla CLI. The engine port (DD-009/040) is THE materialization path: drive
-//! GayHydra over gRPC and consume the `Materialize` stream straight into the canonical Cap'n
+//! the engine (a Ghidra or GayHydra dist behind engine-service, selected by GHIDRA_DIST) over
+//! gRPC and consume the `Materialize` stream straight into the canonical Cap'n
 //! Proto artifact. No intermediate snapshot file, no `materialize.sh`, no second path.
 //!
 //!   scylla materialize <engine-endpoint> <binary> <out.scylla>
@@ -10,7 +11,7 @@
 //!   scylla callers <artifact.scylla> <id>       # functions that call <id>
 //!   scylla merge <annotated.scylla> <reanalysis.scylla> <out.scylla>   # carry annotations forward
 //!
-//! The offline GayHydra-headless snapshot path still lives in `scylla-ingest`, for dev / corpus
+//! The offline headless-snapshot path still lives in `scylla-ingest`, for dev / corpus
 //! work without a running engine-service — but the engine port is the one the product ships on.
 
 use std::process::ExitCode;
@@ -50,7 +51,7 @@ async fn main() -> ExitCode {
                  {prog} view [--json] <artifact.scylla> <id> [intent|domain|detail]\n       \
                  {prog} callers <artifact.scylla> <id>\n       \
                  {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
-                 materialize — the engine port (DD-009/040): GayHydra over gRPC -> canonical artifact\n  \
+                 materialize — the engine port (DD-009/040): engine over gRPC -> canonical artifact\n  \
                  diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
                  info        — artifact metadata (name / language / function count)\n  \
                  functions   — list functions at a zoom altitude (default domain)\n  \
@@ -90,7 +91,10 @@ fn info(path: &str, json: bool) -> ExitCode {
             "language": p.language,
             "functions": p.functions.len(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
     } else {
         println!("name:      {}", p.name);
         println!("language:  {}", p.language);
@@ -139,7 +143,10 @@ fn functions(path: &str, zoom_arg: Option<&str>, json: bool) -> ExitCode {
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly")
+        );
     } else {
         for f in &fns {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -166,7 +173,10 @@ fn search(path: &str, query: &str, zoom_arg: Option<&str>, json: bool) -> ExitCo
             .iter()
             .map(|f| serde_json::json!({"id": f.id.0, "name": f.name, "summary": f.summary}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly")
+        );
     } else {
         for f in &hits {
             println!("{}\t{}\t{}", f.id.0, f.name, f.summary);
@@ -209,7 +219,10 @@ fn view(path: &str, id_arg: &str, zoom_arg: Option<&str>, json: bool) -> ExitCod
             "callees": v.callees,
             "callers": v.callers,
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
         return ExitCode::SUCCESS;
     }
     let list = |xs: &[String]| {
@@ -368,7 +381,10 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
                 })
                 .collect::<serde_json::Map<String, serde_json::Value>>(),
         });
-        println!("{}", serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).expect("a JSON Value serializes infallibly")
+        );
     } else {
         println!("scylla diff: {a_path}  vs  {b_path}");
         println!(
@@ -432,7 +448,8 @@ fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
 /// them into the model — the id mint and callee-address resolution happen core-side in
 /// `scylla_engine::assemble`, so this is genuinely the core consuming the wire, not a shell script
 /// shuttling JSON. Then write the Cap'n Proto artifact. A binary in, an artifact out, one gRPC
-/// call. ALWAYS GayHydra.
+/// call. The engine dist (stock Ghidra or GayHydra) is whatever GHIDRA_DIST pointed the
+/// service at — the core doesn't care.
 async fn materialize(endpoint: &str, bin_path: &str, out: &str) -> ExitCode {
     let binary = match std::fs::read(bin_path) {
         Ok(b) => b,

@@ -76,6 +76,6 @@ message DecompileReply { string c = 1; }
 
 message InfoRequest {}
 message InfoReply {
-  string engine = 1;   // e.g. "GayHydra"
+  string engine = 1;   // e.g. "ghidra"
   string version = 2;
 }

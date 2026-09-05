@@ -111,18 +111,31 @@ Everything downstream is a defense of one of these:
 
 - **Threats:** a hostile/corrupt artifact (amplification bomb, deep nesting, over-long strings,
   dangling refs, a foreign collaborator's facts trying to overwrite yours).
-- **Mitigations (DD-036 / DD-027 / DD-039):** the **total loader** — explicit reader caps
-  (`MAX_TRAVERSAL_WORDS`, `MAX_NESTING`, `MAX_STRING_LEN`) set *on purpose* (the capnp defaults are
-  a security decision made by accident), structural validation, soft faults
-  **quarantined-and-counted** (a dangling comment doesn't nuke the artifact), cap-busting/corruption
-  **hard-rejected** as a typed `LoadError` — never a panic, never an OOM. `fuzz_artifact_loader` is
-  the primary fuzz target and **gates v1**; the per-commit crash-corpus replay turns "total" from a
-  hope into a proven claim. Foreign facts are **never authoritative** — they enter through the
-  `collaborate()` conflict path (DD-027), surfaced, never silent.
+- **Mitigations (DD-036 / DD-027 / DD-039):** the **total loader** — explicit reader caps set *on
+  purpose* (the capnp defaults are a security decision made by accident), structural validation,
+  soft faults **quarantined-and-counted** (a dangling comment doesn't nuke the artifact),
+  cap-busting/corruption **hard-rejected** as a typed `LoadError` — never a panic, never an OOM.
+  The caps are **proportional to the artifact's own size**, not absolute numbers a small file can
+  bust: the reader's traversal limit is the artifact's word count (ceiling `MAX_TRAVERSAL_WORDS`,
+  512 MiB), so a zero-size list declaring millions of elements or many pointers aliasing one list is
+  refused by capnp itself; the native model may occupy at most `MAX_DECODE_AMPLIFICATION` (8x) the
+  artifact's bytes, charged *before* each allocation (a legitimate artifact decodes to under 3x);
+  nesting is pinned (`MAX_NESTING`); strings are bounded at decode time (`MAX_STRING_LEN`), never
+  copied whole. The one absolute is the 512 MiB ceiling — a product limit matching the engine
+  stream's `MAX_TOTAL_BYTES`, not a DoS guard. `fuzz_artifact_loader` is the primary fuzz target and
+  **gates v1**; the per-commit crash-corpus replay (including the hand-forged aliasing and
+  zero-size-list artifacts in the loader's tests) turns "total" from a hope into a proven claim.
+  Foreign facts are **never authoritative** — they enter through the `collaborate()` conflict path
+  (DD-027), surfaced, never silent.
 - **Residual:** this seam is the most complete one in the system. The standing risk is *regression*
   — a future field added to the schema without extending the loader's validation. Mitigation: the
   fuzz target + this note. (The fingerprint field added recently is a `UInt64` — no new string/list
-  surface, so no new loader caps were needed; that reasoning is the bar for the next field too.)
+  surface, so no new loader caps were needed; that reasoning is the bar for the next field too. A
+  new list or text field goes through the decoder's `list`/`text` helpers, which is what puts it
+  under the budget — reading a capnp list any other way is the regression to reject in review. A
+  field that grows the native `Function`/`UserFact` structs must keep the densest legitimate
+  artifact under the 8x budget; `densest_legitimate_artifact_fits_the_decode_budget` enforces 2x
+  headroom.)
 
 ### S4 — core → agent (the MCP head; the injection surface)
 

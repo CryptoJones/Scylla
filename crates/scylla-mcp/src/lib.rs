@@ -687,7 +687,10 @@ mod tests {
         // MCP 2026-07-28: server/discover is a MUST and is how a client selects a
         // version without the (removed) initialize handshake.
         let mut s = session();
-        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}));
+        let resp = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        );
         let versions = resp["result"]["supportedVersions"].as_array().unwrap();
         assert!(
             versions.iter().any(|v| v == "2026-07-28"),
@@ -700,17 +703,26 @@ mod tests {
     fn list_result_carries_the_cacheable_envelope() {
         // Every result carries resultType; list results also carry ttlMs + cacheScope.
         let mut s = session();
-        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}));
+        let resp = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}),
+        );
         assert_eq!(resp["result"]["resultType"], "complete");
-        assert!(resp["result"]["ttlMs"].is_number(), "tools/list must carry ttlMs");
+        assert!(
+            resp["result"]["ttlMs"].is_number(),
+            "tools/list must carry ttlMs"
+        );
         assert_eq!(resp["result"]["cacheScope"], "public");
     }
 
     #[test]
     fn call_result_carries_result_type() {
         let mut s = session();
-        let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-            "params": {"name": "list_functions", "arguments": {}}}));
+        let resp = dispatch(
+            &mut s,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "list_functions", "arguments": {}}}),
+        );
         assert_eq!(resp["result"]["resultType"], "complete");
     }
 
@@ -720,7 +732,10 @@ mod tests {
         // a server that still answers them is serving a protocol it does not speak.
         let mut s = session();
         for method in ["ping", "logging/setLevel", "resources/subscribe"] {
-            let resp = dispatch(&mut s, &json!({"jsonrpc": "2.0", "id": 1, "method": method}));
+            let resp = dispatch(
+                &mut s,
+                &json!({"jsonrpc": "2.0", "id": 1, "method": method}),
+            );
             assert_eq!(resp["error"]["code"], -32601, "{method} must be rejected");
         }
     }

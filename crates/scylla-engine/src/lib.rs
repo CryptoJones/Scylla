@@ -6,6 +6,9 @@
 //! built next, after the coexistence spike (DD-040) — this crate is the contract + client half,
 //! buildable and testable without a live engine.
 
+// tonic-generated: every RPC returns `Result<_, tonic::Status>`, and rustc 1.98's clippy flags
+// the 176-byte `Status` as a large `Err` variant. That is tonic's type, not ours to box.
+#[allow(clippy::result_large_err)]
 pub mod pb {
     tonic::include_proto!("scylla.engine.v1");
 }

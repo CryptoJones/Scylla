@@ -139,7 +139,7 @@ fn main() {
             let inp = std::env::args().nth(2).expect("usage: m5_2-persist <in.scylla> <edges.json> <out.scylla>");
             let edges_path = std::env::args().nth(3).expect("usage: m5_2-persist <in> <edges.json> <out>");
             let outp = std::env::args().nth(4).expect("usage: m5_2-persist <in> <edges> <out.scylla>");
-            let mut prog = scylla_schema::from_bytes(&std::fs::read(&inp).expect("read .scylla"))
+            let (mut prog, _) = scylla_schema::load(&std::fs::read(&inp).expect("read .scylla"))
                 .expect("decode .scylla");
             let ev: Value = serde_json::from_slice(&std::fs::read(&edges_path).expect("read edges.json"))
                 .expect("parse edges.json");
@@ -171,7 +171,7 @@ fn main() {
             // PERSIST + ROUND-TRIP: serialize the enriched model, reload it, confirm the stamps survived.
             let out_bytes = scylla_schema::to_bytes(&prog);
             std::fs::write(&outp, &out_bytes).expect("write enriched .scylla");
-            let reloaded = scylla_schema::from_bytes(&out_bytes).expect("reload enriched .scylla");
+            let (reloaded, _) = scylla_schema::load(&out_bytes).expect("reload enriched .scylla");
             let mut survived = 0usize;
             for (idx, tid) in &to_stamp {
                 let name = prog.functions[*idx].name.clone();

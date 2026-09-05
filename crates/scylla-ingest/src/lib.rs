@@ -153,7 +153,7 @@ mod tests {
     fn materialized_program_round_trips_through_the_artifact() {
         let prog = snapshot_to_program(MATHLIB).unwrap();
         let bytes = scylla_schema::to_bytes(&prog);
-        let back = scylla_schema::from_bytes(&bytes).unwrap();
+        let back = scylla_schema::load(&bytes).unwrap().0;
         assert_eq!(prog, back, "materialized model must round-trip losslessly");
     }
 

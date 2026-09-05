@@ -459,6 +459,13 @@ dangling comment does not nuke a collaborator's whole artifact); cap-busting or 
 corruption **hard-rejects**. And a foreign artifact's facts **never rule** — they enter through
 the `collaborate()` conflict path (DD-027), surfaced, never silently authoritative. "It's just
 our own format, it's fine" is the sentence at the top of every parser CVE.
+*Refinement (post-0.7.0, from the fuzz lane):* absolute per-list caps do not compose — a hostile
+artifact aliases one list from many pointers, or declares a zero-size list, and stays under every
+per-list number while the sum OOMs. So the caps are **proportional to the artifact**: the reader
+may traverse no more words than the file contains (a legitimate writer never aliases, so a real
+artifact never needs more), and the native model may be at most a fixed multiple
+(`MAX_DECODE_AMPLIFICATION`) of the file's bytes, charged before each allocation. The only
+absolute number left is the 512 MiB ceiling, and that is a product limit, not a DoS guard.
 
 **DD-037 — Test corpus: tiered, pinned, structural oracle (refines DD-030).** Two ways a
 corpus rots, both forbidden. (1) **Golden means pinned *bytes*, not regenerated** — rebuild

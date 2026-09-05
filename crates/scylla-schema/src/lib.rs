@@ -14,9 +14,43 @@ use scylla_model::{
     EdgeProvenance, FactKind, Function, Principal, Program, Provenance, StableId, UserFact,
 };
 
-const MAX_DECODED_FUNCTIONS: usize = 1_000_000;
-const MAX_DECODED_FACTS: usize = 1_000_000;
-const MAX_DECODED_LIST_ITEMS: usize = 1_000_000;
+// ----------------------------------------------------------------------------------------
+// DD-036 — the total artifact loader: the caps.
+// Every reader limit is set EXPLICITLY, never left to the capnp library defaults (which can shift
+// between releases). The loader never panics, and its memory is bounded BY THE ARTIFACT'S OWN SIZE:
+//   * the capnp reader may traverse at most the words the artifact contains (plus the absolute
+//     ceiling below) — a legitimate writer never aliases, so a real artifact never traverses more
+//     words than it holds, while a zero-size list declaring millions of elements or many pointers
+//     aliasing one list is refused by the reader itself;
+//   * the native model materialized from it may occupy at most `MAX_DECODE_AMPLIFICATION` times
+//     the artifact's byte length — charged BEFORE each allocation, so a small artifact that would
+//     decode to gigabytes is refused, never allocated;
+//   * nesting is pinned at the conservative default depth (the model is shallow — deeper is hostile);
+//   * every string is bounded at decode time (truncated on a char boundary, counted), never copied
+//     whole.
+// A structurally broken or cap-busting artifact is a `LoadError`; soft faults (dangling refs,
+// duplicate ids, over-long strings) are quarantined and counted in the `LoadReport`.
+// ----------------------------------------------------------------------------------------
+
+/// Absolute traversal ceiling: words the reader will traverse before refusing (~512 MiB). The
+/// effective limit is the smaller of this and the artifact's own word count (see `reader_options`).
+pub const MAX_TRAVERSAL_WORDS: usize = 64 * 1024 * 1024;
+/// Max pointer-nesting depth.
+pub const MAX_NESTING: i32 = 64;
+/// A name/comment longer than this is hostile, not data — truncated on load.
+pub const MAX_STRING_LEN: usize = 64 * 1024;
+/// Decode budget: the native model may occupy at most this many times the artifact's byte length.
+/// A legitimate artifact decodes to under 3x (an empty `Function` is the densest case: ~110 encoded
+/// bytes for a ~256-byte native struct); a hostile one can only be refused, never allocated. Tested
+/// by `densest_legitimate_artifact_fits_the_decode_budget`.
+pub const MAX_DECODE_AMPLIFICATION: usize = 8;
+
+fn reader_options(bytes: &[u8]) -> capnp::message::ReaderOptions {
+    let mut o = capnp::message::ReaderOptions::new();
+    o.traversal_limit_in_words(Some(bytes.len().div_ceil(8).min(MAX_TRAVERSAL_WORDS)));
+    o.nesting_limit(MAX_NESTING);
+    o
+}
 
 fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     match k {
@@ -26,34 +60,17 @@ fn fact_discriminant(k: &FactKind) -> (u16, &str) {
     }
 }
 
-fn fact_from_parts(kind: u16, value: &str) -> FactKind {
+fn fact_from_parts(kind: u16, value: String) -> FactKind {
     match kind {
-        0 => FactKind::Rename(value.to_owned()),
-        1 => FactKind::Retype(value.to_owned()),
-        _ => FactKind::Comment(value.to_owned()),
+        0 => FactKind::Rename(value),
+        1 => FactKind::Retype(value),
+        _ => FactKind::Comment(value),
     }
 }
 
-fn decode_error(description: impl Into<String>) -> capnp::Error {
-    capnp::Error::failed(description.into())
-}
-
-fn list_limit(bytes: &[u8], absolute_max: usize) -> usize {
-    absolute_max.min(bytes.len().max(1))
-}
-
-fn checked_list_len(field: &str, len: u32, max: usize) -> capnp::Result<usize> {
-    let len = len as usize;
-    if len > max {
-        Err(decode_error(format!(
-            "artifact {field} list length {len} exceeds decode cap {max}"
-        )))
-    } else {
-        Ok(len)
-    }
-}
-
-fn truncate_str_boundary(s: &str, max: usize) -> &str {
+/// The longest prefix of `s` of at most `max` bytes that ends on a char boundary (never panics,
+/// unlike `str::truncate`-style slicing).
+fn truncate_str(s: &str, max: usize) -> &str {
     if s.len() <= max {
         return s;
     }
@@ -62,20 +79,6 @@ fn truncate_str_boundary(s: &str, max: usize) -> &str {
         end -= 1;
     }
     &s[..end]
-}
-
-fn read_text(
-    text: capnp::text::Reader<'_>,
-    bounded: bool,
-    report: &mut LoadReport,
-) -> capnp::Result<String> {
-    let s = text.to_str()?;
-    if bounded && s.len() > MAX_STRING_LEN {
-        report.truncated_strings += 1;
-        Ok(truncate_str_boundary(s, MAX_STRING_LEN).to_owned())
-    } else {
-        Ok(s.to_owned())
-    }
 }
 
 /// Serialize a Program to the canonical Cap'n Proto artifact bytes.
@@ -161,190 +164,6 @@ pub fn to_bytes(prog: &Program) -> Vec<u8> {
     buf
 }
 
-/// Deserialize the canonical artifact bytes back into a native Program.
-pub fn from_bytes(bytes: &[u8]) -> capnp::Result<Program> {
-    let mut report = LoadReport::default();
-    decode_bytes(bytes, false, &mut report)
-}
-
-fn decode_bytes(
-    bytes: &[u8],
-    bounded_strings: bool,
-    report: &mut LoadReport,
-) -> capnp::Result<Program> {
-    // Zero-copy: borrow the segments out of the already-in-memory slice instead of allocating owned
-    // copies up to the traversal limit. This removes the full-buffer duplication AND refuses the
-    // "20-byte artifact declaring a ~511 MiB segment" allocation — flat-slice validates each declared
-    // segment against the actual buffer length rather than allocating it (DD-036 "never OOMs").
-    let reader = capnp::serialize::read_message_from_flat_slice(&mut &bytes[..], reader_options())?;
-    let p = reader.get_root::<model_capnp::program::Reader>()?;
-    let item_limit = list_limit(bytes, MAX_DECODED_LIST_ITEMS);
-
-    let functions_reader = p.get_functions()?;
-    let function_count = checked_list_len(
-        "functions",
-        functions_reader.len(),
-        list_limit(bytes, MAX_DECODED_FUNCTIONS),
-    )?;
-    let mut functions = Vec::with_capacity(function_count);
-    for f in functions_reader.iter() {
-        let callees_reader = f.get_callees()?;
-        let callee_count = checked_list_len("function.callees", callees_reader.len(), item_limit)?;
-        let mut callees = Vec::with_capacity(callee_count);
-        for c in callees_reader.iter() {
-            callees.push(StableId(c));
-        }
-        functions.push(Function {
-            id: StableId(f.get_id()),
-            addr: f.get_addr(),
-            name: read_text(f.get_name()?, bounded_strings, report)?,
-            size: f.get_size(),
-            bb_count: f.get_bb_count(),
-            callees,
-            fingerprint: f.get_fingerprint(),
-            mnemonics: {
-                let reader = f.get_mnemonics()?;
-                let len = checked_list_len("function.mnemonics", reader.len(), item_limit)?;
-                let mut h = Vec::with_capacity(len);
-                for mc in reader.iter() {
-                    h.push((
-                        read_text(mc.get_mnemonic()?, bounded_strings, report)?,
-                        mc.get_count(),
-                    ));
-                }
-                h
-            },
-            string_refs: {
-                let reader = f.get_string_refs()?;
-                let len = checked_list_len("function.stringRefs", reader.len(), item_limit)?;
-                let mut v = Vec::with_capacity(len);
-                for s in reader.iter() {
-                    v.push(read_text(s?, bounded_strings, report)?);
-                }
-                v
-            },
-            imports: {
-                let reader = f.get_imports()?;
-                let len = checked_list_len("function.imports", reader.len(), item_limit)?;
-                let mut v = Vec::with_capacity(len);
-                for s in reader.iter() {
-                    v.push(read_text(s?, bounded_strings, report)?);
-                }
-                v
-            },
-            callee_names: {
-                let reader = f.get_callee_names()?;
-                let len = checked_list_len("function.calleeNames", reader.len(), item_limit)?;
-                let mut v = Vec::with_capacity(len);
-                for s in reader.iter() {
-                    v.push(read_text(s?, bounded_strings, report)?);
-                }
-                v
-            },
-            bsim_vector: {
-                let reader = f.get_bsim_vector()?;
-                let len = checked_list_len("function.bsimVector", reader.len(), item_limit)?;
-                let mut v = Vec::with_capacity(len);
-                for bf in reader.iter() {
-                    v.push((bf.get_hash(), bf.get_weight()));
-                }
-                v
-            },
-            trigrams: {
-                let reader = f.get_trigrams()?;
-                let len = checked_list_len("function.trigrams", reader.len(), item_limit)?;
-                let mut h = Vec::with_capacity(len);
-                for mc in reader.iter() {
-                    h.push((
-                        read_text(mc.get_mnemonic()?, bounded_strings, report)?,
-                        mc.get_count(),
-                    ));
-                }
-                h
-            },
-            // Per-edge provenance (DD-007), additive: an old artifact yields an empty list (capnp
-            // default) → no per-edge provenance recorded, exactly right.
-            edge_provenance: {
-                let reader = f.get_edge_provenance()?;
-                let len = checked_list_len("function.edgeProvenance", reader.len(), item_limit)?;
-                let mut v = Vec::with_capacity(len);
-                for e in reader.iter() {
-                    v.push(EdgeProvenance {
-                        target: StableId(e.get_target()),
-                        provenance: Provenance {
-                            producer: read_text(e.get_producer()?, bounded_strings, report)?,
-                            confidence: e.get_confidence(),
-                        },
-                    });
-                }
-                v
-            },
-        });
-    }
-
-    let facts_reader = p.get_facts()?;
-    let fact_count = checked_list_len(
-        "facts",
-        facts_reader.len(),
-        list_limit(bytes, MAX_DECODED_FACTS),
-    )?;
-    let mut facts = Vec::with_capacity(fact_count);
-    for fact in facts_reader.iter() {
-        let author = read_text(fact.get_author()?, bounded_strings, report)?;
-        let producer = read_text(fact.get_producer()?, bounded_strings, report)?;
-        facts.push(UserFact {
-            target: StableId(fact.get_target()),
-            kind: fact_from_parts(
-                fact.get_kind(),
-                &read_text(fact.get_value()?, bounded_strings, report)?,
-            ),
-            author: (!author.is_empty()).then_some(Principal(author)),
-            // Provenance (DD-007), back-compat: an EMPTY producer means a legacy artifact (the
-            // field didn't exist) — default to a certain user fact; else trust the stamped values.
-            provenance: {
-                if producer.is_empty() {
-                    Provenance::default()
-                } else {
-                    Provenance {
-                        producer,
-                        confidence: fact.get_confidence(),
-                    }
-                }
-            },
-        });
-    }
-
-    Ok(Program {
-        name: read_text(p.get_name()?, bounded_strings, report)?,
-        language: read_text(p.get_language()?, bounded_strings, report)?,
-        functions,
-        facts,
-    })
-}
-
-// ----------------------------------------------------------------------------------------
-// DD-036 — the total artifact loader.
-// Reader limits are set EXPLICITLY, never left to the capnp library defaults (which can shift
-// between releases). The loader never panics and never OOMs — a structurally broken artifact is a
-// LoadError, and soft faults (dangling refs, over-long strings) are quarantined and counted.
-// Nesting is pinned at the conservative default depth; the model is intentionally shallow, so a
-// deeper artifact is hostile. The traversal ceiling bounds pointer-amplification.
-// ----------------------------------------------------------------------------------------
-
-/// Amplification-bomb ceiling: words the reader will traverse before refusing (~512 MiB).
-pub const MAX_TRAVERSAL_WORDS: usize = 64 * 1024 * 1024;
-/// Max pointer-nesting depth.
-pub const MAX_NESTING: i32 = 64;
-/// A name/comment longer than this is hostile, not data — truncated on load.
-pub const MAX_STRING_LEN: usize = 64 * 1024;
-
-fn reader_options() -> capnp::message::ReaderOptions {
-    let mut o = capnp::message::ReaderOptions::new();
-    o.traversal_limit_in_words(Some(MAX_TRAVERSAL_WORDS));
-    o.nesting_limit(MAX_NESTING);
-    o
-}
-
 /// What the loader had to quarantine to keep a hostile or buggy artifact total.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct LoadReport {
@@ -381,27 +200,182 @@ impl std::fmt::Display for LoadError {
 
 impl std::error::Error for LoadError {}
 
-/// Truncate a String to at most `max` bytes, on a char boundary (never panics, unlike
-/// `String::truncate`). Returns whether it truncated.
-fn truncate_to(s: &mut String, max: usize) -> bool {
-    if s.len() <= max {
-        return false;
-    }
-    let mut end = max;
-    while end > 0 && !s.is_char_boundary(end) {
-        end -= 1;
-    }
-    s.truncate(end);
-    true
+/// Decode-time state: the remaining decode budget and the quarantine report.
+struct Decoder {
+    /// Native bytes the decoded model may still materialize.
+    budget: usize,
+    report: LoadReport,
 }
 
-/// **The total artifact loader (DD-036).** Decodes with explicit reader caps, then validates
-/// and *quarantines* soft faults — dangling callee/fact refs dropped, over-long strings
-/// truncated, every quarantine counted in the [`LoadReport`]. Never panics, never OOMs;
-/// cap-busting is refused by the reader limits during decode and surfaces as a [`LoadError`].
+impl Decoder {
+    fn new(bytes: &[u8]) -> Self {
+        Decoder {
+            budget: bytes.len().saturating_mul(MAX_DECODE_AMPLIFICATION),
+            report: LoadReport::default(),
+        }
+    }
+
+    /// Charge `bytes` of native allocation against the budget, refusing once the artifact would
+    /// decode to more than `MAX_DECODE_AMPLIFICATION` times its own size. The message names only the
+    /// policy, never a number derived from the input, so it is stable for a given artifact regardless
+    /// of trailing padding (heads forward it verbatim).
+    fn charge(&mut self, field: &str, bytes: usize) -> capnp::Result<()> {
+        match self.budget.checked_sub(bytes) {
+            Some(left) => {
+                self.budget = left;
+                Ok(())
+            }
+            None => Err(capnp::Error::failed(format!(
+                "artifact {field} would decode to more than {MAX_DECODE_AMPLIFICATION}x the artifact size (DD-036 decode budget)"
+            ))),
+        }
+    }
+
+    /// Materialize a capnp list: charge the whole native allocation up front (declared length x
+    /// element size) so a hostile length is refused before anything is allocated, then grow by push —
+    /// no untrusted length ever drives a `with_capacity`.
+    fn list<L, T>(
+        &mut self,
+        field: &str,
+        list: L,
+        mut item: impl FnMut(&mut Self, L::Item) -> capnp::Result<T>,
+    ) -> capnp::Result<Vec<T>>
+    where
+        L: IntoIterator,
+        L::IntoIter: ExactSizeIterator,
+    {
+        let iter = list.into_iter();
+        self.charge(field, iter.len().saturating_mul(std::mem::size_of::<T>()))?;
+        let mut out = Vec::new();
+        for x in iter {
+            out.push(item(self, x)?);
+        }
+        Ok(out)
+    }
+
+    /// Materialize a text field, bounded: an over-long string is truncated on a char boundary and
+    /// counted (the excess is never copied), and the bytes kept are charged to the budget.
+    fn text(&mut self, field: &str, text: capnp::text::Reader<'_>) -> capnp::Result<String> {
+        let s = text.to_str()?;
+        let s = if s.len() > MAX_STRING_LEN {
+            self.report.truncated_strings += 1;
+            truncate_str(s, MAX_STRING_LEN)
+        } else {
+            s
+        };
+        self.charge(field, s.len())?;
+        Ok(s.to_owned())
+    }
+}
+
+/// Decode the artifact under the reader caps and the decode budget. Structural quarantine (duplicate
+/// ids, dangling refs) is `load`'s job; this only bounds what gets materialized.
+fn decode_bytes(bytes: &[u8]) -> capnp::Result<(Program, LoadReport)> {
+    // Zero-copy: borrow the segments out of the already-in-memory slice instead of allocating owned
+    // copies up to the traversal limit. This removes the full-buffer duplication AND refuses the
+    // "20-byte artifact declaring a ~511 MiB segment" allocation — flat-slice validates each declared
+    // segment against the actual buffer length rather than allocating it (DD-036 "never OOMs").
+    let reader =
+        capnp::serialize::read_message_from_flat_slice(&mut &bytes[..], reader_options(bytes))?;
+    let p = reader.get_root::<model_capnp::program::Reader>()?;
+    let mut d = Decoder::new(bytes);
+
+    let name = d.text("name", p.get_name()?)?;
+    let language = d.text("language", p.get_language()?)?;
+    let functions = d.list("functions", p.get_functions()?, |d, f| {
+        Ok(Function {
+            id: StableId(f.get_id()),
+            addr: f.get_addr(),
+            name: d.text("function.name", f.get_name()?)?,
+            size: f.get_size(),
+            bb_count: f.get_bb_count(),
+            callees: d.list("function.callees", f.get_callees()?, |_, c| Ok(StableId(c)))?,
+            fingerprint: f.get_fingerprint(),
+            mnemonics: d.list("function.mnemonics", f.get_mnemonics()?, |d, mc| {
+                Ok((
+                    d.text("function.mnemonics", mc.get_mnemonic()?)?,
+                    mc.get_count(),
+                ))
+            })?,
+            string_refs: d.list("function.stringRefs", f.get_string_refs()?, |d, s| {
+                d.text("function.stringRefs", s?)
+            })?,
+            imports: d.list("function.imports", f.get_imports()?, |d, s| {
+                d.text("function.imports", s?)
+            })?,
+            callee_names: d.list("function.calleeNames", f.get_callee_names()?, |d, s| {
+                d.text("function.calleeNames", s?)
+            })?,
+            bsim_vector: d.list("function.bsimVector", f.get_bsim_vector()?, |_, bf| {
+                Ok((bf.get_hash(), bf.get_weight()))
+            })?,
+            trigrams: d.list("function.trigrams", f.get_trigrams()?, |d, mc| {
+                Ok((
+                    d.text("function.trigrams", mc.get_mnemonic()?)?,
+                    mc.get_count(),
+                ))
+            })?,
+            // Per-edge provenance (DD-007), additive: an old artifact yields an empty list (capnp
+            // default) → no per-edge provenance recorded, exactly right.
+            edge_provenance: d.list(
+                "function.edgeProvenance",
+                f.get_edge_provenance()?,
+                |d, e| {
+                    Ok(EdgeProvenance {
+                        target: StableId(e.get_target()),
+                        provenance: Provenance {
+                            producer: d.text("function.edgeProvenance", e.get_producer()?)?,
+                            confidence: e.get_confidence().min(100), // documented 0..=100
+                        },
+                    })
+                },
+            )?,
+        })
+    })?;
+    let facts = d.list("facts", p.get_facts()?, |d, fact| {
+        let value = d.text("facts.value", fact.get_value()?)?;
+        let author = d.text("facts.author", fact.get_author()?)?;
+        let producer = d.text("facts.producer", fact.get_producer()?)?;
+        Ok(UserFact {
+            target: StableId(fact.get_target()),
+            kind: fact_from_parts(fact.get_kind(), value),
+            author: (!author.is_empty()).then_some(Principal(author)),
+            // Provenance (DD-007), back-compat: an EMPTY producer means a legacy artifact (the
+            // field didn't exist) — default to a certain user fact; else trust the stamped values.
+            provenance: if producer.is_empty() {
+                Provenance::default()
+            } else {
+                Provenance {
+                    producer,
+                    confidence: fact.get_confidence().min(100), // documented 0..=100
+                }
+            },
+        })
+    })?;
+
+    Ok((
+        Program {
+            name,
+            language,
+            functions,
+            facts,
+        },
+        d.report,
+    ))
+}
+
+/// **The total artifact loader (DD-036)** — the only way in. Decodes under the explicit reader caps
+/// and the decode budget (see the caps block above), then validates and *quarantines* soft faults:
+/// duplicate ids and dangling callee/fact/edge-provenance refs are dropped, over-long strings were
+/// truncated at decode time, and every quarantine is counted in the [`LoadReport`].
+///
+/// Never panics. Memory is bounded by the artifact's own size: the reader traverses at most the
+/// words the artifact contains, and the native model is at most [`MAX_DECODE_AMPLIFICATION`] times
+/// its byte length — an artifact that would exceed either is refused as a [`LoadError`] *before*
+/// the allocation, not after.
 pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
-    let mut prog = from_bytes(bytes).map_err(|e| LoadError::Decode(e.to_string()))?;
-    let mut report = LoadReport::default();
+    let (mut prog, mut report) =
+        decode_bytes(bytes).map_err(|e| LoadError::Decode(e.to_string()))?;
 
     // Duplicate stable ids break the identity invariant (DD-004): downstream `.find(|f| f.id == id)`
     // would silently pick the first and the rest become unreachable. Drop later duplicates, counted.
@@ -416,71 +390,17 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         let before = func.callees.len();
         func.callees.retain(|c| valid_ids.contains(&c.0));
         report.dropped_dangling_callees += before - func.callees.len();
-        if truncate_to(&mut func.name, MAX_STRING_LEN) {
-            report.truncated_strings += 1;
-        }
-        // EVERY engine-derived string is untrusted — a hostile/buggy producer can emit an absurd one
-        // in any field. Bound mnemonics AND ordered trigrams (the same instruction data), then the
-        // string refs / import names / callee names (DD-041, DD-043).
-        for (mnem, _) in func.mnemonics.iter_mut().chain(func.trigrams.iter_mut()) {
-            if truncate_to(mnem, MAX_STRING_LEN) {
-                report.truncated_strings += 1;
-            }
-        }
-        for s in func
-            .string_refs
-            .iter_mut()
-            .chain(func.imports.iter_mut())
-            .chain(func.callee_names.iter_mut())
-        {
-            if truncate_to(s, MAX_STRING_LEN) {
-                report.truncated_strings += 1;
-            }
-        }
-        // Per-edge provenance must describe a surviving callee edge; drop dangling entries (counted),
-        // then bound the untrusted producer string.
+        // Per-edge provenance must describe a surviving callee edge; drop dangling entries, counted.
         let callee_set: HashSet<StableId> = func.callees.iter().copied().collect();
         let ep_before = func.edge_provenance.len();
         func.edge_provenance
             .retain(|e| callee_set.contains(&e.target));
         report.dropped_dangling_edge_provenance += ep_before - func.edge_provenance.len();
-        for e in &mut func.edge_provenance {
-            if truncate_to(&mut e.provenance.producer, MAX_STRING_LEN) {
-                report.truncated_strings += 1;
-            }
-            e.provenance.confidence = e.provenance.confidence.min(100); // documented 0..=100
-        }
-    }
-
-    // The top-level program strings are untrusted too.
-    if truncate_to(&mut prog.name, MAX_STRING_LEN) {
-        report.truncated_strings += 1;
-    }
-    if truncate_to(&mut prog.language, MAX_STRING_LEN) {
-        report.truncated_strings += 1;
     }
 
     let before_facts = prog.facts.len();
     prog.facts.retain(|f| valid_ids.contains(&f.target.0));
     report.dropped_dangling_facts += before_facts - prog.facts.len();
-    for fact in &mut prog.facts {
-        let s = match &mut fact.kind {
-            FactKind::Rename(s) | FactKind::Retype(s) | FactKind::Comment(s) => s,
-        };
-        if truncate_to(s, MAX_STRING_LEN) {
-            report.truncated_strings += 1;
-        }
-        // The provenance producer and the author Principal are untrusted strings as well.
-        if truncate_to(&mut fact.provenance.producer, MAX_STRING_LEN) {
-            report.truncated_strings += 1;
-        }
-        fact.provenance.confidence = fact.provenance.confidence.min(100); // documented 0..=100
-        if let Some(author) = &mut fact.author {
-            if truncate_to(&mut author.0, MAX_STRING_LEN) {
-                report.truncated_strings += 1;
-            }
-        }
-    }
 
     Ok((prog, report))
 }
@@ -491,6 +411,13 @@ mod tests {
     use scylla_model::{
         EdgeProvenance, FactKind, Function, IdMinter, Program, Provenance, StableId, UserFact,
     };
+
+    /// Decode through the one public entry, asserting nothing had to be quarantined.
+    fn decode(bytes: &[u8]) -> Program {
+        let (prog, report) = load(bytes).expect("load");
+        assert!(report.clean(), "expected a clean load, got {report:?}");
+        prog
+    }
 
     fn sample() -> Program {
         let mut m = IdMinter::new();
@@ -544,7 +471,7 @@ mod tests {
     fn round_trips_through_capnp() {
         let prog = sample();
         let bytes = to_bytes(&prog);
-        let back = from_bytes(&bytes).expect("decode");
+        let back = decode(&bytes);
         assert_eq!(prog, back, "model artifact must round-trip losslessly");
     }
 
@@ -553,7 +480,7 @@ mod tests {
         let bytes = to_bytes(&sample());
         assert!(!bytes.is_empty());
         // A second decode of the same bytes is stable (cacheable artifact, DD-026).
-        assert_eq!(from_bytes(&bytes).unwrap(), from_bytes(&bytes).unwrap());
+        assert_eq!(decode(&bytes), decode(&bytes));
     }
 
     #[test]
@@ -568,7 +495,7 @@ mod tests {
             producer: "matcher:fuzzy".into(),
             confidence: 72,
         });
-        let back = from_bytes(&to_bytes(&prog)).expect("decode");
+        let back = decode(&to_bytes(&prog));
         assert_eq!(back.facts[0].provenance.producer, "engine");
         assert_eq!(back.facts[0].provenance.confidence, 95);
         assert_eq!(back.facts[1].provenance.producer, "matcher:fuzzy");
@@ -586,6 +513,10 @@ mod tests {
             let mut p = message.init_root::<model_capnp::program::Builder>();
             p.set_name("legacy");
             p.set_language("x86:LE:64:default");
+            let mut fns = p.reborrow().init_functions(1);
+            let mut fb = fns.reborrow().get(0);
+            fb.set_id(42); // the fact's target must resolve or the loader quarantines it
+            fb.set_name("FUN_42");
             let mut facts = p.reborrow().init_facts(1);
             let mut fb = facts.reborrow().get(0);
             fb.set_target(42);
@@ -597,7 +528,7 @@ mod tests {
         let mut bytes = Vec::new();
         capnp::serialize::write_message(&mut bytes, &message).unwrap();
 
-        let prog = from_bytes(&bytes).expect("decode legacy");
+        let prog = decode(&bytes);
         assert_eq!(prog.facts.len(), 1);
         assert_eq!(
             prog.facts[0].provenance,
@@ -628,7 +559,7 @@ mod tests {
                 confidence: 90,
             },
         });
-        let back = from_bytes(&to_bytes(&prog)).expect("decode");
+        let back = decode(&to_bytes(&prog));
         let main_back = back
             .functions
             .iter()
@@ -762,25 +693,244 @@ mod tests {
         assert!(load(&[]).is_err());
     }
 
+    // --- DD-036: the caps. A hostile writer is not the capnp builder (which cannot alias a pointer
+    // or declare a list it never wrote), so these artifacts are assembled word by word. ---
+
+    /// A single-segment artifact assembled from raw words.
+    struct Forge {
+        words: Vec<u64>,
+    }
+
+    impl Forge {
+        const VOID: u64 = 0;
+        const BYTE: u64 = 2;
+        const INLINE_COMPOSITE: u64 = 7;
+
+        fn push(&mut self, w: u64) -> usize {
+            self.words.push(w);
+            self.words.len() - 1
+        }
+
+        fn offset(at: usize, target: usize) -> u64 {
+            ((target as i64 - at as i64 - 1) as u32 & 0x3fff_ffff) as u64
+        }
+
+        /// A struct pointer at word `at` to a struct at `target` of `data` + `ptrs` words.
+        fn struct_ptr(at: usize, target: usize, data: u16, ptrs: u16) -> u64 {
+            (Self::offset(at, target) << 2) | ((data as u64) << 32) | ((ptrs as u64) << 48)
+        }
+
+        /// A list pointer at word `at` to `target`; `count` is the element count, or the word
+        /// count for an inline-composite list.
+        fn list_ptr(at: usize, target: usize, elem: u64, count: u64) -> u64 {
+            1 | (Self::offset(at, target) << 2) | (elem << 32) | (count << 35)
+        }
+
+        /// The tag word of an inline-composite list: a struct pointer whose offset is the count.
+        fn tag(count: u64, data: u16, ptrs: u16) -> u64 {
+            (count << 2) | ((data as u64) << 32) | ((ptrs as u64) << 48)
+        }
+
+        /// A Program root (0 data, 4 pointers: name, language, functions, facts). Returns the
+        /// forge and the word indices of the `functions` and `facts` pointers.
+        fn program() -> (Forge, usize, usize) {
+            let mut f = Forge { words: Vec::new() };
+            f.push(Forge::struct_ptr(0, 1, 0, 4));
+            f.push(0);
+            f.push(0);
+            let functions = f.push(0);
+            let facts = f.push(0);
+            (f, functions, facts)
+        }
+
+        fn bytes(&self) -> Vec<u8> {
+            let mut out = Vec::with_capacity(8 + self.words.len() * 8);
+            out.extend_from_slice(&0u32.to_le_bytes()); // segment count - 1
+            out.extend_from_slice(&(self.words.len() as u32).to_le_bytes());
+            for w in &self.words {
+                out.extend_from_slice(&w.to_le_bytes());
+            }
+            out
+        }
+    }
+
+    fn function_struct_size() -> (u16, u16) {
+        use capnp::traits::HasStructSize;
+        let s = <model_capnp::function::Builder<'_> as HasStructSize>::STRUCT_SIZE;
+        (s.data, s.pointers)
+    }
+
+    /// A functions list of `k` hand-laid Function structs (ids 1..=k, all other fields zero) whose
+    /// LAST pointer field (edgeProvenance, ordinal 13) is `alias`: `None` for null, or
+    /// `Some(m)` to point every function at ONE shared Byte list of `m` elements.
+    fn forge_functions(k: usize, alias: Option<usize>) -> Vec<u8> {
+        let (data, ptrs) = function_struct_size();
+        let (mut f, functions, _) = Forge::program();
+        let per = (data + ptrs) as usize;
+        let list = f.push(0);
+        f.words[functions] =
+            Forge::list_ptr(functions, list, Forge::INLINE_COMPOSITE, (k * per) as u64);
+        f.words[list] = Forge::tag(k as u64, data, ptrs);
+        let first = f.words.len();
+        for i in 0..k {
+            f.push(i as u64 + 1); // id
+            for _ in 1..per {
+                f.push(0);
+            }
+        }
+        if let Some(m) = alias {
+            let shared = f.words.len();
+            for _ in 0..m.div_ceil(8) {
+                f.push(0);
+            }
+            for i in 0..k {
+                let at = first + i * per + per - 1;
+                f.words[at] = Forge::list_ptr(at, shared, Forge::BYTE, m as u64);
+            }
+        }
+        f.bytes()
+    }
+
     #[test]
-    fn load_rejects_huge_declared_function_list_before_allocating() {
-        // Fuzz regression: a 92-byte Cap'n Proto-shaped artifact declared an enormous function list,
-        // which used to make from_bytes grow Vec<Function> until libFuzzer killed it for OOM.
-        let bytes = vec![
+    fn forged_artifacts_decode_when_honest() {
+        // Positive control for the forge: the hand-laid layout is a real artifact.
+        let prog = decode(&forge_functions(3, None));
+        assert_eq!(
+            prog.functions.iter().map(|f| f.id.0).collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+        assert!(prog.functions.iter().all(|f| f.edge_provenance.is_empty()));
+        // ...including one that points every function at a shared EMPTY list.
+        assert_eq!(decode(&forge_functions(3, Some(0))).functions.len(), 3);
+    }
+
+    #[test]
+    fn a_list_declaring_more_elements_than_the_artifact_has_words_is_refused() {
+        // Fuzz regression (oom-db65c11b…): a Void list costs nothing to declare, so a 92-byte
+        // artifact claimed 50,954,240 functions and the old loader grew a Vec until libFuzzer killed
+        // it. The reader's traversal limit is now the artifact's own word count, so any count past
+        // that is refused by capnp itself — before a single element is materialized.
+        for field in [0usize, 1] {
+            let (base, functions, facts) = Forge::program();
+            let at = [functions, facts][field];
+            let words = base.words.len() as u64 + 1;
+            for count in [words + 1, 1 << 20, 50_954_240, (1 << 29) - 1] {
+                let mut f = Forge {
+                    words: base.words.clone(),
+                };
+                let target = f.push(0);
+                f.words[at] = Forge::list_ptr(at, target, Forge::VOID, count);
+                assert!(
+                    matches!(load(&f.bytes()), Err(LoadError::Decode(_))),
+                    "field {field} declaring {count} elements must be refused"
+                );
+            }
+        }
+        // (A Void list the artifact CAN back is still refused, by the decode budget this time:
+        // zero encoded bytes per element is the amplification the budget exists for. The honest
+        // shape — an inline-composite list — is covered by `forged_artifacts_decode_when_honest`.)
+    }
+
+    #[test]
+    fn the_original_fuzz_fixture_is_refused() {
+        // fuzz/artifacts/artifact_loader/oom-db65c11bf5ad3496c3ae224351b058f4103d1cd4, verbatim.
+        let fixture: [u8; 92] = [
             0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x18, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
             0x00, 0x00, 0x00, 0x08, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+            0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
         ];
+        assert!(matches!(load(&fixture), Err(LoadError::Decode(_))));
+    }
+
+    #[test]
+    fn a_byte_list_read_as_a_struct_list_is_refused_by_the_decode_budget() {
+        // capnp admits a Byte list where a struct list is expected (each byte becomes a 1-byte
+        // struct), charging only its real words — so 4 KiB of bytes would materialize 4,096 native
+        // Functions (~1 MiB) from a ~4 KiB artifact. The decode budget refuses that BEFORE the Vec
+        // exists, with a message that depends only on policy.
+        let (mut f, functions, _) = Forge::program();
+        let target = f.words.len();
+        for _ in 0..512 {
+            f.push(0);
+        }
+        f.words[functions] = Forge::list_ptr(functions, target, Forge::BYTE, 4096);
+        let bytes = f.bytes();
         let Err(LoadError::Decode(err)) = load(&bytes) else {
-            panic!("hostile list length must be rejected as a typed decode error");
+            panic!("a byte-list-as-functions bomb must be refused");
         };
         assert!(
-            err.contains("decode cap"),
-            "hostile list length should trip a decode cap, got: {err}"
+            err.contains("decode budget"),
+            "budget error expected, got: {err}"
+        );
+        // Trailing padding changes the budget, not the verdict or the text heads forward verbatim.
+        let mut padded = bytes.clone();
+        padded.extend(std::iter::repeat_n(0u8, 4096));
+        assert_eq!(load(&padded), Err(LoadError::Decode(err)));
+    }
+
+    #[test]
+    fn aliased_nested_lists_are_refused() {
+        // Every function points its edgeProvenance at ONE shared 512-element Byte list. One read
+        // already breaks the decode budget (512 EdgeProvenance from 64 words); sixteen reads also
+        // break the traversal limit (each read is charged, and the artifact holds fewer words than
+        // the reads would traverse). Both routes end in a typed error, never an allocation.
+        for k in [1usize, 16] {
+            assert!(
+                matches!(
+                    load(&forge_functions(k, Some(512))),
+                    Err(LoadError::Decode(_))
+                ),
+                "{k} function(s) aliasing one 512-byte list must be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn densest_legitimate_artifact_fits_the_decode_budget() {
+        // The writer has no cap of its own because it needs none: the sparsest thing it can write
+        // (empty functions and empty facts — the highest native:encoded ratio the model has) still
+        // decodes well inside MAX_DECODE_AMPLIFICATION. If a model change ever breaks this, raise
+        // the factor (and this test), don't cap the writer.
+        let functions: Vec<Function> = (1..=4000u64)
+            .map(|i| Function {
+                id: StableId(i),
+                addr: 0,
+                name: String::new(),
+                size: 0,
+                bb_count: 0,
+                callees: vec![],
+                fingerprint: 0,
+                mnemonics: vec![],
+                trigrams: vec![],
+                string_refs: vec![],
+                imports: vec![],
+                callee_names: vec![],
+                bsim_vector: vec![],
+                edge_provenance: vec![],
+            })
+            .collect();
+        let facts = functions
+            .iter()
+            .map(|f| UserFact::new(f.id, FactKind::Comment(String::new())))
+            .collect();
+        let prog = Program {
+            name: String::new(),
+            language: String::new(),
+            functions,
+            facts,
+        };
+        let bytes = to_bytes(&prog);
+        assert_eq!(decode(&bytes), prog);
+        let native = prog.functions.len() * std::mem::size_of::<Function>()
+            + prog.facts.len() * std::mem::size_of::<UserFact>();
+        assert!(
+            native * 2 <= bytes.len() * MAX_DECODE_AMPLIFICATION,
+            "keep 2x headroom under the budget: {native} native bytes from {} encoded",
+            bytes.len()
         );
     }
 

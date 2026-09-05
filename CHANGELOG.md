@@ -9,6 +9,18 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+### Security
+
+- **The artifact loader's caps are now proportional to the artifact, not absolute (scylla-schema,
+  DD-036).** The nightly fuzz lane found a 92-byte artifact that declared 50 million functions and
+  OOMed the loader; per-list caps closed that one input but not the class (aliased nested lists,
+  Byte lists read as struct lists). The capnp traversal limit is now the artifact's own word count
+  (ceiling unchanged at 512 MiB), and one aggregate decode budget refuses any artifact whose native
+  model would exceed `MAX_DECODE_AMPLIFICATION` (8x) its byte length — charged before allocating.
+  Strings are bounded at decode time instead of after. Regression tests hand-forge the zero-size,
+  aliased, and Byte-list bombs and pin the original fuzz fixture; the decode-cap error text no
+  longer varies with trailing padding.
+
 ### Changed
 
 - **`scylla-mcp` now speaks MCP revision `2026-07-28` (the stateless revision).**
@@ -20,6 +32,9 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
   `resources/subscribe`. The `initialize` handshake is retained (now advertising
   `2025-06-18`) so pre-2026 clients still connect; a 2026 client discovers first
   and never reaches it. Verified against `mcp-conformance` 0.2.0 (17 contracts).
+
+- **`scylla_schema::from_bytes` is gone; `load` is the only entry.** `from_bytes` bypassed the
+  DD-036 quarantine and leaked `capnp::Error`. Callers get `(Program, LoadReport)` from `load`.
 
 ## [0.7.0] — 2026-07-01
 

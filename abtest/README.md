@@ -62,6 +62,11 @@ A function the engine itself reports two ways cannot be evidence for or against 
 There is no hand-written allowlist anywhere. If a new mismatch appears that the raw runs do not
 also show, it is a wrapper bug and the run says **DIFFERS**.
 
+Both engine findings are filed upstream on the fork: the Rust std nondeterminism as
+[GayHydra #473](https://github.com/CryptoJones/GayHydra/issues/473) and the Go 1.26
+`GolangSymbolAnalyzer` crash (stripped Go 1.26 loses every function name) as
+[GayHydra #474](https://github.com/CryptoJones/GayHydra/issues/474).
+
 ### Two wrapper bugs this harness caught (and that are now fixed)
 
 - **Space-qualified addresses (RISC-V and any non-default address space).** GayHydra prints an

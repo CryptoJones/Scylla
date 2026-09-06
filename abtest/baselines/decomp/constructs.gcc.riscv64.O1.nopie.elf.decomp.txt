@@ -1,0 +1,938 @@
+## LANGUAGE RISCV:LE:64:default / gcc
+## IMAGEBASE ram:00010000
+## FUNCTIONS 12
+
+==== FUNCTION ram:00010500 _start ====
+PROTO undefined _start()
+CCONV unknown
+---- DECOMP ----
+
+int _start(void)
+
+{
+  int iVar1;
+  undefined8 uVar2;
+  undefined8 argv;
+  undefined8 in_stack_00000000;
+  
+  gp = &__global_pointer_;
+  uVar2 = _PREINIT_0();
+  iVar1 = __libc_start_main(0x10522L, in_stack_00000000, &stack0x00000008, 0L, 0L, uVar2,
+                            &stack0x00000000);
+  ebreak();
+  iVar1 = main(iVar1, (char *(*))argv);
+  return iVar1;
+}
+
+---- ASM+PCODE ----
+ram:00010500: jal ra,0x00010524
+    (register, 0x2008, 8) COPY (const, 0x10504, 8)
+     ---  CALL (ram, 0x10524, 8)
+ram:00010504: c.mv a5,a0
+    (register, 0x2078, 8) COPY (register, 0x2050, 8)
+ram:00010506: auipc a0,0x0
+    (unique, 0x1300, 8) INT_LEFT (const, 0x0, 8) , (const, 0xc, 4)
+    (register, 0x2050, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x10506, 8)
+ram:0001050a: addi a0,a0,0x1c
+    (unique, 0xf00, 8) COPY (const, 0x1c, 8)
+    (register, 0x2050, 8) INT_ADD (register, 0x2050, 8) , (unique, 0xf00, 8)
+ram:0001050e: c.ldsp a1,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2058, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010510: c.addi4spn a2,sp,0x8
+    (unique, 0x2500, 8) COPY (const, 0x8, 8)
+    (register, 0x2060, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:00010512: andi sp,sp,-0x10
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_AND (register, 0x2010, 8) , (unique, 0xf00, 8)
+ram:00010516: c.li a3,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2068, 8) COPY (unique, 0x1d00, 8)
+ram:00010518: c.li a4,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2070, 8) COPY (unique, 0x1d00, 8)
+ram:0001051a: c.mv a6,sp
+    (register, 0x2080, 8) COPY (register, 0x2010, 8)
+ram:0001051c: jal ra,0x000104d0
+    (register, 0x2008, 8) COPY (const, 0x10520, 8)
+     ---  CALL (ram, 0x104d0, 8)
+ram:00010520: c.ebreak
+     ---  CALLOTHER (const, 0x2, 4)
+ram:00010522: c.j 0x00010790
+     ---  BRANCH (ram, 0x10790, 8)
+
+==== FUNCTION ram:00010524 _PREINIT_0 ====
+PROTO undefined _PREINIT_0()
+CCONV unknown
+---- DECOMP ----
+
+void _PREINIT_0(void)
+
+{
+  gp = &__global_pointer_;
+  return;
+}
+
+---- ASM+PCODE ----
+ram:00010524: auipc gp,0x2
+    (unique, 0x1300, 8) INT_LEFT (const, 0x2, 8) , (const, 0xc, 4)
+    (register, 0x2018, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x10524, 8)
+ram:00010528: addi gp,gp,0x2f4
+    (unique, 0xf00, 8) COPY (const, 0x2f4, 8)
+    (register, 0x2018, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+ram:0001052c: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:00010530 _dl_relocate_static_pie ====
+PROTO undefined _dl_relocate_static_pie()
+CCONV unknown
+---- DECOMP ----
+
+void _dl_relocate_static_pie(void)
+
+{
+  gp = &__global_pointer_;
+  return;
+}
+
+---- ASM+PCODE ----
+ram:00010530: c.addi sp,-0x10
+    (unique, 0x1d00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010532: c.sdsp s0,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:00010534: c.sdsp ra,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:00010536: c.addi4spn s0,sp,0x10
+    (unique, 0x2500, 8) COPY (const, 0x10, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:00010538: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001053a: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001053c: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:0001053e: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:00010540 deregister_tm_clones ====
+PROTO undefined deregister_tm_clones()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x00010554) */
+/* WARNING: Removing unreachable block (ram,0x0001055a) */
+
+void deregister_tm_clones(void)
+
+{
+  gp = &__global_pointer_;
+  return;
+}
+
+---- ASM+PCODE ----
+ram:00010540: c.addi sp,-0x10
+    (unique, 0x1d00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010542: c.sdsp s0,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:00010544: c.sdsp ra,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:00010546: c.addi4spn s0,sp,0x10
+    (unique, 0x2500, 8) COPY (const, 0x10, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:00010548: addi a0,gp,-0x7f8
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff808, 8)
+    (register, 0x2050, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+ram:0001054c: addi a5,gp,-0x7f8
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff808, 8)
+    (register, 0x2078, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+ram:00010550: beq a5,a0,0x00010562
+    (unique, 0x3e00, 1) INT_EQUAL (register, 0x2078, 8) , (register, 0x2050, 8)
+     ---  CBRANCH (ram, 0x10562, 8) , (unique, 0x3e00, 1)
+ram:00010554: mv a5,zero
+    (register, 0x2078, 8) COPY (const, 0x0, 8)
+ram:00010558: c.beqz a5,0x00010562
+    (unique, 0x2a600, 1) INT_EQUAL (register, 0x2078, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x10562, 8) , (unique, 0x2a600, 1)
+ram:0001055a: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001055c: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001055e: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010560: c.jr a5
+     ---  BRANCHIND (register, 0x2078, 8)
+ram:00010562: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010564: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010566: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010568: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:0001056a register_tm_clones ====
+PROTO undefined register_tm_clones()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x00010588) */
+/* WARNING: Removing unreachable block (ram,0x0001058e) */
+
+void register_tm_clones(void)
+
+{
+  gp = &__global_pointer_;
+  return;
+}
+
+---- ASM+PCODE ----
+ram:0001056a: addi a0,gp,-0x7f8
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff808, 8)
+    (register, 0x2050, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+ram:0001056e: addi a1,gp,-0x7f8
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff808, 8)
+    (register, 0x2058, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+ram:00010572: c.sub a1,a0
+    (register, 0x2058, 8) INT_SUB (register, 0x2058, 8) , (register, 0x2050, 8)
+ram:00010574: c.addi sp,-0x10
+    (unique, 0x1d00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010576: srai a5,a1,0x3
+    (unique, 0x1600, 8) COPY (const, 0x3, 8)
+    (register, 0x2078, 8) INT_SRIGHT (register, 0x2058, 8) , (unique, 0x1600, 8)
+ram:0001057a: c.srli a1,0x3f
+    (unique, 0x2000, 8) COPY (const, 0x3f, 8)
+    (register, 0x2058, 8) INT_RIGHT (register, 0x2058, 8) , (unique, 0x2000, 8)
+ram:0001057c: c.sdsp s0,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:0001057e: c.sdsp ra,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:00010580: c.addi4spn s0,sp,0x10
+    (unique, 0x2500, 8) COPY (const, 0x10, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:00010582: c.add a1,a5
+    (register, 0x2058, 8) INT_ADD (register, 0x2058, 8) , (register, 0x2078, 8)
+ram:00010584: c.srai a1,0x1
+    (unique, 0x2000, 8) COPY (const, 0x1, 8)
+    (register, 0x2058, 8) INT_SRIGHT (register, 0x2058, 8) , (unique, 0x2000, 8)
+ram:00010586: c.beqz a1,0x00010596
+    (unique, 0x2a600, 1) INT_EQUAL (register, 0x2058, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x10596, 8) , (unique, 0x2a600, 1)
+ram:00010588: mv a5,zero
+    (register, 0x2078, 8) COPY (const, 0x0, 8)
+ram:0001058c: c.beqz a5,0x00010596
+    (unique, 0x2a600, 1) INT_EQUAL (register, 0x2078, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x10596, 8) , (unique, 0x2a600, 1)
+ram:0001058e: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010590: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010592: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:00010594: c.jr a5
+     ---  BRANCHIND (register, 0x2078, 8)
+ram:00010596: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010598: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001059a: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:0001059c: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:0001059e __do_global_dtors_aux ====
+PROTO undefined __do_global_dtors_aux()
+CCONV unknown
+---- DECOMP ----
+
+void __do_global_dtors_aux(void)
+
+{
+  gp = &__global_pointer_;
+  if (completed_0 == '\0') {
+    deregister_tm_clones();
+    completed_0 = 1;
+    return;
+  }
+  return;
+}
+
+---- ASM+PCODE ----
+ram:0001059e: lbu a4,-0x7f0(gp)
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff810, 8)
+    (unique, 0x5b00, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+    (unique, 0x5c00, 1) LOAD (const, 0x1b1, 8) , (unique, 0x5b00, 8)
+    (register, 0x2070, 8) INT_ZEXT (unique, 0x5c00, 1)
+ram:000105a2: c.bnez a4,0x000105be
+    (unique, 0x2a700, 1) INT_NOTEQUAL (register, 0x2070, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x105be, 8) , (unique, 0x2a700, 1)
+ram:000105a4: c.addi sp,-0x10
+    (unique, 0x1d00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:000105a6: c.sdsp s0,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:000105a8: c.sdsp ra,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:000105aa: c.addi4spn s0,sp,0x10
+    (unique, 0x2500, 8) COPY (const, 0x10, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:000105ac: jal ra,0x00010540
+    (register, 0x2008, 8) COPY (const, 0x105b0, 8)
+     ---  CALL (ram, 0x10540, 8)
+ram:000105b0: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105b2: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105b4: c.li a4,0x1
+    (unique, 0x1d00, 8) COPY (const, 0x1, 8)
+    (register, 0x2070, 8) COPY (unique, 0x1d00, 8)
+ram:000105b6: sb a4,-0x7f0(gp)
+    (unique, 0x1000, 8) COPY (const, 0xfffffffffffff810, 8)
+    (unique, 0x6c00, 8) INT_ADD (register, 0x2018, 8) , (unique, 0x1000, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x6c00, 8) , (register, 0x2070, 1)
+ram:000105ba: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:000105bc: ret
+     ---  RETURN (register, 0x2008, 8)
+ram:000105be: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:000105c0 frame_dummy ====
+PROTO undefined frame_dummy()
+CCONV unknown
+---- DECOMP ----
+
+void frame_dummy(void)
+
+{
+  gp = &__global_pointer_;
+  register_tm_clones();
+  return;
+}
+
+---- ASM+PCODE ----
+ram:000105c0: c.addi sp,-0x10
+    (unique, 0x1d00, 8) COPY (const, 0xfffffffffffffff0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:000105c2: c.sdsp s0,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:000105c4: c.sdsp ra,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:000105c6: c.addi4spn s0,sp,0x10
+    (unique, 0x2500, 8) COPY (const, 0x10, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:000105c8: c.ldsp s0,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105ca: c.ldsp ra,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105cc: c.addi sp,0x10
+    (unique, 0x1d00, 8) COPY (const, 0x10, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:000105ce: c.j 0x0001056a
+     ---  BRANCH (ram, 0x1056a, 8)
+
+==== FUNCTION ram:000105d0 recurse ====
+PROTO long recurse(long n)
+CCONV __stdcall
+---- DECOMP ----
+
+long recurse(long n)
+
+{
+  long lVar1;
+  long lVar2;
+  
+  gp = &__global_pointer_;
+  if (1L < n) {
+    lVar1 = recurse(n - 1L);
+    lVar2 = recurse(n - 2L);
+    n = lVar1 + lVar2;
+  }
+  return n;
+}
+
+---- ASM+PCODE ----
+ram:000105d0: c.addi sp,-0x20
+    (unique, 0x1d00, 8) COPY (const, 0xffffffffffffffe0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x1d00, 8)
+ram:000105d2: c.sdsp ra,0x18(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:000105d4: c.sdsp s0,0x10(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x10, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:000105d6: c.mv s0,a0
+    (register, 0x2040, 8) COPY (register, 0x2050, 8)
+ram:000105d8: c.li a5,0x1
+    (unique, 0x1d00, 8) COPY (const, 0x1, 8)
+    (register, 0x2078, 8) COPY (unique, 0x1d00, 8)
+ram:000105da: blt a5,a0,0x000105e8
+    (unique, 0x4100, 1) INT_SLESS (register, 0x2078, 8) , (register, 0x2050, 8)
+     ---  CBRANCH (ram, 0x105e8, 8) , (unique, 0x4100, 1)
+ram:000105de: c.mv a0,s0
+    (register, 0x2050, 8) COPY (register, 0x2040, 8)
+ram:000105e0: c.ldsp ra,0x18(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105e2: c.ldsp s0,0x10(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x10, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000105e4: c.addi16sp sp,0x20
+    (unique, 0x2600, 8) COPY (const, 0x20, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:000105e6: ret
+     ---  RETURN (register, 0x2008, 8)
+ram:000105e8: c.sdsp s1,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2048, 8)
+ram:000105ea: c.addi a0,-0x1
+    (unique, 0x1d00, 8) COPY (const, 0xffffffffffffffff, 8)
+    (register, 0x2050, 8) INT_ADD (register, 0x2050, 8) , (unique, 0x1d00, 8)
+ram:000105ec: jal ra,0x000105d0
+    (register, 0x2008, 8) COPY (const, 0x105f0, 8)
+     ---  CALL (ram, 0x105d0, 8)
+ram:000105f0: c.mv s1,a0
+    (register, 0x2048, 8) COPY (register, 0x2050, 8)
+ram:000105f2: addi a0,s0,-0x2
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffffffe, 8)
+    (register, 0x2050, 8) INT_ADD (register, 0x2040, 8) , (unique, 0xf00, 8)
+ram:000105f6: jal ra,0x000105d0
+    (register, 0x2008, 8) COPY (const, 0x105fa, 8)
+     ---  CALL (ram, 0x105d0, 8)
+ram:000105fa: add s0,s1,a0
+    (register, 0x2040, 8) INT_ADD (register, 0x2048, 8) , (register, 0x2050, 8)
+ram:000105fe: c.ldsp s1,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2048, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010600: c.j 0x000105de
+     ---  BRANCH (ram, 0x105de, 8)
+
+==== FUNCTION ram:00010602 dbl ====
+PROTO int dbl(int x)
+CCONV __stdcall
+---- DECOMP ----
+
+int dbl(int x)
+
+{
+  gp = &__global_pointer_;
+  return x << 1L;
+}
+
+---- ASM+PCODE ----
+ram:00010602: slliw a0,a0,0x1
+    (unique, 0x1500, 8) COPY (const, 0x1, 8)
+    (unique, 0x1b600, 4) COPY (register, 0x2050, 4)
+    (unique, 0x1b600, 4) INT_LEFT (unique, 0x1b600, 4) , (unique, 0x1500, 8)
+    (register, 0x2050, 8) INT_SEXT (unique, 0x1b600, 4)
+ram:00010606: ret
+     ---  RETURN (register, 0x2008, 8)
+
+==== FUNCTION ram:00010608 sum_va ====
+PROTO long sum_va(int n, ...)
+CCONV __stdcall
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x00010664) */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+long sum_va(int n, ...)
+
+{
+  long lVar1;
+  ulong uVar2;
+  int *local_60;
+  va_list ap;
+  int local_38 [14];
+  
+                    /* Unresolved local var: long t@[???] */
+  gp = &__global_pointer_;
+                    /* Unresolved local var: int i@[???] */
+  if ((ulong)(uint)n == 0L) {
+    lVar1 = 0L;
+  }
+  else {
+    uVar2 = 0L;
+    lVar1 = 0L;
+    local_60 = local_38;
+    do {
+      lVar1 = lVar1 + *local_60;
+      uVar2 = (ulong)((int)uVar2 + 1);
+      local_60 = local_60 + 2L;
+    } while ((uint)n != uVar2);
+  }
+  return lVar1;
+}
+
+---- ASM+PCODE ----
+ram:00010608: c.addi16sp sp,-0x60
+    (unique, 0x2600, 8) COPY (const, 0xffffffffffffffa0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:0001060a: c.sdsp ra,0x18(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:0001060c: c.sdsp a1,0x28(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x28, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2058, 8)
+ram:0001060e: c.sdsp a2,0x30(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x30, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2060, 8)
+ram:00010610: c.sdsp a3,0x38(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x38, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2068, 8)
+ram:00010612: c.sdsp a4,0x40(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x40, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2070, 8)
+ram:00010614: c.sdsp a5,0x48(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x48, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2078, 8)
+ram:00010616: c.sdsp a6,0x50(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x50, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2080, 8)
+ram:00010618: c.sdsp a7,0x58(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x58, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2088, 8)
+ram:0001061a: auipc a5,0x2
+    (unique, 0x1300, 8) INT_LEFT (const, 0x2, 8) , (const, 0xc, 4)
+    (register, 0x2078, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x1061a, 8)
+ram:0001061e: ld a5,-0x632(a5)
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff9ce, 8)
+    (unique, 0x1ae00, 8) INT_ADD (register, 0x2078, 8) , (unique, 0xf00, 8)
+    (register, 0x2078, 8) LOAD (const, 0x1b1, 8) , (unique, 0x1ae00, 8)
+ram:00010622: c.ld a4,0x0(a5)
+    (unique, 0x2a00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b300, 8) INT_ADD (unique, 0x2a00, 8) , (register, 0x2078, 8)
+    (register, 0x2070, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b300, 8)
+ram:00010624: c.sdsp a4,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2070, 8)
+ram:00010626: c.li a4,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2070, 8) COPY (unique, 0x1d00, 8)
+ram:00010628: c.addi4spn a5,sp,0x28
+    (unique, 0x2500, 8) COPY (const, 0x28, 8)
+    (register, 0x2078, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2500, 8)
+ram:0001062a: c.sdsp a5,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2078, 8)
+ram:0001062c: bge zero,a0,0x00010660
+    (unique, 0x3f00, 1) INT_SLESSEQUAL (register, 0x2050, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x10660, 8) , (unique, 0x3f00, 1)
+ram:00010630: c.mv t1,a0
+    (register, 0x2030, 8) COPY (register, 0x2050, 8)
+ram:00010632: c.li a5,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2078, 8) COPY (unique, 0x1d00, 8)
+ram:00010634: c.li a0,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2050, 8) COPY (unique, 0x1d00, 8)
+ram:00010636: c.ldsp a4,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2070, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010638: addi a3,a4,0x8
+    (unique, 0xf00, 8) COPY (const, 0x8, 8)
+    (register, 0x2068, 8) INT_ADD (register, 0x2070, 8) , (unique, 0xf00, 8)
+ram:0001063c: c.sdsp a3,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2068, 8)
+ram:0001063e: c.lw a4,0x0(a4)
+    (unique, 0x2700, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b900, 8) INT_ADD (unique, 0x2700, 8) , (register, 0x2070, 8)
+    (unique, 0x2ba00, 4) LOAD (const, 0x1b1, 8) , (unique, 0x2b900, 8)
+    (register, 0x2070, 8) INT_SEXT (unique, 0x2ba00, 4)
+ram:00010640: c.add a0,a4
+    (register, 0x2050, 8) INT_ADD (register, 0x2050, 8) , (register, 0x2070, 8)
+ram:00010642: c.addiw a5,0x1
+    (unique, 0x1d00, 8) COPY (const, 0x1, 8)
+    (unique, 0x29f00, 8) INT_ADD (register, 0x2078, 8) , (unique, 0x1d00, 8)
+    (register, 0x2078, 8) INT_SEXT (unique, 0x29f00, 4)
+ram:00010644: bne t1,a5,0x00010636
+    (unique, 0x4300, 1) INT_NOTEQUAL (register, 0x2030, 8) , (register, 0x2078, 8)
+     ---  CBRANCH (ram, 0x10636, 8) , (unique, 0x4300, 1)
+ram:00010648: auipc a5,0x2
+    (unique, 0x1300, 8) INT_LEFT (const, 0x2, 8) , (const, 0xc, 4)
+    (register, 0x2078, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x10648, 8)
+ram:0001064c: ld a5,-0x660(a5)
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff9a0, 8)
+    (unique, 0x1ae00, 8) INT_ADD (register, 0x2078, 8) , (unique, 0xf00, 8)
+    (register, 0x2078, 8) LOAD (const, 0x1b1, 8) , (unique, 0x1ae00, 8)
+ram:00010650: c.ldsp a4,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2070, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010652: c.ld a5,0x0(a5)
+    (unique, 0x2a00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b300, 8) INT_ADD (unique, 0x2a00, 8) , (register, 0x2078, 8)
+    (register, 0x2078, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b300, 8)
+ram:00010654: c.xor a5,a4
+    (register, 0x2078, 8) INT_XOR (register, 0x2078, 8) , (register, 0x2070, 8)
+ram:00010656: c.li a4,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2070, 8) COPY (unique, 0x1d00, 8)
+ram:00010658: c.bnez a5,0x00010664
+    (unique, 0x2a700, 1) INT_NOTEQUAL (register, 0x2078, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x10664, 8) , (unique, 0x2a700, 1)
+ram:0001065a: c.ldsp ra,0x18(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:0001065c: c.addi16sp sp,0x60
+    (unique, 0x2600, 8) COPY (const, 0x60, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:0001065e: ret
+     ---  RETURN (register, 0x2008, 8)
+ram:00010660: c.li a0,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2050, 8) COPY (unique, 0x1d00, 8)
+ram:00010662: c.j 0x00010648
+     ---  BRANCH (ram, 0x10648, 8)
+ram:00010664: jal ra,0x000104f0
+    (register, 0x2008, 8) COPY (const, 0x10668, 8)
+     ---  CALL (ram, 0x104f0, 8)
+
+==== FUNCTION ram:00010668 compute ====
+PROTO int compute(int seed)
+CCONV __stdcall
+---- DECOMP ----
+
+/* WARNING: Control flow encountered unimplemented instructions */
+
+int compute(int seed)
+
+{
+                    /* Unresolved local var: point p@[???]
+                       Unresolved local var: packed u@[???]
+                       Unresolved local var: flags f@[???]
+                       Unresolved local var: long r@[???] */
+  gp = &__global_pointer_;
+  recurse(0xcL);
+                    /* WARNING: Unimplemented instruction - Truncating control flow here */
+  halt_unimplemented();
+}
+
+---- ASM+PCODE ----
+ram:00010668: c.addi16sp sp,-0x30
+    (unique, 0x2600, 8) COPY (const, 0xffffffffffffffd0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:0001066a: c.sdsp ra,0x28(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x28, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:0001066c: c.sdsp s0,0x20(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x20, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:0001066e: c.sdsp s1,0x18(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2048, 8)
+ram:00010670: c.sdsp s2,0x10(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x10, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2090, 8)
+ram:00010672: c.sdsp s3,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2098, 8)
+ram:00010674: c.sdsp s4,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x20a0, 8)
+ram:00010676: c.mv s1,a0
+    (register, 0x2048, 8) COPY (register, 0x2050, 8)
+ram:00010678: slliw s0,a0,0x1
+    (unique, 0x1500, 8) COPY (const, 0x1, 8)
+    (unique, 0x1b600, 4) COPY (register, 0x2050, 4)
+    (unique, 0x1b600, 4) INT_LEFT (unique, 0x1b600, 4) , (unique, 0x1500, 8)
+    (register, 0x2040, 8) INT_SEXT (unique, 0x1b600, 4)
+ram:0001067c: c.addw s0,a0
+    (unique, 0x2a200, 4) INT_ADD (register, 0x2040, 4) , (register, 0x2050, 4)
+    (register, 0x2040, 8) INT_SEXT (unique, 0x2a200, 4)
+ram:0001067e: lui s3,0x9e378
+    (unique, 0x1300, 8) INT_LEFT (const, 0xfffffffffff9e378, 8) , (const, 0xc, 4)
+    (register, 0x2098, 8) COPY (unique, 0x1300, 8)
+ram:00010682: addiw s3,s3,-0x64f
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff9b1, 8)
+    (unique, 0x1a200, 8) INT_ADD (register, 0x2098, 8) , (unique, 0xf00, 8)
+    (unique, 0x1a300, 4) SUBPIECE (unique, 0x1a200, 8) , (const, 0x0, 4)
+    (register, 0x2098, 8) INT_SEXT (unique, 0x1a300, 4)
+ram:00010686: mulw s3,a0,s3
+    (unique, 0x21100, 4) INT_MULT (register, 0x2050, 4) , (register, 0x2098, 4)
+    (register, 0x2098, 8) INT_SEXT (unique, 0x21100, 4)
+ram:0001068a: c.li a0,0xc
+    (unique, 0x1d00, 8) COPY (const, 0xc, 8)
+    (register, 0x2050, 8) COPY (unique, 0x1d00, 8)
+ram:0001068c: jal ra,0x000105d0
+    (register, 0x2008, 8) COPY (const, 0x10690, 8)
+     ---  CALL (ram, 0x105d0, 8)
+ram:00010690: andi s2,s1,0x7
+    (unique, 0xf00, 8) COPY (const, 0x7, 8)
+    (register, 0x2090, 8) INT_AND (register, 0x2048, 8) , (unique, 0xf00, 8)
+ram:00010694: auipc a4,0x0
+    (unique, 0x1300, 8) INT_LEFT (const, 0x0, 8) , (const, 0xc, 4)
+    (register, 0x2070, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x10694, 8)
+ram:00010698: addi a4,a4,0x190
+    (unique, 0xf00, 8) COPY (const, 0x190, 8)
+    (register, 0x2070, 8) INT_ADD (register, 0x2070, 8) , (unique, 0xf00, 8)
+ram:0001069c: sh2add a5,s2,a4
+     ---  UNIMPLEMENTED 
+ram:000106a0: c.lw a5,0x0(a5)
+    (unique, 0x2700, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b900, 8) INT_ADD (unique, 0x2700, 8) , (register, 0x2078, 8)
+    (unique, 0x2ba00, 4) LOAD (const, 0x1b1, 8) , (unique, 0x2b900, 8)
+    (register, 0x2078, 8) INT_SEXT (unique, 0x2ba00, 4)
+ram:000106a2: c.add a5,a4
+    (register, 0x2078, 8) INT_ADD (register, 0x2078, 8) , (register, 0x2070, 8)
+ram:000106a4: c.jr a5
+     ---  BRANCHIND (register, 0x2078, 8)
+
+==== FUNCTION ram:00010790 main ====
+PROTO int main(int argc, char * * argv)
+CCONV __stdcall
+---- DECOMP ----
+
+/* WARNING: Control flow encountered unimplemented instructions */
+
+int main(int argc, char *(*argv))
+
+{
+                    /* Unresolved local var: int acc@[???] */
+  gp = &__global_pointer_;
+                    /* Unresolved local var: int i@[???] */
+  if (1 < (uint)argc) {
+                    /* WARNING: Unimplemented instruction - Truncating control flow here */
+    halt_unimplemented();
+  }
+  __printf_chk(2L, "acc=%d counter=%d accum=%ld\n", 0L, (long)g_counter, s_accum);
+  return 0;
+}
+
+---- ASM+PCODE ----
+ram:00010790: c.addi16sp sp,-0x30
+    (unique, 0x2600, 8) COPY (const, 0xffffffffffffffd0, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:00010792: c.sdsp ra,0x28(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x28, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2008, 8)
+ram:00010794: c.sdsp s3,0x8(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2098, 8)
+ram:00010796: c.li a5,0x1
+    (unique, 0x1d00, 8) COPY (const, 0x1, 8)
+    (register, 0x2078, 8) COPY (unique, 0x1d00, 8)
+ram:00010798: bge a5,a0,0x00010816
+    (unique, 0x3f00, 1) INT_SLESSEQUAL (register, 0x2050, 8) , (register, 0x2078, 8)
+     ---  CBRANCH (ram, 0x10816, 8) , (unique, 0x3f00, 1)
+ram:0001079c: c.sdsp s0,0x20(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x20, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2040, 8)
+ram:0001079e: c.sdsp s1,0x18(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2048, 8)
+ram:000107a0: c.sdsp s2,0x10(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x10, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x2090, 8)
+ram:000107a2: c.sdsp s4,0x0(sp)
+    (unique, 0x2c00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2c200, 8) INT_ADD (unique, 0x2c00, 8) , (register, 0x2010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x2c200, 8) , (register, 0x20a0, 8)
+ram:000107a4: c.mv s4,a0
+    (register, 0x20a0, 8) COPY (register, 0x2050, 8)
+ram:000107a6: addi s0,a1,0x8
+    (unique, 0xf00, 8) COPY (const, 0x8, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2058, 8) , (unique, 0xf00, 8)
+ram:000107aa: c.mv s1,a5
+    (register, 0x2048, 8) COPY (register, 0x2078, 8)
+ram:000107ac: c.li s3,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2098, 8) COPY (unique, 0x1d00, 8)
+ram:000107ae: c.ld a3,0x0(s0)
+    (unique, 0x2a00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b300, 8) INT_ADD (unique, 0x2a00, 8) , (register, 0x2040, 8)
+    (register, 0x2068, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b300, 8)
+ram:000107b0: c.li a4,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2070, 8) COPY (unique, 0x1d00, 8)
+ram:000107b2: c.mv a5,a3
+    (register, 0x2078, 8) COPY (register, 0x2068, 8)
+ram:000107b4: c.add a5,a4
+    (register, 0x2078, 8) INT_ADD (register, 0x2078, 8) , (register, 0x2070, 8)
+ram:000107b6: vsetvli s2,zero,0xc0
+     ---  UNIMPLEMENTED 
+ram:000107ba: vle8ff.v v1,(a5) 
+     ---  UNIMPLEMENTED 
+ram:000107be: csrr a4,0x0c20
+    (register, 0x2070, 8) COPY (csreg, 0x6100, 8)
+ram:000107c2: vmseq.vi v1,v1,0x0 
+     ---  UNIMPLEMENTED 
+ram:000107c6: vfirst.m a2,v1 
+     ---  UNIMPLEMENTED 
+ram:000107ca: blt a2,zero,0x000107b4
+    (unique, 0x4100, 1) INT_SLESS (register, 0x2060, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0x107b4, 8) , (unique, 0x4100, 1)
+ram:000107ce: c.add a5,a2
+    (register, 0x2078, 8) INT_ADD (register, 0x2078, 8) , (register, 0x2060, 8)
+ram:000107d0: c.sub a5,a3
+    (register, 0x2078, 8) INT_SUB (register, 0x2078, 8) , (register, 0x2068, 8)
+ram:000107d2: addw a0,a5,s1
+    (unique, 0x1ab00, 4) INT_ADD (register, 0x2078, 4) , (register, 0x2048, 4)
+    (register, 0x2050, 8) INT_SEXT (unique, 0x1ab00, 4)
+ram:000107d6: jal ra,0x00010668
+    (register, 0x2008, 8) COPY (const, 0x107da, 8)
+     ---  CALL (ram, 0x10668, 8)
+ram:000107da: addw s3,a0,s3
+    (unique, 0x1ab00, 4) INT_ADD (register, 0x2050, 4) , (register, 0x2098, 4)
+    (register, 0x2098, 8) INT_SEXT (unique, 0x1ab00, 4)
+ram:000107de: c.addiw s1,0x1
+    (unique, 0x1d00, 8) COPY (const, 0x1, 8)
+    (unique, 0x29f00, 8) INT_ADD (register, 0x2048, 8) , (unique, 0x1d00, 8)
+    (register, 0x2048, 8) INT_SEXT (unique, 0x29f00, 4)
+ram:000107e0: c.addi s0,0x8
+    (unique, 0x1d00, 8) COPY (const, 0x8, 8)
+    (register, 0x2040, 8) INT_ADD (register, 0x2040, 8) , (unique, 0x1d00, 8)
+ram:000107e2: bne s4,s1,0x000107ae
+    (unique, 0x4300, 1) INT_NOTEQUAL (register, 0x20a0, 8) , (register, 0x2048, 8)
+     ---  CBRANCH (ram, 0x107ae, 8) , (unique, 0x4300, 1)
+ram:000107e6: c.ldsp s0,0x20(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x20, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2040, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000107e8: c.ldsp s1,0x18(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x18, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2048, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000107ea: c.ldsp s2,0x10(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x10, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2090, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000107ec: c.ldsp s4,0x0(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x0, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x20a0, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:000107ee: ld a4,-0x7e8(gp)
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff818, 8)
+    (unique, 0x1ae00, 8) INT_ADD (register, 0x2018, 8) , (unique, 0xf00, 8)
+    (register, 0x2070, 8) LOAD (const, 0x1b1, 8) , (unique, 0x1ae00, 8)
+ram:000107f2: auipc a3,0x2
+    (unique, 0x1300, 8) INT_LEFT (const, 0x2, 8) , (const, 0xc, 4)
+    (register, 0x2068, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x107f2, 8)
+ram:000107f6: lw a3,-0x7da(a3)
+    (unique, 0xf00, 8) COPY (const, 0xfffffffffffff826, 8)
+    (unique, 0x6700, 8) INT_ADD (register, 0x2068, 8) , (unique, 0xf00, 8)
+    (unique, 0x6800, 4) LOAD (const, 0x1b1, 8) , (unique, 0x6700, 8)
+    (register, 0x2068, 8) INT_SEXT (unique, 0x6800, 4)
+ram:000107fa: c.mv a2,s3
+    (register, 0x2060, 8) COPY (register, 0x2098, 8)
+ram:000107fc: auipc a1,0x0
+    (unique, 0x1300, 8) INT_LEFT (const, 0x0, 8) , (const, 0xc, 4)
+    (register, 0x2058, 8) INT_ADD (unique, 0x1300, 8) , (const, 0x107fc, 8)
+ram:00010800: addi a1,a1,0x4c
+    (unique, 0xf00, 8) COPY (const, 0x4c, 8)
+    (register, 0x2058, 8) INT_ADD (register, 0x2058, 8) , (unique, 0xf00, 8)
+ram:00010804: c.li a0,0x2
+    (unique, 0x1d00, 8) COPY (const, 0x2, 8)
+    (register, 0x2050, 8) COPY (unique, 0x1d00, 8)
+ram:00010806: jal ra,0x000104e0
+    (register, 0x2008, 8) COPY (const, 0x1080a, 8)
+     ---  CALL (ram, 0x104e0, 8)
+ram:0001080a: andi a0,s3,0xff
+    (unique, 0xf00, 8) COPY (const, 0xff, 8)
+    (register, 0x2050, 8) INT_AND (register, 0x2098, 8) , (unique, 0xf00, 8)
+ram:0001080e: c.ldsp ra,0x28(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x28, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2008, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010810: c.ldsp s3,0x8(sp)
+    (unique, 0x2b00, 8) COPY (const, 0x8, 8)
+    (unique, 0x2b600, 8) INT_ADD (unique, 0x2b00, 8) , (register, 0x2010, 8)
+    (register, 0x2098, 8) LOAD (const, 0x1b1, 8) , (unique, 0x2b600, 8)
+ram:00010812: c.addi16sp sp,0x30
+    (unique, 0x2600, 8) COPY (const, 0x30, 8)
+    (register, 0x2010, 8) INT_ADD (register, 0x2010, 8) , (unique, 0x2600, 8)
+ram:00010814: ret
+     ---  RETURN (register, 0x2008, 8)
+ram:00010816: c.li s3,0x0
+    (unique, 0x1d00, 8) COPY (const, 0x0, 8)
+    (register, 0x2098, 8) COPY (unique, 0x1d00, 8)
+ram:00010818: c.j 0x000107ee
+     ---  BRANCH (ram, 0x107ee, 8)

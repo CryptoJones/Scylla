@@ -52,6 +52,10 @@ struct Snapshot {
 /// caller must not conflate an unparseable address with the real address `0`.
 fn parse_addr(s: &str) -> Option<u64> {
     let t = s.trim();
+    // Ghidra prints an address in a NON-default space space-qualified, e.g. RISC-V emits
+    // `ram:00010500` where x86 emits a bare `00401156`. Both name the same numeric offset; take the
+    // part after the last `:` so the two forms parse identically (the engine-service does the same).
+    let t = t.rsplit(':').next().unwrap_or(t);
     let t = t
         .strip_prefix("0x")
         .or_else(|| t.strip_prefix("0X"))
@@ -128,6 +132,17 @@ mod tests {
 
     // A real engine headless snapshot (committed under prototype/snapshots/).
     const MATHLIB: &str = include_str!("../../../prototype/snapshots/mathlib.x86-64.O0.json");
+
+    #[test]
+    fn parse_addr_handles_space_qualified_and_bare() {
+        // RISC-V (and other non-default spaces) print `ram:00010500`; x86 prints a bare `00401156`.
+        // Both must parse to the same numeric offset (the engine-service does the same normalization).
+        assert_eq!(parse_addr("ram:00010500"), Some(0x10500));
+        assert_eq!(parse_addr("00401156"), Some(0x401156));
+        assert_eq!(parse_addr("0x401156"), Some(0x401156));
+        assert_eq!(parse_addr("ram:0x10500"), Some(0x10500));
+        assert_eq!(parse_addr("not-hex"), None);
+    }
 
     #[test]
     fn ingests_a_real_headless_snapshot() {

@@ -58,6 +58,20 @@ A function the engine itself reports two ways cannot be evidence for or against 
 There is no hand-written allowlist anywhere. If a new mismatch appears that the raw runs do not
 also show, it is a wrapper bug and the run says **DIFFERS**.
 
+### Two wrapper bugs this harness caught (and that are now fixed)
+
+- **Space-qualified addresses (RISC-V and any non-default address space).** GayHydra prints an
+  address in a non-default space as `ram:00010500`, but the default space as a bare `00401156`. The
+  two legs handled that string *differently*: the Rust snapshot ingest silently coerced it to
+  address 0 (all functions colliding), while the engine-service Java hard-failed parsing it — so
+  riscv64 was inside-fail / outside-silently-wrong. Both legs now strip the `space:` prefix before
+  the hex parse (`scylla_ingest::parse_addr`, `EngineServer.parseAddr`), and riscv64 reaches parity.
+- **Concurrent cold materialization raced GayHydra's first-launch JDK save.** Two cold
+  `analyzeHeadless` launches in a fresh sandbox both tried to create
+  `$HOME/.config/gayhydra/<version>/` and one died ("no TTY detected"). The engine-service now warms
+  the launcher once at startup (`EngineServer.warmLauncher`), establishing the settings dir serially,
+  so `SCYLLA_ENGINE_COLD_CONCURRENCY` > 1 (the harness's `INSIDE_JOBS`) is safe.
+
 ## Re-running
 
 ```sh
@@ -86,21 +100,32 @@ when the engine dist or the snapshot schema changes on purpose.
 
 ## The corpus (`corpus/`)
 
-Same small programs, four toolchains, two optimization levels, stripped variants (the stripped
-builds prove the wrapper is faithful when the engine has *no* names to lean on):
+Same small programs, **many toolchains, architectures, optimization levels, PIE and stripping** —
+breadth of engine behaviour, not program size. The engine analyzes every architecture statically on
+this x86-64 host, so cross-built ELFs are first-class corpus members (no native hardware needed).
+`corpus/build.sh` regenerates `corpus/bin/` deterministically (fixed `SOURCE_DATE_EPOCH`, no
+build-id, trimmed paths); the binaries themselves are **git-ignored** (reproducible) — only the
+sources, the build script, and a representative committed baseline set live in the repo.
 
-| toolchain | source | builds |
-|-----------|--------|--------|
-| C (gcc)   | `prototype/corpus/src/mathlib.c`, `strutil.c` | x86-64 + i386 × O0/O2, stripped O2 |
-| C++ (g++) | `prototype/corpus/src/shapes.cpp` (vtables, mangling) | x86-64 O0/O2, stripped O2 |
-| Go        | `prototype/corpus/src/gomath.go` | go1.22.0 amd64 O0 (`-N -l`) / O2 / stripped (`-s -w`); one go1.26 O2 (see report) |
-| Rust      | `corpus/src/rustmath.rs` (mathlib's call graph + a trait object) | x86-64 opt-level 0/2, stripped 2 |
+| language | programs | toolchains | architectures | axes |
+|----------|----------|-----------|---------------|------|
+| C   | mathlib, mathlib_v2, strutil, constructs, floats | gcc, clang | x86-64, i386, aarch64, armhf, riscv64, ppc64le | O0/O1/O2/O3/Os/Og/Ofast x pie/nopie x strip |
+| C++ | shapes, shapes_eh (vtables, EH, templates) | g++, clang++ | x86-64, aarch64 | same as C |
+| Go  | gomath, gostr | go1.22 (+ one go1.26) | amd64, arm64, arm, 386, ppc64le, riscv64 | O0 (`-N -l`) / O2 x strip |
+| Rust | rustmath, ruststr | rustc | x86-64, aarch64 | opt 0/1/2/3/s/z x panic unwind/abort x strip |
 
-`corpus/build.sh` regenerates `corpus/bin/` (deterministic where the toolchain allows: fixed
-`SOURCE_DATE_EPOCH`, no build-id, trimmed paths). The C/C++/Go sources are reused from
-`prototype/corpus/src` — one source of truth; the Rust sample is the only new source.
+**k >= 1024** — the matrix is over 1300 binaries across ten engine-supported architectures. Cross
+toolchains: `gcc-aarch64-linux-gnu` / `g++-aarch64-linux-gnu`, `gcc-arm-linux-gnueabihf`,
+`gcc-riscv64-linux-gnu`, `gcc-powerpc64le-linux-gnu`, the `aarch64-unknown-linux-gnu` Rust target,
+and Go's built-in `GOARCH` cross-compilation. Notes on the edges: **s390x is excluded** (GayHydra
+26.3 ships no SLEIGH/loader spec for it — both legs fail to load identically, so it is not an A/B
+candidate); **32-bit C++ is absent** (`g++-multilib` conflicts with the aarch64 cross gcc on Ubuntu;
+32-bit C is covered); a few `floats.clang.i386` builds skip (`__uint128_t` is unsupported on 32-bit
+clang). The full, current counts and the per-toolchain parity summary are in `REPORT.md`.
 
 ## Reading `REPORT.md`
+
+
 
 One row per binary: function counts on each leg, the inside-vs-outside verdict, whether the control
 run was deterministic, whether the CLI JSON was byte-identical, and notes. A **DIFFERS** row gets a

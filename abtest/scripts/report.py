@@ -9,6 +9,8 @@ row is listed with its first mismatches.
 import glob, json, os, re, sys, datetime
 
 run, out = sys.argv[1], sys.argv[2]
+TC = {"gcc": "C (gcc)", "clang": "C (clang)", "gxx": "C++ (g++)", "clangxx": "C++ (clang++)",
+      "go122": "Go 1.22", "go126": "Go 1.26", "rustc": "Rust"}
 meta = json.load(open(os.path.join(run, "meta.json")))
 rows, details = [], []
 names = sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(run, "compare", "*.json")))
@@ -48,7 +50,7 @@ for n in names:
     if cli is False and not cli_masked_only:
         notes.append("CLI JSON differs")
     lang = n.split(".")[1] if "." in n else "?"
-    rows.append((n, {"c": "C", "cpp": "C++", "go122": "Go 1.22", "go126": "Go 1.26", "rs": "Rust"}.get(lang, lang),
+    rows.append((n, TC.get(lang, lang),
                  c["functions_inside"], c["functions_outside"],
                  ("PARITY" if par else "**DIFFERS**") + (f" ({len(c['masked'])} masked)" if c["masked"] else ""),
                  {None: "n/a", True: "deterministic", False: "**drifts**"}[ctl_ok],
@@ -66,10 +68,33 @@ L.append("Inside = `scylla materialize` through the sandboxed engine-service (DD
          "recorded in `baselines/nondeterministic/`). CLI = `scylla functions/info --json` on the inside artifact vs on a "
          "`scylla-ingest` of the outside snapshot (byte-identical except the program name). Verdict rules: PARITY only when every "
          "function, every field, and the client-port projection agree.\n")
-L.append("| binary | toolchain | fns inside | fns outside | inside vs outside | control | CLI JSON | notes |")
-L.append("|---|---|---:|---:|---|---|---|---|")
+# Summary by toolchain first — the per-binary table (k >= 1024 rows) goes to REPORT-all.md.
+agg = {}
 for r in rows:
-    L.append("| `%s` | %s | %d | %d | %s | %s | %s | %s |" % r)
+    a = agg.setdefault(r[1], {"n": 0, "parity": 0, "masked": 0, "det": 0, "fns": 0})
+    a["n"] += 1; a["parity"] += r[4].startswith("PARITY"); a["det"] += r[5] == "deterministic"; a["fns"] += r[3]
+    a["masked"] += int(r[4].split("(")[1].split()[0]) if "(" in r[4] else 0
+L.append("## Summary by toolchain\n")
+L.append("| toolchain | binaries | at parity | functions compared | engine-deterministic on first control | engine-nondeterministic fns masked |")
+L.append("|---|---:|---:|---:|---:|---:|")
+for tc in sorted(agg):
+    a = agg[tc]
+    L.append(f"| {tc} | {a['n']} | {a['parity']} | {a['fns']} | {a['det']} | {a['masked']} |")
+L.append(f"| **all** | **{len(rows)}** | **{n_par}** | **{sum(a['fns'] for a in agg.values())}** | **{n_ctl}** | **{sum(a['masked'] for a in agg.values())}** |")
+HDR = "| binary | toolchain | fns inside | fns outside | inside vs outside | control | CLI JSON | notes |\n|---|---|---:|---:|---|---|---|---|"
+odd = [r for r in rows if not (r[4] == "PARITY" and r[6] == "identical")]
+L.append("\n## Binaries needing a second look\n")
+if odd:
+    L.append("Every row that is not a plain PARITY with byte-identical CLI output. The full per-binary table is in `REPORT-all.md`.\n")
+    L.append(HDR)
+    for r in odd:
+        L.append("| `%s` | %s | %d | %d | %s | %s | %s | %s |" % r)
+else:
+    L.append("None — every binary is a plain PARITY with byte-identical CLI output. The full per-binary table is in `REPORT-all.md`.")
+A = ["# A/B parity report — every binary\n", f"Run: {meta['date']} · {len(rows)} binaries. Summary and findings: `REPORT.md`.\n", HDR]
+for r in rows:
+    A.append("| `%s` | %s | %d | %d | %s | %s | %s | %s |" % r)
+open(os.path.join(os.path.dirname(out), "REPORT-all.md"), "w").write("\n".join(A) + "\n")
 if missing:
     L.append("\n## Not compared\n")
     for m in missing:

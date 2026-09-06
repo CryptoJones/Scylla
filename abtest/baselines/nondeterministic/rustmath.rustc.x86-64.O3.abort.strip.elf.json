@@ -1,0 +1,115 @@
+{
+  "runs": 7,
+  "functions": [
+    {
+      "addr": "0x134ca0",
+      "names": [
+        "FUN_00134ca0"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1168,
+          83
+        ],
+        [
+          1370,
+          90
+        ]
+      ]
+    },
+    {
+      "addr": "0x13f7b0",
+      "names": [
+        "FUN_0013f7b0"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1056,
+          26
+        ],
+        [
+          1112,
+          34
+        ]
+      ]
+    },
+    {
+      "addr": "0x13fbd0",
+      "names": [
+        "FUN_0013fbd0"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          787,
+          22
+        ],
+        [
+          810,
+          23
+        ]
+      ]
+    },
+    {
+      "addr": "0x13ff60",
+      "names": [
+        "FUN_0013ff60"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          586,
+          33
+        ],
+        [
+          601,
+          35
+        ]
+      ]
+    },
+    {
+      "addr": "0x147640",
+      "names": [
+        "FUN_00147640"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1701,
+          82
+        ],
+        [
+          1759,
+          87
+        ]
+      ]
+    }
+  ]
+}

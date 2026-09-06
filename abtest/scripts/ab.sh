@@ -5,19 +5,29 @@
 #   GHIDRA_DIST=/path/to/ghidra_26.3.0_GayHydra-26.3.0 abtest/scripts/ab.sh [run-dir]
 #
 # STAGES=build,outside,control,inside,compare,report,baselines (default all) selects stages, so a
-# failed leg can be re-run alone into the same run-dir. CONTROL_RUNS=N (default 2) repeats the raw
+# failed leg can be re-run alone into the same run-dir. CONTROL_RUNS=N (default 1) repeats the raw
 # outside leg N times into control, control2, ...: the ENGINE's own run-to-run nondeterminism is
 # characterized from those raw runs alone (`scylla-abtest flaky`) and the functions it flips are
 # masked — and listed — in the inside-vs-outside verdict, so an engine wobble is never mistaken for
-# a wrapper fault and a wrapper fault is never hidden behind one. NO_BASELINES=1 leaves
-# abtest/baselines/ untouched (a dry run). Requires: the engine dist, docker + scylla-engine-service:dev, JDK 21,
+# a wrapper fault and a wrapper fault is never hidden behind one. RETRY_CONTROLS=N (default 8): when
+# a pair DIFFERS, gather more ENGINE evidence first — up to N extra raw runs of THAT binary — and
+# re-judge; only what the raw engine is seen to flip is ever masked. JOBS=N (default 3) runs the raw
+# legs N binaries at a time; INSIDE_JOBS=N (default 2) materializes N at a time through the sandbox.
+# NO_BASELINES=1 leaves abtest/baselines/ untouched (a dry run); otherwise the baselines are
+# REPLACED by this run's pairs (a full run defines the committed set). Requires: the engine dist, docker + scylla-engine-service:dev, JDK 21,
 # the Rust workspace (built here), python3. Runs the legs SEQUENTIALLY — each headless run is a
 # full JVM, and running both legs at once would contend for the host and blur timings.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="$(cd "$HERE/../.." && pwd)"
+REPO="${ABTEST_REPO:-$(cd "$HERE/../.." && pwd)}"
 : "${GHIDRA_DIST:?set GHIDRA_DIST to the unpacked engine dist}"
 RUN="${1:-$REPO/abtest/out/$(date +%Y%m%d-%H%M%S)}"
+# A run takes hours. Execute from a SNAPSHOT of the scripts so editing abtest/scripts/ mid-run can
+# never corrupt the running instance (bash reads a script incrementally) or change its behaviour.
+if [ -z "${ABTEST_SNAPPED:-}" ]; then
+  mkdir -p "$RUN/scripts"; cp "$HERE"/*.sh "$HERE"/*.py "$HERE"/*.java "$RUN/scripts/"
+  exec env ABTEST_SNAPPED=1 ABTEST_REPO="$REPO" bash "$RUN/scripts/ab.sh" "$RUN"
+fi
 STAGES="${STAGES:-build,outside,control,inside,compare,report,baselines}"
 has() { [[ ",$STAGES," == *",$1,"* ]]; }
 mkdir -p "$RUN"
@@ -32,19 +42,19 @@ if has build; then
   (cd "$REPO" && cargo build -q -p scylla-cli -p scylla-abtest -p scylla-ingest)
 fi
 if has outside; then
-  log "outside leg -> $RUN/outside"
-  "$HERE/run-outside.sh" "$RUN/outside" || log "outside: some binaries FAILED (continuing)"
+  log "outside leg -> $RUN/outside (JOBS=${JOBS:-3})"
+  JOBS="${JOBS:-3}" "$HERE/run-outside.sh" "$RUN/outside" || log "outside: some binaries FAILED (continuing)"
 fi
 if has control; then
-  for i in $(seq 1 "${CONTROL_RUNS:-2}"); do
+  for i in $(seq 1 "${CONTROL_RUNS:-1}"); do
     d="$RUN/control"; [ "$i" -gt 1 ] && d="$RUN/control$i"
-    log "control leg $i/${CONTROL_RUNS:-2} (outside repeated, snapshot only) -> $d"
-    NO_DECOMP=1 "$HERE/run-outside.sh" "$d" || log "control $i: some binaries FAILED (continuing)"
+    log "control leg $i/${CONTROL_RUNS:-1} (outside repeated, snapshot only) -> $d (JOBS=${JOBS:-3})"
+    JOBS="${JOBS:-3}" NO_DECOMP=1 "$HERE/run-outside.sh" "$d" || log "control $i: some binaries FAILED (continuing)"
   done
 fi
 if has inside; then
-  log "inside leg -> $RUN/inside"
-  "$HERE/run-inside.sh" "$RUN/inside" || log "inside: some binaries FAILED (continuing)"
+  log "inside leg -> $RUN/inside (INSIDE_JOBS=${INSIDE_JOBS:-1})"
+  INSIDE_JOBS="${INSIDE_JOBS:-1}" "$HERE/run-inside.sh" "$RUN/inside" || log "inside: some binaries FAILED (continuing)"
 fi
 if has compare; then
   log "compare"
@@ -54,15 +64,29 @@ if has compare; then
     art="$RUN/inside/$name.scylla"
     [ -s "$art" ] || { log "  $name: no inside artifact — skipped"; continue; }
     # ENGINE nondeterminism: every raw run of this binary (outside + all controls), engine-only evidence
-    raw=("$snap"); for c in "$RUN"/control*/"$name.snapshot.json"; do [ -s "$c" ] && raw+=("$c"); done
-    ignore=()
-    if [ "${#raw[@]}" -ge 2 ]; then
-      "$ABTEST" flaky "$RUN/flaky/$name.json" "${raw[@]}" >/dev/null
-      ignore=(--ignore "$RUN/flaky/$name.json")
-    fi
-    set +e
-    "$ABTEST" compare --json "${ignore[@]}" "$art" "$snap" >"$RUN/compare/$name.json"; rc=$?
-    set -e
+    judge() {
+      raw=("$snap"); for c in "$RUN"/control*/"$name.snapshot.json"; do [ -s "$c" ] && raw+=("$c"); done
+      ignore=()
+      if [ "${#raw[@]}" -ge 2 ]; then
+        "$ABTEST" flaky "$RUN/flaky/$name.json" "${raw[@]}" >/dev/null
+        ignore=(--ignore "$RUN/flaky/$name.json")
+      fi
+      set +e
+      "$ABTEST" compare --json "${ignore[@]}" "$art" "$snap" >"$RUN/compare/$name.json"; rc=$?
+      set -e
+    }
+    judge
+    # A mismatch is NOT accepted at face value: gather more raw-engine evidence for this one binary
+    # (one extra direct run at a time, re-judging after each) before concluding anything. If the
+    # engine is seen to flip the mismatching functions, they are masked as engine nondeterminism; if
+    # it never does, the verdict stays DIFFERS — a wrapper fault.
+    k=0
+    while [ $rc -eq 1 ] && [ $k -lt "${RETRY_CONTROLS:-8}" ]; do
+      k=$((k+1))
+      log "  $name: DIFFERS after ${#raw[@]} raw runs — gathering engine evidence (extra raw run $k)"
+      NO_DECOMP=1 "$HERE/run-outside.sh" "$RUN/control-extra$k" "$REPO/abtest/corpus/bin/$name" >/dev/null || true
+      judge
+    done
     # control: outside vs outside-repeat, UNMASKED, via ingest (same tool, same canonical form)
     if [ -s "$RUN/control/$name.snapshot.json" ]; then
       "$INGEST" "$RUN/control/$name.snapshot.json" "$RUN/tmp/$name.control.scylla" 2>/dev/null
@@ -107,14 +131,25 @@ meta={"date":datetime.datetime.now().strftime("%Y-%m-%d %H:%M %Z").strip(),"host
 json.dump(meta,open(os.path.join(run,"meta.json"),"w"),indent=1)
 PY
   python3 "$HERE/report.py" "$RUN" "$RUN/REPORT.md"
-  cp "$RUN/REPORT.md" "$REPO/abtest/REPORT.md"
+  cp "$RUN/REPORT.md" "$REPO/abtest/REPORT.md"; cp "$RUN/REPORT-all.md" "$REPO/abtest/REPORT-all.md"
 fi
 if has baselines && [ "${NO_BASELINES:-0}" != 1 ]; then
   log "baselines -> abtest/baselines (only pairs that produced BOTH legs)"
   B="$REPO/abtest/baselines"; mkdir -p "$B/outside" "$B/inside" "$B/decomp" "$B/nondeterministic"
+  # The COMMITTED baseline set is a small, stable REPRESENTATIVE subset (REPRESENTATIVE.txt) — the
+  # offline cargo-test parity gate replays exactly these. The full corpus + full baselines are NOT
+  # committed (reproducible via ab.sh); a run refreshes the representative pairs in place.
+  REPR="$B/REPRESENTATIVE.txt"
+  is_repr() { [ -f "$REPR" ] || return 0; grep -qxF "$1" "$REPR"; }   # no manifest => commit all (back-compat)
+  for f in "$B"/outside/* "$B"/inside/* "$B"/decomp/* "$B"/nondeterministic/*; do
+    [ -e "$f" ] || continue
+    bn="$(basename "$f")"; bn="${bn%.snapshot.json.gz}"; bn="${bn%.scylla.gz}"; bn="${bn%.decomp.txt}"; bn="${bn%.json}"
+    { [ -f "$REPO/abtest/corpus/bin/$bn" ] && is_repr "$bn"; } || rm -f "$f"
+  done
   for snap in "$RUN"/outside/*.elf.snapshot.json; do
     name="$(basename "$snap" .snapshot.json)"
     [ -s "$RUN/inside/$name.scylla" ] || continue
+    is_repr "$name" || continue
     # gzipped, -n for a timestamp-free (reproducible) member; the tools read .gz in place
     rm -f "$B/outside/$name.snapshot.json" "$B/inside/$name.scylla"
     gzip -n -9 -c "$snap" >"$B/outside/$name.snapshot.json.gz"

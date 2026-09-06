@@ -2,7 +2,7 @@
 ## IMAGEBASE 00400000
 ## FUNCTIONS 7 (filter: main.)
 
-==== FUNCTION 00435c20 runtime.main.func2 ====
+==== FUNCTION 00435c20 runtime::runtime.main.func2 ====
 PROTO void runtime.main.func2(.closure * .context)
 CCONV abi-internal
 ---- DECOMP ----
@@ -94,7 +94,7 @@ void runtime::runtime_main_func2(_closure *_context)
 00435c40: JMP 0x00435c20
      ---  BRANCH (ram, 0x435c20, 8)
 
-==== FUNCTION 0045d260 runtime.main.func1 ====
+==== FUNCTION 0045d260 runtime::runtime.main.func1 ====
 PROTO void runtime.main.func1(.closure * .context)
 CCONV abi-internal
 ---- DECOMP ----
@@ -205,7 +205,7 @@ void runtime::runtime_main_func1(_closure *_context)
 0045d290: JMP 0x0045d260
      ---  BRANCH (ram, 0x45d260, 8)
 
-==== FUNCTION 004835c0 main.gcd ====
+==== FUNCTION 004835c0 main::main.gcd ====
 PROTO uint64 main.gcd(uint64 a, uint64 b)
 CCONV abi-internal
 ---- DECOMP ----
@@ -276,7 +276,7 @@ uint64 main::main_gcd(uint64 a, uint64 b)
     (register, 0x20, 8) INT_ADD (register, 0x20, 8) , (const, 0x8, 8)
      ---  RETURN (register, 0x288, 8)
 
-==== FUNCTION 004835e0 main.fib ====
+==== FUNCTION 004835e0 main::main.fib ====
 PROTO uint64 main.fib(uint n)
 CCONV abi-internal
 ---- DECOMP ----
@@ -485,7 +485,7 @@ uint64 main::main_fib(uint n)
 00483642: JMP 0x004835e0
      ---  BRANCH (ram, 0x4835e0, 8)
 
-==== FUNCTION 00483660 main.factorial ====
+==== FUNCTION 00483660 main::main.factorial ====
 PROTO uint64 main.factorial(uint n)
 CCONV abi-internal
 ---- DECOMP ----
@@ -557,7 +557,7 @@ uint64 main::main_factorial(uint n)
     (register, 0x20, 8) INT_ADD (register, 0x20, 8) , (const, 0x8, 8)
      ---  RETURN (register, 0x288, 8)
 
-==== FUNCTION 004836a0 main.sumTo ====
+==== FUNCTION 004836a0 main::main.sumTo ====
 PROTO uint64 main.sumTo(uint n)
 CCONV abi-internal
 ---- DECOMP ----
@@ -643,7 +643,7 @@ uint64 main::main_sumTo(uint n)
     (register, 0x20, 8) INT_ADD (register, 0x20, 8) , (const, 0x8, 8)
      ---  RETURN (register, 0x288, 8)
 
-==== FUNCTION 004836c0 main.main ====
+==== FUNCTION 004836c0 main::main.main ====
 PROTO void main.main(void)
 CCONV abi-internal
 ---- DECOMP ----

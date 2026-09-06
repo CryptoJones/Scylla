@@ -1,0 +1,2032 @@
+## LANGUAGE AARCH64:LE:64:v8A / golang
+## IMAGEBASE 00010000
+## FUNCTIONS 7 (filter: main.)
+
+==== FUNCTION 00048da0 runtime::runtime.main.func2 ====
+PROTO void runtime.main.func2(.closure * .context)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void runtime.main.func2(void)
+   Golang function info: {@address 001246c0 "Flags: []"}
+   Golang source: runtime/proc.go:204
+   Golang stacktrace signature: func runtime.main.func2() ???
+   Golang signature [params_missing, return_info_missing, closure]: func(.context, ???) ??? */
+
+void runtime::runtime_main_func2(_closure *_context)
+
+{
+  runtime_g *prVar1;
+  undefined8 in_x29;
+  undefined8 in_x30;
+  undefined8 local_18 [3];
+  
+  prVar1 = &CURRENT_G;
+                    /* Unresolved local var: bool * &needUnlock@[???] */
+  for (; register0x00000008 <= (undefined1 *)prVar1->stackguard0;
+      register0x00000008 = (BADSPACEBASE *)((int)register0x00000008 + 8)) {
+    in_x30 = 0x48ddc;
+    runtime_morestack();
+  }
+  *(undefined8 *)((int)register0x00000008 + -0x10) = in_x30;
+  *(undefined8 *)((int)register0x00000008 + -0x18) = in_x29;
+  if (((byte)*_context[1].F & 1) != 0) {
+    runtime_unlockOSThread();
+  }
+  return;
+}
+
+---- ASM+PCODE ----
+00048da0: ldr x16,[x28, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40e0, 8) , (const, 0x10, 8)
+    (register, 0x4080, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+00048da4: cmp sp,x16
+    (unique, 0xac00, 8) COPY (register, 0x4080, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4080, 8) , (register, 0x8, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x8, 8) , (register, 0x4080, 8)
+    (unique, 0x38600, 8) INT_SUB (register, 0x8, 8) , (register, 0x4080, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+00048da8: b.ls 0x00048dd4
+    (unique, 0x1e00, 1) BOOL_NEGATE (register, 0x102, 1)
+    (unique, 0x2000, 1) BOOL_OR (unique, 0x1e00, 1) , (register, 0x101, 1)
+     ---  CBRANCH (ram, 0x48dd4, 8) , (unique, 0x2000, 1)
+00048dac: str x30,[sp, #-0x10]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+00048db0: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+00048db4: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+00048db8: ldr x0,[x26, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40d0, 8) , (const, 0x8, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+00048dbc: ldrb w0,[x0]
+    (unique, 0xc600, 8) COPY (register, 0x4000, 8)
+    (unique, 0x4a200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x4000, 8) INT_ZEXT (unique, 0x4a200, 1)
+00048dc0: tbz w0,#0x0,0x00048dc8
+    (unique, 0x30a00, 4) INT_RIGHT (register, 0x4000, 4) , (const, 0x0, 4)
+    (unique, 0x30b00, 4) INT_AND (unique, 0x30a00, 4) , (const, 0x1, 4)
+    (unique, 0x30d00, 1) INT_EQUAL (unique, 0x30b00, 4) , (const, 0x0, 4)
+    (unique, 0x7e000, 1) INT_EQUAL (unique, 0x30d00, 1) , (const, 0x1, 1)
+     ---  CBRANCH (ram, 0x48dc8, 8) , (unique, 0x7e000, 1)
+00048dc4: bl 0x00051c50
+    (register, 0x40f0, 8) INT_ADD (const, 0x48dc4, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x51c50, 8)
+00048dc8: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+00048dcc: add sp,sp,#0x10
+    (unique, 0x23600, 8) COPY (const, 0x10, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+00048dd0: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+00048dd4: mov x3,x30
+    (register, 0x4018, 8) COPY (register, 0x40f0, 8)
+00048dd8: bl 0x00072fe0
+    (register, 0x40f0, 8) INT_ADD (const, 0x48dd8, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x72fe0, 8)
+00048ddc: b 0x00048da0
+     ---  BRANCH (ram, 0x48da0, 8)
+
+==== FUNCTION 0006fd20 runtime::runtime.main.func1 ====
+PROTO void runtime.main.func1(.closure * .context)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void runtime.main.func1(void)
+   Golang function info: {@address 00132070 "Flags: []"}
+   Golang source: runtime/proc.go:171
+   Golang stacktrace signature: func runtime.main.func1() ???
+   Golang signature [params_missing, return_info_missing, closure]: func(.context, ???) ??? */
+
+void runtime::runtime_main_func1(_closure *_context)
+
+{
+  runtime_g *prVar1;
+  undefined8 in_x29;
+  undefined8 in_x30;
+  undefined8 local_38 [7];
+  
+  prVar1 = &CURRENT_G;
+  for (; register0x00000008 <= (undefined1 *)prVar1->stackguard0;
+      register0x00000008 = (BADSPACEBASE *)((int)register0x00000008 + 8)) {
+    in_x30 = 0x6fd60;
+    runtime_morestack_noctxt();
+  }
+  *(undefined8 *)((int)register0x00000008 + -0x30) = in_x30;
+  *(undefined8 *)((int)register0x00000008 + -0x38) = in_x29;
+  runtime_newm((func__ *)&PTR_runtime_sysmon_000d4390, (runtime_p *)0x0, -1);
+  return;
+}
+
+---- ASM+PCODE ----
+0006fd20: ldr x16,[x28, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40e0, 8) , (const, 0x10, 8)
+    (register, 0x4080, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+0006fd24: cmp sp,x16
+    (unique, 0xac00, 8) COPY (register, 0x4080, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4080, 8) , (register, 0x8, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x8, 8) , (register, 0x4080, 8)
+    (unique, 0x38600, 8) INT_SUB (register, 0x8, 8) , (register, 0x4080, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+0006fd28: b.ls 0x0006fd58
+    (unique, 0x1e00, 1) BOOL_NEGATE (register, 0x102, 1)
+    (unique, 0x2000, 1) BOOL_OR (unique, 0x1e00, 1) , (register, 0x101, 1)
+     ---  CBRANCH (ram, 0x6fd58, 8) , (unique, 0x2000, 1)
+0006fd2c: str x30,[sp, #-0x30]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xffffffffffffffd0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+0006fd30: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+0006fd34: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+0006fd38: adrp x0,0xd4000
+    (register, 0x4000, 8) COPY (const, 0xd4000, 8)
+0006fd3c: add x0,x0,#0x390
+    (unique, 0x23600, 8) COPY (const, 0x390, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x23800, 8)
+0006fd40: mov x1,xzr
+    (register, 0x4008, 8) COPY (const, 0x0, 8)
+0006fd44: mov x2,#-0x1
+    (register, 0x4010, 8) COPY (const, 0xffffffffffffffff, 8)
+0006fd48: bl 0x0004cd80
+    (register, 0x40f0, 8) INT_ADD (const, 0x6fd48, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x4cd80, 8)
+0006fd4c: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+0006fd50: add sp,sp,#0x30
+    (unique, 0x23600, 8) COPY (const, 0x30, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+0006fd54: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+0006fd58: mov x3,x30
+    (register, 0x4018, 8) COPY (register, 0x40f0, 8)
+0006fd5c: bl 0x00073060
+    (register, 0x40f0, 8) INT_ADD (const, 0x6fd5c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x73060, 8)
+0006fd60: b 0x0006fd20
+     ---  BRANCH (ram, 0x6fd20, 8)
+
+==== FUNCTION 000a5550 main::main.gcd ====
+PROTO uint64 main.gcd(uint64 a, uint64 b)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void main.gcd(uint64 a, uint64 b, uint64 ~r0)
+   Golang function info: {@address 0013f7b0 "Flags: []"}
+   Golang source: ./gomath.go:17
+   Golang stacktrace signature: func main.gcd(8, 8) ??? */
+
+uint64 main::main_gcd(uint64 a, uint64 b)
+
+{
+  uint uVar1;
+  int iVar2;
+  uint uVar3;
+  runtime_g *prVar4;
+  undefined8 in_x29;
+  undefined8 in_x30;
+  uint64 a_spill;
+  uint64 b_spill;
+  uint64 local_28 [5];
+  
+  prVar4 = &CURRENT_G;
+  for (; register0x00000008 <= (undefined1 *)prVar4->stackguard0;
+      register0x00000008 = (BADSPACEBASE *)((int)register0x00000008 + 8)) {
+    *(uint64 *)((int)register0x00000008 + 8) = a;
+    *(uint64 *)((int)register0x00000008 + 0x10) = b;
+    in_x30 = 0xa55e0;
+    runtime::runtime_morestack_noctxt();
+    a = *(uint64 *)((int)register0x00000008 + 0x10);
+    b = *(uint64 *)((int)register0x00000008 + 0x18);
+  }
+  *(undefined8 *)((int)register0x00000008 + -0x20) = in_x30;
+  *(undefined8 *)((int)register0x00000008 + -0x28) = in_x29;
+  *(uint64 *)((int)register0x00000008 + 8) = a;
+  *(uint64 *)((int)register0x00000008 + 0x10) = b;
+  *(undefined8 *)((int)register0x00000008 + -0x18) = 0;
+  while( true ) {
+    if (*(int *)((int)register0x00000008 + 0x10) == 0) {
+      *(uint64 *)((int)register0x00000008 + -0x18) = *(uint64 *)((int)register0x00000008 + 8);
+      return *(uint64 *)((int)register0x00000008 + 8);
+    }
+    uVar3 = *(uint *)((int)register0x00000008 + 0x10);
+    if (uVar3 == 0) break;
+    uVar1 = 0;
+    if (uVar3 != 0) {
+      uVar1 = *(uint *)((int)register0x00000008 + 8) / uVar3;
+    }
+    iVar2 = *(uint *)((int)register0x00000008 + 8) - uVar1 * uVar3;
+    *(int *)((int)register0x00000008 + -0x10) = iVar2;
+    *(undefined8 *)((int)register0x00000008 + 8) = *(undefined8 *)((int)register0x00000008 + 0x10);
+    *(int *)((int)register0x00000008 + 0x10) = iVar2;
+  }
+                    /* WARNING: Subroutine does not return */
+  runtime::runtime_panicdivide();
+}
+
+---- ASM+PCODE ----
+000a5550: ldr x16,[x28, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40e0, 8) , (const, 0x10, 8)
+    (register, 0x4080, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5554: cmp sp,x16
+    (unique, 0xac00, 8) COPY (register, 0x4080, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4080, 8) , (register, 0x8, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x8, 8) , (register, 0x4080, 8)
+    (unique, 0x38600, 8) INT_SUB (register, 0x8, 8) , (register, 0x4080, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a5558: b.ls 0x000a55d0
+    (unique, 0x1e00, 1) BOOL_NEGATE (register, 0x102, 1)
+    (unique, 0x2000, 1) BOOL_OR (unique, 0x1e00, 1) , (register, 0x101, 1)
+     ---  CBRANCH (ram, 0xa55d0, 8) , (unique, 0x2000, 1)
+000a555c: str x30,[sp, #-0x20]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xffffffffffffffe0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+000a5560: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+000a5564: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+000a5568: str x0,[sp, #0x28]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x28, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a556c: str x1,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5570: str xzr,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (unique, 0xc00, 8)
+000a5574: b 0x000a5578
+     ---  BRANCH (ram, 0xa5578, 8)
+000a5578: ldr x1,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a557c: cbnz x1,0x000a5584
+    (unique, 0x31500, 1) INT_NOTEQUAL (register, 0x4008, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0xa5584, 8) , (unique, 0x31500, 1)
+000a5580: b 0x000a55b4
+     ---  BRANCH (ram, 0xa55b4, 8)
+000a5584: ldr x1,[sp, #0x28]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x28, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5588: ldr x2,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a558c: cbnz x2,0x000a5594
+    (unique, 0x31500, 1) INT_NOTEQUAL (register, 0x4010, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0xa5594, 8) , (unique, 0x31500, 1)
+000a5590: b 0x000a55c8
+     ---  BRANCH (ram, 0xa55c8, 8)
+000a5594: udiv x3,x1,x2
+    (unique, 0x83000, 8) COPY (const, 0x0, 8)
+    (unique, 0x83100, 1) INT_EQUAL (register, 0x4010, 8) , (const, 0x0, 8)
+     ---  CBRANCH (const, 0x2, 4) , (unique, 0x83100, 1)
+    (unique, 0x83000, 8) INT_DIV (register, 0x4008, 8) , (register, 0x4010, 8)
+    (register, 0x4018, 8) COPY (unique, 0x83000, 8)
+000a5598: msub x1,x3,x2,x1
+    (unique, 0x55b00, 8) INT_MULT (register, 0x4018, 8) , (register, 0x4010, 8)
+    (register, 0x4008, 8) INT_SUB (register, 0x4008, 8) , (unique, 0x55b00, 8)
+000a559c: str x1,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a55a0: ldr x2,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a55a4: str x2,[sp, #0x28]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x28, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a55a8: str x1,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a55ac: b 0x000a55b0
+     ---  BRANCH (ram, 0xa55b0, 8)
+000a55b0: b 0x000a5578
+     ---  BRANCH (ram, 0xa5578, 8)
+000a55b4: ldr x0,[sp, #0x28]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x28, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a55b8: str x0,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a55bc: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+000a55c0: add sp,sp,#0x20
+    (unique, 0x23600, 8) COPY (const, 0x20, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a55c4: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+000a55c8: bl 0x00045080
+    (register, 0x40f0, 8) INT_ADD (const, 0xa55c8, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x45080, 8)
+000a55d0: str x0,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a55d4: str x1,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a55d8: mov x3,x30
+    (register, 0x4018, 8) COPY (register, 0x40f0, 8)
+000a55dc: bl 0x00073060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa55dc, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x73060, 8)
+000a55e0: ldr x0,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a55e4: ldr x1,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a55e8: b 0x000a5550
+     ---  BRANCH (ram, 0xa5550, 8)
+
+==== FUNCTION 000a55f0 main::main.fib ====
+PROTO uint64 main.fib(uint n)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void main.fib(uint n, uint64 ~r0)
+   Golang function info: {@address 0013f800 "Flags: []"}
+   Golang source: ./gomath.go:25
+   Golang stacktrace signature: func main.fib(8) ??? */
+
+uint64 main::main_fib(uint n)
+
+{
+  uint64 uVar1;
+  runtime_g *prVar2;
+  int in_x29;
+  undefined8 in_x30;
+  uint n_spill;
+  int local_38 [7];
+  
+  prVar2 = &CURRENT_G;
+  for (; register0x00000008 <= (undefined1 *)prVar2->stackguard0;
+      register0x00000008 = (BADSPACEBASE *)((int)register0x00000008 + 8)) {
+    *(uint *)((int)register0x00000008 + 8) = n;
+    in_x30 = 0xa5670;
+    runtime::runtime_morestack_noctxt();
+    n = *(uint *)((int)register0x00000008 + 0x10);
+  }
+  *(undefined8 *)((int)register0x00000008 + -0x30) = in_x30;
+  *(int *)((int)register0x00000008 + -0x38) = in_x29;
+  *(uint *)((int)register0x00000008 + 8) = n;
+  *(int *)((int)register0x00000008 + -0x20) = 0;
+  if (1 < n) {
+    uVar1 = main_fib(n - 1);
+    *(uint64 *)((int)register0x00000008 + -8) = uVar1;
+    uVar1 = main_fib(*(int *)((int)register0x00000008 + 0x10) - 2);
+    *(uint64 *)((int)register0x00000008 + -8) = uVar1;
+    *(uint64 *)((int)register0x00000008 + -0x10) = *(int *)register0x00000008 + uVar1;
+    return *(int *)register0x00000008 + uVar1;
+  }
+  *(uint *)((int)register0x00000008 + -0x20) = n;
+  return *(uint64 *)((int)register0x00000008 + -0x20);
+}
+
+---- ASM+PCODE ----
+000a55f0: ldr x16,[x28, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40e0, 8) , (const, 0x10, 8)
+    (register, 0x4080, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a55f4: cmp sp,x16
+    (unique, 0xac00, 8) COPY (register, 0x4080, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4080, 8) , (register, 0x8, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x8, 8) , (register, 0x4080, 8)
+    (unique, 0x38600, 8) INT_SUB (register, 0x8, 8) , (register, 0x4080, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x38600, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a55f8: b.ls 0x000a5664
+    (unique, 0x1e00, 1) BOOL_NEGATE (register, 0x102, 1)
+    (unique, 0x2000, 1) BOOL_OR (unique, 0x1e00, 1) , (register, 0x101, 1)
+     ---  CBRANCH (ram, 0xa5664, 8) , (unique, 0x2000, 1)
+000a55fc: str x30,[sp, #-0x30]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xffffffffffffffd0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+000a5600: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+000a5604: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+000a5608: str x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a560c: str xzr,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (unique, 0xc00, 8)
+000a5610: cmp x0,#0x2
+    (unique, 0x39100, 8) COPY (const, 0x2, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (unique, 0x39100, 8) , (register, 0x4000, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4000, 8) , (unique, 0x39100, 8)
+    (unique, 0x39300, 8) INT_SUB (register, 0x4000, 8) , (unique, 0x39100, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a5614: b.cc 0x000a561c
+    (unique, 0x1600, 1) BOOL_NEGATE (register, 0x102, 1)
+     ---  CBRANCH (ram, 0xa561c, 8) , (unique, 0x1600, 1)
+000a5618: b 0x000a5630
+     ---  BRANCH (ram, 0xa5630, 8)
+000a561c: str x0,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5620: ldr x0,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5624: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+000a5628: add sp,sp,#0x30
+    (unique, 0x23600, 8) COPY (const, 0x30, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a562c: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+000a5630: sub x0,x0,#0x1
+    (register, 0x4000, 8) INT_SUB (register, 0x4000, 8) , (const, 0x1, 8)
+000a5634: bl 0x000a55f0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5634, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa55f0, 8)
+000a5638: str x0,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a563c: ldr x1,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5640: sub x0,x1,#0x2
+    (register, 0x4000, 8) INT_SUB (register, 0x4008, 8) , (const, 0x2, 8)
+000a5644: bl 0x000a55f0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5644, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa55f0, 8)
+000a5648: str x0,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a564c: ldr x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5650: add x0,x1,x0
+    (unique, 0x24000, 8) COPY (register, 0x4000, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (unique, 0x24200, 8) INT_ADD (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x24200, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x24200, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x24200, 8)
+000a5654: str x0,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5658: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+000a565c: add sp,sp,#0x30
+    (unique, 0x23600, 8) COPY (const, 0x30, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a5660: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+000a5664: str x0,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5668: mov x3,x30
+    (register, 0x4018, 8) COPY (register, 0x40f0, 8)
+000a566c: bl 0x00073060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa566c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x73060, 8)
+000a5670: ldr x0,[sp, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x8, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5674: b 0x000a55f0
+     ---  BRANCH (ram, 0xa55f0, 8)
+
+==== FUNCTION 000a5680 main::main.factorial ====
+PROTO uint64 main.factorial(uint n)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void main.factorial(uint n, uint64 ~r0)
+   Golang function info: {@address 0013f850 "Flags: []"}
+   Golang source: ./gomath.go:33
+   Golang stacktrace signature: func main.factorial(8) ??? */
+
+uint64 main::main_factorial(uint n)
+
+{
+  uint n_spill;
+  uint64 r;
+  uint i;
+  
+  r = 1;
+  for (i = 2; i <= n; i = i + 1) {
+    r = r * i;
+  }
+  return r;
+}
+
+---- ASM+PCODE ----
+000a5680: str x30,[sp, #-0x30]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xffffffffffffffd0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+000a5684: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+000a5688: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+000a568c: str x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5690: str xzr,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (unique, 0xc00, 8)
+000a5694: orr x1,xzr,#0x1
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0x1, 8)
+000a5698: str x1,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a569c: orr x1,xzr,#0x2
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0x2, 8)
+000a56a0: str x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a56a4: b 0x000a56a8
+     ---  BRANCH (ram, 0xa56a8, 8)
+000a56a8: ldr x1,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56ac: ldr x2,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56b0: cmp x1,x2
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4010, 8) , (register, 0x4008, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4008, 8) , (register, 0x4010, 8)
+    (unique, 0x39a00, 8) INT_SUB (register, 0x4008, 8) , (register, 0x4010, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a56b4: b.cs 0x000a56bc
+     ---  CBRANCH (ram, 0xa56bc, 8) , (register, 0x102, 1)
+000a56b8: b 0x000a56e0
+     ---  BRANCH (ram, 0xa56e0, 8)
+000a56bc: ldr x1,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56c0: ldr x2,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56c4: mul x1,x1,x2
+    (register, 0x4008, 8) INT_MULT (register, 0x4008, 8) , (register, 0x4010, 8)
+000a56c8: str x1,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a56cc: b 0x000a56d0
+     ---  BRANCH (ram, 0xa56d0, 8)
+000a56d0: ldr x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56d4: add x1,x1,#0x1
+    (unique, 0x23600, 8) COPY (const, 0x1, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4008, 8) COPY (unique, 0x23800, 8)
+000a56d8: str x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a56dc: b 0x000a56a8
+     ---  BRANCH (ram, 0xa56a8, 8)
+000a56e0: ldr x0,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a56e4: str x0,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a56e8: add x29,sp,#0x28
+    (unique, 0x23600, 8) COPY (const, 0x28, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x23800, 8)
+000a56ec: add sp,sp,#0x30
+    (unique, 0x23600, 8) COPY (const, 0x30, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a56f0: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+
+==== FUNCTION 000a5700 main::main.sumTo ====
+PROTO uint64 main.sumTo(uint n)
+CCONV abi-internal
+---- DECOMP ----
+
+/* DWARF original prototype: void main.sumTo(uint n, uint64 ~r0)
+   Golang function info: {@address 0013f898 "Flags: []"}
+   Golang source: ./gomath.go:42
+   Golang stacktrace signature: func main.sumTo(8) ??? */
+
+uint64 main::main_sumTo(uint n)
+
+{
+  uint n_spill;
+  uint64 s;
+  uint i;
+  
+  s = 0;
+  for (i = 1; i <= n; i = i + 1) {
+    s = s + i;
+  }
+  return s;
+}
+
+---- ASM+PCODE ----
+000a5700: str x30,[sp, #-0x30]!
+    (unique, 0x74500, 8) COPY (register, 0x40f0, 8)
+    (register, 0x8, 8) INT_ADD (register, 0x8, 8) , (const, 0xffffffffffffffd0, 8)
+     ---  STORE (const, 0x1b1, 8) , (register, 0x8, 8) , (unique, 0x74500, 8)
+000a5704: stur x29,[sp, #-0x8]
+    (unique, 0x75100, 8) COPY (register, 0x40e8, 8)
+    (unique, 0xcc00, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xcc00, 8) , (unique, 0x75100, 8)
+000a5708: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+000a570c: str x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5710: str xzr,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (unique, 0xc00, 8)
+000a5714: str xzr,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (unique, 0xc00, 8)
+000a5718: orr x1,xzr,#0x1
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0x1, 8)
+000a571c: str x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5720: b 0x000a5724
+     ---  BRANCH (ram, 0xa5724, 8)
+000a5724: ldr x1,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5728: ldr x2,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a572c: cmp x1,x2
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4010, 8) , (register, 0x4008, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4008, 8) , (register, 0x4010, 8)
+    (unique, 0x39a00, 8) INT_SUB (register, 0x4008, 8) , (register, 0x4010, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a5730: b.cs 0x000a5738
+     ---  CBRANCH (ram, 0xa5738, 8) , (register, 0x102, 1)
+000a5734: b 0x000a575c
+     ---  BRANCH (ram, 0xa575c, 8)
+000a5738: ldr x1,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a573c: ldr x2,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5740: add x1,x1,x2
+    (unique, 0x24000, 8) COPY (register, 0x4010, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (unique, 0x24200, 8) INT_ADD (register, 0x4008, 8) , (unique, 0x24000, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x24200, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x24200, 8) , (const, 0x0, 8)
+    (register, 0x4008, 8) COPY (unique, 0x24200, 8)
+000a5744: str x1,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5748: b 0x000a574c
+     ---  BRANCH (ram, 0xa574c, 8)
+000a574c: ldr x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5750: add x1,x1,#0x1
+    (unique, 0x23600, 8) COPY (const, 0x1, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4008, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4008, 8) COPY (unique, 0x23800, 8)
+000a5754: str x1,[sp, #0x20]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x20, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5758: b 0x000a5724
+     ---  BRANCH (ram, 0xa5724, 8)
+000a575c: ldr x0,[sp, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x18, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5760: str x0,[sp, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5764: add x29,sp,#0x28
+    (unique, 0x23600, 8) COPY (const, 0x28, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x23800, 8)
+000a5768: add sp,sp,#0x30
+    (unique, 0x23600, 8) COPY (const, 0x30, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a576c: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+
+==== FUNCTION 000a5770 main::main.main ====
+PROTO void main.main(void)
+CCONV abi-internal
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x000a5b28) */
+/* WARNING: Removing unreachable block (ram,0x000a5a44) */
+/* WARNING: Removing unreachable block (ram,0x000a5960) */
+/* WARNING: Removing unreachable block (ram,0x000a587c) */
+/* WARNING: Removing unreachable block (ram,0x000a58c8) */
+/* WARNING: Removing unreachable block (ram,0x000a59ac) */
+/* WARNING: Removing unreachable block (ram,0x000a5a90) */
+/* WARNING: Removing unreachable block (ram,0x000a5b74) */
+/* DWARF original prototype: void main.main(void)
+   Golang function info: {@address 0013f8e0 "Flags: []"}
+   Golang source: ./gomath.go:50
+   Golang stacktrace signature: func main.main() ??? */
+
+void main::main_main(void)
+
+{
+  string s;
+  uint64 uVar1;
+  void *pvVar2;
+  error_itab *peVar3;
+  int iVar4;
+  unsafe_Pointer pvVar5;
+  undefined8 *puVar6;
+  undefined8 *puVar7;
+  runtime_g *prVar8;
+  undefined8 in_x29;
+  undefined8 in_x30;
+  string format;
+  string format_00;
+  string format_01;
+  string format_02;
+  multireturn_int_error_ mVar9;
+  __any a;
+  __any a_00;
+  __any a_01;
+  __any a_02;
+  undefined8 local_188 [7];
+  int v;
+  uint n;
+  int local_140 [2];
+  int local_130;
+  error err;
+  int local_118 [6];
+  int local_e8 [29];
+  
+  prVar8 = &CURRENT_G;
+  for (; (undefined1 *)((int)register0x00000008 + -0x100) <= (undefined1 *)prVar8->stackguard0;
+      register0x00000008 = (BADSPACEBASE *)((int)register0x00000008 + 8)) {
+    in_x30 = 0xa5be4;
+    runtime::runtime_morestack_noctxt();
+  }
+  puVar7 = (undefined8 *)((int)register0x00000008 + -0x180);
+  *(undefined8 *)((int)register0x00000008 + -0x188) = in_x29;
+  *puVar7 = in_x30;
+  *(undefined8 *)((int)register0x00000008 + -0x148) = 10;
+  *(int *)((int)register0x00000008 + -0x138) = os_Args.len;
+  if (1 < os_Args.len) {
+    *(undefined8 *)((int)register0x00000008 + -0xe8) = 0;
+    *(undefined8 *)((int)register0x00000008 + -0xe0) = 0;
+    if ((uint)os_Args.len < 2) {
+                    /* WARNING: Subroutine does not return */
+      runtime::runtime_panicIndex(1, os_Args.len);
+    }
+    iVar4 = os_Args.array[1].len;
+    s = os_Args.array[1];
+    *(uint8 *(*))((int)register0x00000008 + -0x118) = os_Args.array[1].str;
+    *(int *)((int)register0x00000008 + -0x110) = iVar4;
+    mVar9 = strconv::strconv_Atoi((string)s);
+    pvVar5 = mVar9.~r1.data;
+    peVar3 = mVar9.~r1.tab;
+    puVar7 = (undefined8 *)((int)register0x00000008 + -0x178);
+    *(int *)((int)register0x00000008 + -0x130) = mVar9.~r0;
+    *(error_itab *(*))((int)register0x00000008 + -0xe0) = peVar3;
+    *(unsafe_Pointer *)((int)register0x00000008 + -0xd8) = pvVar5;
+    *(undefined8 *)((int)register0x00000008 + -0x128) =
+         *(undefined8 *)((int)register0x00000008 + -0x130);
+    *(error_itab *(*))((int)register0x00000008 + -0xd0) = peVar3;
+    *(unsafe_Pointer *)((int)register0x00000008 + -200) = pvVar5;
+    *(undefined8 *)((int)register0x00000008 + -0x148) =
+         *(undefined8 *)((int)register0x00000008 + -0x128);
+    *(error_itab *(*))((int)register0x00000008 + -0x120) = peVar3;
+    *(unsafe_Pointer *)((int)register0x00000008 + -0x118) = pvVar5;
+    if (peVar3 == (error_itab *)0x0) {
+      *(undefined8 *)((int)register0x00000008 + -0x140) =
+           *(undefined8 *)((int)register0x00000008 + -0x148);
+      puVar7 = (undefined8 *)((int)register0x00000008 + -0x178);
+    }
+  }
+  uVar1 = main_gcd(puVar7[7], 0x30);
+  puVar7[9] = uVar1;
+  puVar7[0x10] = 0;
+  puVar7[0x11] = 0;
+  puVar7[0x12] = 0;
+  puVar7[0x13] = 0;
+  puVar7[0x2c] = puVar7 + 0x10;
+  pvVar2 = runtime::runtime_convT64(puVar7[8]);
+  puVar7[0x2c] = pvVar2;
+  puVar6 = (undefined8 *)puVar7[0x2d];
+  *puVar6 = &uint___Uint_type;
+  puVar6[1] = pvVar2;
+  pvVar2 = runtime::runtime_convT64(puVar7[10]);
+  puVar7[0x2c] = pvVar2;
+  iVar4 = puVar7[0x2e];
+  *(internal_abi_Type *(*))(iVar4 + 0x10) = &uint64___Uint64_type;
+  *(void *(*))(iVar4 + 0x18) = pvVar2;
+  a.array = puVar7[0x2e];
+  puVar7[0x2f] = a.array;
+  puVar7[0x30] = 2;
+  puVar7[0x31] = 2;
+  format.len = 0xe;
+  format.str = &UNK_000ccbff;
+  a.len = 2;
+  a.cap = 2;
+  fmt::fmt_Printf(format, a);
+  uVar1 = main_fib(puVar7[0xb]);
+  puVar7[0xd] = uVar1;
+  puVar7[0x14] = 0;
+  puVar7[0x15] = 0;
+  puVar7[0x16] = 0;
+  puVar7[0x17] = 0;
+  puVar7[0x2a] = puVar7 + 0x14;
+  pvVar2 = runtime::runtime_convT64(puVar7[0xc]);
+  puVar7[0x2a] = pvVar2;
+  puVar6 = (undefined8 *)puVar7[0x2b];
+  *puVar6 = &uint___Uint_type;
+  puVar6[1] = pvVar2;
+  pvVar2 = runtime::runtime_convT64(puVar7[0xe]);
+  puVar7[0x2a] = pvVar2;
+  iVar4 = puVar7[0x2c];
+  *(internal_abi_Type *(*))(iVar4 + 0x10) = &uint64___Uint64_type;
+  *(void *(*))(iVar4 + 0x18) = pvVar2;
+  a_00.array = puVar7[0x2c];
+  puVar7[0x2d] = a_00.array;
+  puVar7[0x2e] = 2;
+  puVar7[0x2f] = 2;
+  format_00.len = 0xb;
+  format_00.str = &UNK_000cc3bd;
+  a_00.len = 2;
+  a_00.cap = 2;
+  fmt::fmt_Printf(format_00, a_00);
+  uVar1 = main_factorial(puVar7[0xf]);
+  puVar7[0x11] = uVar1;
+  puVar7[0x18] = 0;
+  puVar7[0x19] = 0;
+  puVar7[0x1a] = 0;
+  puVar7[0x1b] = 0;
+  puVar7[0x28] = puVar7 + 0x18;
+  pvVar2 = runtime::runtime_convT64(puVar7[0x10]);
+  puVar7[0x28] = pvVar2;
+  puVar6 = (undefined8 *)puVar7[0x29];
+  *puVar6 = &uint___Uint_type;
+  puVar6[1] = pvVar2;
+  pvVar2 = runtime::runtime_convT64(puVar7[0x12]);
+  puVar7[0x28] = pvVar2;
+  iVar4 = puVar7[0x2a];
+  *(internal_abi_Type *(*))(iVar4 + 0x10) = &uint64___Uint64_type;
+  *(void *(*))(iVar4 + 0x18) = pvVar2;
+  a_01.array = puVar7[0x2a];
+  puVar7[0x2b] = a_01.array;
+  puVar7[0x2c] = 2;
+  puVar7[0x2d] = 2;
+  format_01.len = 0xc;
+  format_01.str = &UNK_000cc667;
+  a_01.len = 2;
+  a_01.cap = 2;
+  fmt::fmt_Printf(format_01, a_01);
+  uVar1 = main_sumTo(puVar7[0x13]);
+  puVar7[0x15] = uVar1;
+  puVar7[0x1c] = 0;
+  puVar7[0x1d] = 0;
+  puVar7[0x1e] = 0;
+  puVar7[0x1f] = 0;
+  puVar7[0x26] = puVar7 + 0x1c;
+  pvVar2 = runtime::runtime_convT64(puVar7[0x14]);
+  puVar7[0x26] = pvVar2;
+  puVar6 = (undefined8 *)puVar7[0x27];
+  *puVar6 = &uint___Uint_type;
+  puVar6[1] = pvVar2;
+  pvVar2 = runtime::runtime_convT64(puVar7[0x16]);
+  puVar7[0x26] = pvVar2;
+  iVar4 = puVar7[0x28];
+  *(internal_abi_Type *(*))(iVar4 + 0x10) = &uint64___Uint64_type;
+  *(void *(*))(iVar4 + 0x18) = pvVar2;
+  a_02.array = puVar7[0x28];
+  puVar7[0x29] = a_02.array;
+  puVar7[0x2a] = 2;
+  puVar7[0x2b] = 2;
+  format_02.len = 0xb;
+  format_02.str = &UNK_000cc3c8;
+  a_02.len = 2;
+  a_02.cap = 2;
+  fmt::fmt_Printf(format_02, a_02);
+  return;
+}
+
+---- ASM+PCODE ----
+000a5770: ldr x16,[x28, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40e0, 8) , (const, 0x10, 8)
+    (register, 0x4080, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5774: sub x17,sp,#0x100
+    (register, 0x4088, 8) INT_SUB (register, 0x8, 8) , (const, 0x100, 8)
+000a5778: cmp x17,x16
+    (register, 0x105, 1) INT_LESSEQUAL (register, 0x4080, 8) , (register, 0x4088, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4088, 8) , (register, 0x4080, 8)
+    (unique, 0x39a00, 8) INT_SUB (register, 0x4088, 8) , (register, 0x4080, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39a00, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a577c: b.ls 0x000a5bdc
+    (unique, 0x1e00, 1) BOOL_NEGATE (register, 0x102, 1)
+    (unique, 0x2000, 1) BOOL_OR (unique, 0x1e00, 1) , (register, 0x101, 1)
+     ---  CBRANCH (ram, 0xa5bdc, 8) , (unique, 0x2000, 1)
+000a5780: sub x20,sp,#0x180
+    (register, 0x40a0, 8) INT_SUB (register, 0x8, 8) , (const, 0x180, 8)
+000a5784: stp x29,x30,[x20, #-0x8]
+    (unique, 0x74000, 8) COPY (register, 0x40e8, 8)
+    (unique, 0x74100, 8) COPY (register, 0x40f0, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x40a0, 8) , (const, 0xfffffffffffffff8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5788: mov sp,x20
+    (register, 0x8, 8) COPY (register, 0x40a0, 8)
+000a578c: sub x29,sp,#0x8
+    (register, 0x40e8, 8) INT_SUB (register, 0x8, 8) , (const, 0x8, 8)
+000a5790: mov x2,#0xa
+    (register, 0x4010, 8) COPY (const, 0xa, 8)
+000a5794: str x2,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5798: adrp x27,0x149000
+    (register, 0x40d8, 8) COPY (const, 0x149000, 8)
+000a579c: ldr x2,[x27, #0xb98]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40d8, 8) , (const, 0xb98, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57a0: str x2,[sp, #0x48]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x48, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a57a4: cmp x2,#0x1
+    (unique, 0x39100, 8) COPY (const, 0x1, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (unique, 0x39100, 8) , (register, 0x4010, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4010, 8) , (unique, 0x39100, 8)
+    (unique, 0x39300, 8) INT_SUB (register, 0x4010, 8) , (unique, 0x39100, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a57a8: b.gt 0x000a57b0
+    (unique, 0x2500, 1) BOOL_NEGATE (register, 0x101, 1)
+    (unique, 0x2600, 1) INT_EQUAL (register, 0x100, 1) , (register, 0x103, 1)
+    (unique, 0x2800, 1) BOOL_AND (unique, 0x2500, 1) , (unique, 0x2600, 1)
+     ---  CBRANCH (ram, 0xa57b0, 8) , (unique, 0x2800, 1)
+000a57ac: b 0x000a582c
+     ---  BRANCH (ram, 0xa582c, 8)
+000a57b0: stp xzr,xzr,[sp, #0x98]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x98, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a57b4: adrp x27,0x149000
+    (register, 0x40d8, 8) COPY (const, 0x149000, 8)
+000a57b8: ldr x2,[x27, #0xb90]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40d8, 8) , (const, 0xb90, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57bc: adrp x27,0x149000
+    (register, 0x40d8, 8) COPY (const, 0x149000, 8)
+000a57c0: ldr x1,[x27, #0xb98]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40d8, 8) , (const, 0xb98, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57c4: cmp x1,#0x1
+    (unique, 0x39100, 8) COPY (const, 0x1, 8)
+    (register, 0x105, 1) INT_LESSEQUAL (unique, 0x39100, 8) , (register, 0x4008, 8)
+    (register, 0x106, 1) INT_SBORROW (register, 0x4008, 8) , (unique, 0x39100, 8)
+    (unique, 0x39300, 8) INT_SUB (register, 0x4008, 8) , (unique, 0x39100, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x39300, 8) , (const, 0x0, 8)
+    (register, 0x100, 1) COPY (register, 0x107, 1)
+    (register, 0x101, 1) COPY (register, 0x108, 1)
+    (register, 0x102, 1) COPY (register, 0x105, 1)
+    (register, 0x103, 1) COPY (register, 0x106, 1)
+000a57c8: b.hi 0x000a57d0
+    (unique, 0x1b00, 1) BOOL_NEGATE (register, 0x101, 1)
+    (unique, 0x1d00, 1) BOOL_AND (register, 0x102, 1) , (unique, 0x1b00, 1)
+     ---  CBRANCH (ram, 0xa57d0, 8) , (unique, 0x1d00, 1)
+000a57cc: b 0x000a5bd0
+     ---  BRANCH (ram, 0xa5bd0, 8)
+000a57d0: ldr x0,[x2, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4010, 8) , (const, 0x10, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57d4: ldr x1,[x2, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4010, 8) , (const, 0x18, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57d8: str x0,[sp, #0x68]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x68, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a57dc: str x1,[sp, #0x70]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x70, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a57e0: bl 0x0007c9b0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa57e0, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x7c9b0, 8)
+000a57e4: str x0,[sp, #0x48]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x48, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a57e8: str x1,[sp, #0x98]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x98, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a57ec: str x2,[sp, #0xa0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xa0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a57f0: ldr x3,[sp, #0x48]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x48, 8)
+    (register, 0x4018, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a57f4: str x3,[sp, #0x50]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x50, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4018, 8)
+000a57f8: str x1,[sp, #0xa8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xa8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a57fc: str x2,[sp, #0xb0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xb0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5800: ldr x3,[sp, #0x50]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x50, 8)
+    (register, 0x4018, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5804: str x3,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4018, 8)
+000a5808: str x1,[sp, #0x58]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x58, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a580c: str x2,[sp, #0x60]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x60, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5810: cbnz x1,0x000a5818
+    (unique, 0x31500, 1) INT_NOTEQUAL (register, 0x4008, 8) , (const, 0x0, 8)
+     ---  CBRANCH (ram, 0xa5818, 8) , (unique, 0x31500, 1)
+000a5814: b 0x000a581c
+     ---  BRANCH (ram, 0xa581c, 8)
+000a5818: b 0x000a5828
+     ---  BRANCH (ram, 0xa5828, 8)
+000a581c: ldr x2,[sp, #0x30]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x30, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5820: str x2,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5824: b 0x000a5828
+     ---  BRANCH (ram, 0xa5828, 8)
+000a5828: b 0x000a5830
+     ---  BRANCH (ram, 0xa5830, 8)
+000a582c: b 0x000a5830
+     ---  BRANCH (ram, 0xa5830, 8)
+000a5830: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5834: orr x1,xzr,#0x30
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0x30, 8)
+000a5838: bl 0x000a5550
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5838, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa5550, 8)
+000a583c: str x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5840: stp xzr,xzr,[sp, #0x78]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x78, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5844: stp xzr,xzr,[sp, #0x88]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x88, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5848: add x2,sp,#0x78
+    (unique, 0x23600, 8) COPY (const, 0x78, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4010, 8) COPY (unique, 0x23800, 8)
+000a584c: str x2,[sp, #0x158]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x158, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5850: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5854: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5854, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5858: str x0,[sp, #0x150]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x150, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a585c: ldr x2,[sp, #0x158]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x158, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5860: ldrsb x27,[x2]
+    (unique, 0xc600, 8) COPY (register, 0x4010, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5864: adrp x3,0xb7000
+    (register, 0x4018, 8) COPY (const, 0xb7000, 8)
+000a5868: add x3,x3,#0xa40
+    (unique, 0x23600, 8) COPY (const, 0xa40, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4018, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4018, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4018, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4018, 8) COPY (unique, 0x23800, 8)
+000a586c: str x3,[x2]
+    (unique, 0xc900, 8) COPY (register, 0x4010, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4018, 8)
+000a5870: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5874: ldr w3,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4018, 8) INT_ZEXT (unique, 0x49000, 4)
+000a5878: cbz w3,0x000a5880
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4018, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5880, 8) , (unique, 0x31600, 1)
+000a587c: b 0x000a5884
+     ---  BRANCH (ram, 0xa5884, 8)
+000a5880: b 0x000a5898
+     ---  BRANCH (ram, 0xa5898, 8)
+000a5884: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5884, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a5888: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a588c: ldr x1,[x2, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4010, 8) , (const, 0x8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5890: str x1,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5894: b 0x000a5898
+     ---  BRANCH (ram, 0xa5898, 8)
+000a5898: str x0,[x2, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4010, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a589c: ldr x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a58a0: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa58a0, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a58a4: str x0,[sp, #0x148]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x148, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a58a8: ldr x1,[sp, #0x158]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x158, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a58ac: ldrsb x27,[x1]
+    (unique, 0xc600, 8) COPY (register, 0x4008, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a58b0: adrp x2,0xb7000
+    (register, 0x4010, 8) COPY (const, 0xb7000, 8)
+000a58b4: add x2,x2,#0x9c0
+    (unique, 0x23600, 8) COPY (const, 0x9c0, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4010, 8) COPY (unique, 0x23800, 8)
+000a58b8: str x2,[x1, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a58bc: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a58c0: ldr w2,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4010, 8) INT_ZEXT (unique, 0x49000, 4)
+000a58c4: cbz w2,0x000a58cc
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4010, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa58cc, 8) , (unique, 0x31600, 1)
+000a58c8: b 0x000a58d0
+     ---  BRANCH (ram, 0xa58d0, 8)
+000a58cc: b 0x000a58e4
+     ---  BRANCH (ram, 0xa58e4, 8)
+000a58d0: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa58d0, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a58d4: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a58d8: ldr x5,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a58dc: str x5,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a58e0: b 0x000a58e4
+     ---  BRANCH (ram, 0xa58e4, 8)
+000a58e4: str x0,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a58e8: ldr x2,[sp, #0x158]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x158, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a58ec: ldrsb x27,[x2]
+    (unique, 0xc600, 8) COPY (register, 0x4010, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a58f0: b 0x000a58f4
+     ---  BRANCH (ram, 0xa58f4, 8)
+000a58f4: str x2,[sp, #0x160]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x160, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a58f8: orr x4,xzr,#0x2
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4020, 8) INT_OR (unique, 0xb00, 8) , (const, 0x2, 8)
+000a58fc: str x4,[sp, #0x168]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x168, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5900: str x4,[sp, #0x170]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x170, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5904: adrp x0,0xcc000
+    (register, 0x4000, 8) COPY (const, 0xcc000, 8)
+000a5908: add x0,x0,#0xbff
+    (unique, 0x23600, 8) COPY (const, 0xbff, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x23800, 8)
+000a590c: orr x1,xzr,#0xe
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0xe, 8)
+000a5910: mov x3,x4
+    (register, 0x4018, 8) COPY (register, 0x4020, 8)
+000a5914: bl 0x0009f3a0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5914, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x9f3a0, 8)
+000a5918: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a591c: bl 0x000a55f0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa591c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa55f0, 8)
+000a5920: str x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5924: stp xzr,xzr,[sp, #0x78]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x78, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5928: stp xzr,xzr,[sp, #0x88]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x88, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a592c: add x5,sp,#0x78
+    (unique, 0x23600, 8) COPY (const, 0x78, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4028, 8) COPY (unique, 0x23800, 8)
+000a5930: str x5,[sp, #0x128]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x128, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a5934: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5938: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5938, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a593c: str x0,[sp, #0x120]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x120, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5940: ldr x5,[sp, #0x128]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x128, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5944: ldrsb x27,[x5]
+    (unique, 0xc600, 8) COPY (register, 0x4028, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5948: adrp x6,0xb7000
+    (register, 0x4030, 8) COPY (const, 0xb7000, 8)
+000a594c: add x6,x6,#0xa40
+    (unique, 0x23600, 8) COPY (const, 0xa40, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4030, 8) COPY (unique, 0x23800, 8)
+000a5950: str x6,[x5]
+    (unique, 0xc900, 8) COPY (register, 0x4028, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4030, 8)
+000a5954: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5958: ldr w6,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4030, 8) INT_ZEXT (unique, 0x49000, 4)
+000a595c: cbz w6,0x000a5964
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4030, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5964, 8) , (unique, 0x31600, 1)
+000a5960: b 0x000a5968
+     ---  BRANCH (ram, 0xa5968, 8)
+000a5964: b 0x000a597c
+     ---  BRANCH (ram, 0xa597c, 8)
+000a5968: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5968, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a596c: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a5970: ldr x1,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5974: str x1,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5978: b 0x000a597c
+     ---  BRANCH (ram, 0xa597c, 8)
+000a597c: str x0,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5980: ldr x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5984: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5984, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5988: str x0,[sp, #0x118]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x118, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a598c: ldr x1,[sp, #0x128]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x128, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5990: ldrsb x27,[x1]
+    (unique, 0xc600, 8) COPY (register, 0x4008, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5994: adrp x2,0xb7000
+    (register, 0x4010, 8) COPY (const, 0xb7000, 8)
+000a5998: add x2,x2,#0x9c0
+    (unique, 0x23600, 8) COPY (const, 0x9c0, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4010, 8) COPY (unique, 0x23800, 8)
+000a599c: str x2,[x1, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a59a0: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a59a4: ldr w2,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4010, 8) INT_ZEXT (unique, 0x49000, 4)
+000a59a8: cbz w2,0x000a59b0
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4010, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa59b0, 8) , (unique, 0x31600, 1)
+000a59ac: b 0x000a59b4
+     ---  BRANCH (ram, 0xa59b4, 8)
+000a59b0: b 0x000a59c8
+     ---  BRANCH (ram, 0xa59c8, 8)
+000a59b4: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa59b4, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a59b8: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a59bc: ldr x5,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a59c0: str x5,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a59c4: b 0x000a59c8
+     ---  BRANCH (ram, 0xa59c8, 8)
+000a59c8: str x0,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a59cc: ldr x2,[sp, #0x128]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x128, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a59d0: ldrsb x27,[x2]
+    (unique, 0xc600, 8) COPY (register, 0x4010, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a59d4: b 0x000a59d8
+     ---  BRANCH (ram, 0xa59d8, 8)
+000a59d8: str x2,[sp, #0x130]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x130, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a59dc: orr x4,xzr,#0x2
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4020, 8) INT_OR (unique, 0xb00, 8) , (const, 0x2, 8)
+000a59e0: str x4,[sp, #0x138]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x138, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a59e4: str x4,[sp, #0x140]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x140, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a59e8: adrp x0,0xcc000
+    (register, 0x4000, 8) COPY (const, 0xcc000, 8)
+000a59ec: add x0,x0,#0x3bd
+    (unique, 0x23600, 8) COPY (const, 0x3bd, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x23800, 8)
+000a59f0: mov x1,#0xb
+    (register, 0x4008, 8) COPY (const, 0xb, 8)
+000a59f4: mov x3,x4
+    (register, 0x4018, 8) COPY (register, 0x4020, 8)
+000a59f8: bl 0x0009f3a0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa59f8, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x9f3a0, 8)
+000a59fc: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a00: bl 0x000a5680
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5a00, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa5680, 8)
+000a5a04: str x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5a08: stp xzr,xzr,[sp, #0x78]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x78, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5a0c: stp xzr,xzr,[sp, #0x88]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x88, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5a10: add x5,sp,#0x78
+    (unique, 0x23600, 8) COPY (const, 0x78, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4028, 8) COPY (unique, 0x23800, 8)
+000a5a14: str x5,[sp, #0xf8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xf8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a5a18: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a1c: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5a1c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5a20: str x0,[sp, #0xf0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xf0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5a24: ldr x5,[sp, #0xf8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xf8, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a28: ldrsb x27,[x5]
+    (unique, 0xc600, 8) COPY (register, 0x4028, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5a2c: adrp x6,0xb7000
+    (register, 0x4030, 8) COPY (const, 0xb7000, 8)
+000a5a30: add x6,x6,#0xa40
+    (unique, 0x23600, 8) COPY (const, 0xa40, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4030, 8) COPY (unique, 0x23800, 8)
+000a5a34: str x6,[x5]
+    (unique, 0xc900, 8) COPY (register, 0x4028, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4030, 8)
+000a5a38: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5a3c: ldr w6,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4030, 8) INT_ZEXT (unique, 0x49000, 4)
+000a5a40: cbz w6,0x000a5a48
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4030, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5a48, 8) , (unique, 0x31600, 1)
+000a5a44: b 0x000a5a4c
+     ---  BRANCH (ram, 0xa5a4c, 8)
+000a5a48: b 0x000a5a60
+     ---  BRANCH (ram, 0xa5a60, 8)
+000a5a4c: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5a4c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a5a50: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a5a54: ldr x1,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a58: str x1,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5a5c: b 0x000a5a60
+     ---  BRANCH (ram, 0xa5a60, 8)
+000a5a60: str x0,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5a64: ldr x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a68: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5a68, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5a6c: str x0,[sp, #0xe8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xe8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5a70: ldr x1,[sp, #0xf8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xf8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5a74: ldrsb x27,[x1]
+    (unique, 0xc600, 8) COPY (register, 0x4008, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5a78: adrp x2,0xb7000
+    (register, 0x4010, 8) COPY (const, 0xb7000, 8)
+000a5a7c: add x2,x2,#0x9c0
+    (unique, 0x23600, 8) COPY (const, 0x9c0, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4010, 8) COPY (unique, 0x23800, 8)
+000a5a80: str x2,[x1, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5a84: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5a88: ldr w2,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4010, 8) INT_ZEXT (unique, 0x49000, 4)
+000a5a8c: cbz w2,0x000a5a94
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4010, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5a94, 8) , (unique, 0x31600, 1)
+000a5a90: b 0x000a5a98
+     ---  BRANCH (ram, 0xa5a98, 8)
+000a5a94: b 0x000a5aac
+     ---  BRANCH (ram, 0xa5aac, 8)
+000a5a98: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5a98, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a5a9c: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a5aa0: ldr x5,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5aa4: str x5,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a5aa8: b 0x000a5aac
+     ---  BRANCH (ram, 0xa5aac, 8)
+000a5aac: str x0,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5ab0: ldr x2,[sp, #0xf8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xf8, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5ab4: ldrsb x27,[x2]
+    (unique, 0xc600, 8) COPY (register, 0x4010, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5ab8: b 0x000a5abc
+     ---  BRANCH (ram, 0xa5abc, 8)
+000a5abc: str x2,[sp, #0x100]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x100, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5ac0: orr x4,xzr,#0x2
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4020, 8) INT_OR (unique, 0xb00, 8) , (const, 0x2, 8)
+000a5ac4: str x4,[sp, #0x108]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x108, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5ac8: str x4,[sp, #0x110]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x110, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5acc: adrp x0,0xcc000
+    (register, 0x4000, 8) COPY (const, 0xcc000, 8)
+000a5ad0: add x0,x0,#0x667
+    (unique, 0x23600, 8) COPY (const, 0x667, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x23800, 8)
+000a5ad4: orr x1,xzr,#0xc
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4008, 8) INT_OR (unique, 0xb00, 8) , (const, 0xc, 8)
+000a5ad8: mov x3,x4
+    (register, 0x4018, 8) COPY (register, 0x4020, 8)
+000a5adc: bl 0x0009f3a0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5adc, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x9f3a0, 8)
+000a5ae0: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5ae4: bl 0x000a5700
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5ae4, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0xa5700, 8)
+000a5ae8: str x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5aec: stp xzr,xzr,[sp, #0x78]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x78, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5af0: stp xzr,xzr,[sp, #0x88]
+    (unique, 0xa00, 8) COPY (const, 0x0, 8)
+    (unique, 0xc00, 8) COPY (const, 0x0, 8)
+    (unique, 0x74000, 8) COPY (unique, 0xc00, 8)
+    (unique, 0x74100, 8) COPY (unique, 0xa00, 8)
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0x88, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xf000, 8) , (unique, 0x74000, 8)
+    (unique, 0x74200, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0x74200, 8) , (unique, 0x74100, 8)
+000a5af4: add x5,sp,#0x78
+    (unique, 0x23600, 8) COPY (const, 0x78, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4028, 8) COPY (unique, 0x23800, 8)
+000a5af8: str x5,[sp, #0xc8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xc8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a5afc: ldr x0,[sp, #0x38]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x38, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b00: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5b00, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5b04: str x0,[sp, #0xc0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xc0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5b08: ldr x5,[sp, #0xc8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xc8, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b0c: ldrsb x27,[x5]
+    (unique, 0xc600, 8) COPY (register, 0x4028, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5b10: adrp x6,0xb7000
+    (register, 0x4030, 8) COPY (const, 0xb7000, 8)
+000a5b14: add x6,x6,#0xa40
+    (unique, 0x23600, 8) COPY (const, 0xa40, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4030, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4030, 8) COPY (unique, 0x23800, 8)
+000a5b18: str x6,[x5]
+    (unique, 0xc900, 8) COPY (register, 0x4028, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4030, 8)
+000a5b1c: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5b20: ldr w6,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4030, 8) INT_ZEXT (unique, 0x49000, 4)
+000a5b24: cbz w6,0x000a5b2c
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4030, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5b2c, 8) , (unique, 0x31600, 1)
+000a5b28: b 0x000a5b30
+     ---  BRANCH (ram, 0xa5b30, 8)
+000a5b2c: b 0x000a5b44
+     ---  BRANCH (ram, 0xa5b44, 8)
+000a5b30: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5b30, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a5b34: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a5b38: ldr x1,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b3c: str x1,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4008, 8)
+000a5b40: b 0x000a5b44
+     ---  BRANCH (ram, 0xa5b44, 8)
+000a5b44: str x0,[x5, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4028, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5b48: ldr x0,[sp, #0x40]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0x40, 8)
+    (register, 0x4000, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b4c: bl 0x0001b060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5b4c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x1b060, 8)
+000a5b50: str x0,[sp, #0xb8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xb8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5b54: ldr x1,[sp, #0xc8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xc8, 8)
+    (register, 0x4008, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b58: ldrsb x27,[x1]
+    (unique, 0xc600, 8) COPY (register, 0x4008, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5b5c: adrp x2,0xb7000
+    (register, 0x4010, 8) COPY (const, 0xb7000, 8)
+000a5b60: add x2,x2,#0x9c0
+    (unique, 0x23600, 8) COPY (const, 0x9c0, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4010, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4010, 8) COPY (unique, 0x23800, 8)
+000a5b64: str x2,[x1, #0x10]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x10, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5b68: adrp x27,0x1af000
+    (register, 0x40d8, 8) COPY (const, 0x1af000, 8)
+000a5b6c: ldr w2,[x27, #0x830]
+    (unique, 0xc100, 8) INT_ADD (register, 0x40d8, 8) , (const, 0x830, 8)
+    (unique, 0x49000, 4) LOAD (const, 0x1b1, 8) , (unique, 0xc100, 8)
+    (register, 0x4010, 8) INT_ZEXT (unique, 0x49000, 4)
+000a5b70: cbz w2,0x000a5b78
+    (unique, 0x31600, 1) INT_EQUAL (register, 0x4010, 4) , (const, 0x0, 4)
+     ---  CBRANCH (ram, 0xa5b78, 8) , (unique, 0x31600, 1)
+000a5b74: b 0x000a5b7c
+     ---  BRANCH (ram, 0xa5b7c, 8)
+000a5b78: b 0x000a5b90
+     ---  BRANCH (ram, 0xa5b90, 8)
+000a5b7c: bl 0x000752c0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5b7c, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x752c0, 8)
+000a5b80: str x0,[x25]
+    (unique, 0xc900, 8) COPY (register, 0x40c8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc900, 8) , (register, 0x4000, 8)
+000a5b84: ldr x5,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+    (register, 0x4028, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b88: str x5,[x25, #0x8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x40c8, 8) , (const, 0x8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4028, 8)
+000a5b8c: b 0x000a5b90
+     ---  BRANCH (ram, 0xa5b90, 8)
+000a5b90: str x0,[x1, #0x18]
+    (unique, 0xc300, 8) INT_ADD (register, 0x4008, 8) , (const, 0x18, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4000, 8)
+000a5b94: ldr x2,[sp, #0xc8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xc8, 8)
+    (register, 0x4010, 8) LOAD (const, 0x1b1, 8) , (unique, 0xc300, 8)
+000a5b98: ldrsb x27,[x2]
+    (unique, 0xc600, 8) COPY (register, 0x4010, 8)
+    (unique, 0x4b200, 1) LOAD (const, 0x1b1, 8) , (unique, 0xc600, 8)
+    (register, 0x40d8, 8) INT_SEXT (unique, 0x4b200, 1)
+000a5b9c: b 0x000a5ba0
+     ---  BRANCH (ram, 0xa5ba0, 8)
+000a5ba0: str x2,[sp, #0xd0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xd0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4010, 8)
+000a5ba4: orr x4,xzr,#0x2
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4020, 8) INT_OR (unique, 0xb00, 8) , (const, 0x2, 8)
+000a5ba8: str x4,[sp, #0xd8]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xd8, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5bac: str x4,[sp, #0xe0]
+    (unique, 0xc300, 8) INT_ADD (register, 0x8, 8) , (const, 0xe0, 8)
+     ---  STORE (const, 0x1b1, 8) , (unique, 0xc300, 8) , (register, 0x4020, 8)
+000a5bb0: adrp x0,0xcc000
+    (register, 0x4000, 8) COPY (const, 0xcc000, 8)
+000a5bb4: add x0,x0,#0x3c8
+    (unique, 0x23600, 8) COPY (const, 0x3c8, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x4000, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x4000, 8) COPY (unique, 0x23800, 8)
+000a5bb8: mov x1,#0xb
+    (register, 0x4008, 8) COPY (const, 0xb, 8)
+000a5bbc: mov x3,x4
+    (register, 0x4018, 8) COPY (register, 0x4020, 8)
+000a5bc0: bl 0x0009f3a0
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5bc0, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x9f3a0, 8)
+000a5bc4: ldp x29,x30,[sp, #-0x8]
+    (unique, 0xf000, 8) INT_ADD (register, 0x8, 8) , (const, 0xfffffffffffffff8, 8)
+    (unique, 0x48500, 8) LOAD (const, 0x1b1, 8) , (unique, 0xf000, 8)
+    (unique, 0x48600, 8) INT_ADD (unique, 0xf000, 8) , (const, 0x8, 8)
+    (unique, 0x48800, 8) LOAD (const, 0x1b1, 8) , (unique, 0x48600, 8)
+    (register, 0x40e8, 8) COPY (unique, 0x48500, 8)
+    (register, 0x40f0, 8) COPY (unique, 0x48800, 8)
+000a5bc8: add sp,sp,#0x180
+    (unique, 0x23600, 8) COPY (const, 0x180, 8)
+    (register, 0x105, 1) INT_CARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x106, 1) INT_SCARRY (register, 0x8, 8) , (unique, 0x23600, 8)
+    (unique, 0x23800, 8) INT_ADD (register, 0x8, 8) , (unique, 0x23600, 8)
+    (register, 0x107, 1) INT_SLESS (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x108, 1) INT_EQUAL (unique, 0x23800, 8) , (const, 0x0, 8)
+    (register, 0x8, 8) COPY (unique, 0x23800, 8)
+000a5bcc: ret
+    (register, 0x0, 8) COPY (register, 0x40f0, 8)
+     ---  RETURN (register, 0x0, 8)
+000a5bd0: orr x0,xzr,#0x1
+    (unique, 0xb00, 8) COPY (const, 0x0, 8)
+    (register, 0x4000, 8) INT_OR (unique, 0xb00, 8) , (const, 0x1, 8)
+000a5bd4: bl 0x00075590
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5bd4, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x75590, 8)
+000a5bdc: mov x3,x30
+    (register, 0x4018, 8) COPY (register, 0x40f0, 8)
+000a5be0: bl 0x00073060
+    (register, 0x40f0, 8) INT_ADD (const, 0xa5be0, 8) , (const, 0x4, 8)
+     ---  CALL (ram, 0x73060, 8)
+000a5be4: b 0x000a5770
+     ---  BRANCH (ram, 0xa5770, 8)

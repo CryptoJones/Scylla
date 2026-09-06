@@ -18,3 +18,4 @@ venv/
 .env
 *.log
 abtest/out/
+abtest/corpus/bin/

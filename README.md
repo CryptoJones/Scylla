@@ -129,6 +129,10 @@ chosen for; the heavy JVM engine is reached over gRPC as a droppable producer (D
 ships no engine; `GHIDRA_DIST` points the service at any unpacked Ghidra distribution (stock
 NSA Ghidra or the [GayHydra](https://github.com/CryptoJones/GayHydra) hardened fork).
 
+**Wrapper fidelity is measured, not assumed:** [`abtest/`](abtest/README.md) A/B-tests a C / C++ / Go / Rust
+corpus materialized *through* Scylla against the same engine dist's raw `analyzeHeadless` output, field
+for field, with both legs committed and replayed on every `cargo test` — see [`abtest/REPORT.md`](abtest/REPORT.md).
+
 ## Acknowledgements
 
 Scylla stands on work it has no intention of replacing:

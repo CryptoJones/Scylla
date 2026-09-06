@@ -17,3 +17,5 @@ venv/
 # Local env
 .env
 *.log
+abtest/out/
+abtest/corpus/bin/

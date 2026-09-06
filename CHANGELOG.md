@@ -9,6 +9,44 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+### Added
+
+- **A/B parity harness (`abtest/`, `crates/scylla-abtest`).** Proves that what Scylla reports for a
+  binary — materialized through the sandboxed engine-service over gRPC into a `.scylla` — is field
+  for field what the engine dist reports when its `analyzeHeadless` is run directly with the same
+  `dump_model.java`: same GayHydra dist on both legs, so any delta is the wrapper's. A 22-binary
+  corpus (C, C++, Go 1.22/1.26, Rust; O0/O2; stripped variants) with both legs committed under
+  `abtest/baselines/`, a control run for engine determinism, a CLI-level byte check, a raw
+  decompilation baseline (outside only — the `decompile` verb's future A/B target), and an offline
+  replay gate (`tests/parity.rs`) that fails `cargo test` if the ingest/assemble/loader path ever
+  drifts from the engine. `GHIDRA_DIST=<dist> abtest/scripts/ab.sh` re-runs it; `abtest/REPORT.md`
+  is the latest result. The corpus is **multi-platform** (`abtest/corpus/build.sh`): the same small
+  C/C++/Go/Rust programs across gcc, clang, g++, clang++, rustc and Go, over **ten
+  engine-supported architectures** (x86-64, i386, aarch64, armhf, riscv64, ppc64le, and Go's
+  amd64/arm64/arm/386), seven optimization levels, PIE and stripping — **k >= 1024**. The engine
+  analyzes every architecture statically, so cross-built ELFs are first-class members. The full
+  corpus and full baselines are reproducible via `ab.sh` and git-ignored; a small stratified
+  representative baseline set (`abtest/baselines/REPRESENTATIVE.txt`) is committed for the offline
+  gate. Engine findings, recorded not hidden: the raw engine's auto-analysis is
+  **nondeterministic** on several Rust std functions (body extent flips between direct
+  `analyzeHeadless` runs, more so under CPU pinning) — characterized from raw runs alone
+  (`scylla-abtest flaky`) and masked by that evidence, never by hand; the dist's Go analyzer fails
+  on Go 1.26 binaries; and s390x has no SLEIGH spec in GayHydra 26.3 (excluded).
+
+### Fixed
+
+- **Space-qualified addresses were parsed inconsistently between the two producers (scylla-ingest,
+  engine-service).** GayHydra prints an address in a non-default space as `ram:00010500` (RISC-V)
+  but the default space bare (`00401156`); the Rust snapshot ingest silently coerced the qualified
+  form to address 0 while the engine-service Java threw on it, so RISC-V materialization was
+  inside-fail / outside-silently-wrong. Both now strip the `space:` prefix before the hex parse, so
+  every architecture round-trips identically. Caught by the A/B harness; regression-tested.
+- **Concurrent cold materialization raced GayHydra's first-launch JDK-home save**
+  (`$HOME/.config/gayhydra/<version>/`), failing with "no TTY detected" when
+  `SCYLLA_ENGINE_COLD_CONCURRENCY` > 1. The engine-service now warms the launcher once at startup
+  (`EngineServer.warmLauncher`) to establish that directory serially, making concurrent cold
+  materialization safe.
+
 ### Security
 
 - **The artifact loader's caps are now proportional to the artifact, not absolute (scylla-schema,

@@ -106,6 +106,62 @@ public final class EngineServer {
     }
 
     /** Last {@code n} chars of {@code s}, trimmed — the useful end of a subprocess log. */
+    /** Run the dist launcher ONCE, serially, at startup so GayHydra's first-launch JDK-home save
+     *  ({@code $HOME/.config/<app>/<app>_<version>/}) is created before any request. Concurrent cold
+     *  {@code analyzeHeadless} launches otherwise RACE to create that dir and one dies with
+     *  "Failed to create directory ... Unable to prompt user for JDK path, no TTY detected" — which
+     *  is why the abtest inside leg could not run more than one materialization at a time. A no-op
+     *  headless invocation (open a throwaway project, import nothing, delete it) triggers the save
+     *  with no analysis. Best-effort: if it fails we log and continue — the per-request path still
+     *  works serially, and this only unlocks concurrency. */
+    static void warmLauncher(String dist) {
+        try {
+            Path proj = Files.createTempDirectory("scylla-warmlaunch");
+            try {
+                // Import a trivial real ELF (/bin/true) read-only so the run has actual work and
+                // exits 0 — the point is only to drive the launcher's one-time JDK -save serially.
+                String stub = Files.isReadable(Path.of("/bin/true")) ? "/bin/true" : "/bin/sh";
+                Process p = new ProcessBuilder(
+                        Path.of(dist, "support", "analyzeHeadless").toString(),
+                        proj.toString(), "warm", "-import", stub, "-readOnly",
+                        "-analysisTimeoutPerFile", "60", "-deleteProject")
+                        .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+                if (!p.waitFor(120, TimeUnit.SECONDS)) {
+                    p.descendants().forEach(ProcessHandle::destroyForcibly);
+                    p.destroyForcibly();
+                    System.err.println("WARN: launcher warm-up timed out; cold concurrency may be unsafe.");
+                } else if (p.exitValue() != 0) {
+                    System.err.println("WARN: launcher warm-up exited " + p.exitValue()
+                            + "; cold concurrency may be unsafe (JDK settings dir not established).");
+                } else {
+                    System.out.println("launcher warmed (JDK settings established) — cold concurrency safe");
+                }
+            } finally {
+                deleteRecursively(proj);
+            }
+        } catch (Exception e) {
+            System.err.println("WARN: launcher warm-up failed (" + e.getMessage() + "); cold concurrency may be unsafe.");
+        }
+    }
+
+    /** Parse a Ghidra address string to its numeric offset. Ghidra prints an address in a
+     *  NON-default space space-qualified (RISC-V: {@code ram:00010500}) but the default space bare
+     *  ({@code 00401156}); both name the same offset, so take the text after the last {@code :}. The
+     *  Rust snapshot ingest (scylla-ingest {@code parse_addr}) normalizes identically, so the two
+     *  producers agree byte-for-byte on every architecture (a wrapper-parity fix, caught by abtest). */
+    static long parseAddr(String s) {
+        String t = s.trim();
+        int c = t.lastIndexOf(':');
+        if (c >= 0) {
+            t = t.substring(c + 1);
+        }
+        if (t.startsWith("0x") || t.startsWith("0X")) {
+            t = t.substring(2);
+        }
+        return Long.parseUnsignedLong(t, 16);
+    }
+
     static String tail(String s, int n) {
         s = s.strip();
         return s.length() <= n ? s : "…" + s.substring(s.length() - n);
@@ -508,13 +564,13 @@ public final class EngineServer {
             for (JsonElement fe : root.getAsJsonArray("functions")) {
                 JsonObject f = fe.getAsJsonObject();
                 FunctionChunk.Builder b = FunctionChunk.newBuilder()
-                        .setEntry(Long.parseUnsignedLong(f.get("entry").getAsString(), 16))
+                        .setEntry(parseAddr(f.get("entry").getAsString()))
                         .setName(f.get("name").getAsString())
                         .setSize(f.get("size").getAsLong())
                         .setBbCount(f.get("bb_count").getAsInt());
                 if (f.has("callees")) {
                     for (JsonElement c : f.getAsJsonArray("callees")) {
-                        b.addCallees(Long.parseUnsignedLong(c.getAsString(), 16));
+                        b.addCallees(parseAddr(c.getAsString()));
                     }
                 }
                 // The mnemonics the analyzer already emits — streamed raw so the CORE folds
@@ -606,6 +662,10 @@ public final class EngineServer {
             System.exit(2);
             return;
         }
+
+        // Establish GayHydra's first-launch JDK settings ONCE, serially, so concurrent cold
+        // analyzeHeadless subprocesses (SCYLLA_ENGINE_COLD_CONCURRENCY > 1) don't race creating it.
+        warmLauncher(dist);
 
         // WARM ENGINE (DD-040), opt-in via SCYLLA_ENGINE_WARM: stand up one resident engine JVM at
         // startup (pays the cold init ONCE) so Materialize is ~2s instead of ~6s. Best-effort — if the

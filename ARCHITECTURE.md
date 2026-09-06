@@ -38,6 +38,7 @@ arch test in `scylla-mcp`).
 | `scylla-tui`    | the **TUI head** — an interactive terminal navigator (ratatui) over the port: a function list, a selection-following detail pane (addr/blocks/size/callees/callers), a live search filter, and a structural-diff pane (pass a 2nd artifact, toggle `d`); the `App` is a pure, conformance-tested port projection (lib+bin, testable headless) | DD-017 |
 | `scylla-lsp`    | the **LSP head** — a Language Server: the program as one virtual document, with documentSymbol (`functions`), hover (`view`, untrusted-wrapped), references (`callers`), rename (annotate → `WorkspaceEdit`), workspace/symbol (`search`); hand-rolled Content-Length JSON-RPC, headless `dispatch` (lib+bin) | DD-017 |
 | `fuzz/`         | nightly cargo-fuzz harnesses for the three trust boundaries | DD-039 |
+| `scylla-abtest` + `abtest/` | the **A/B parity harness** — proves a Scylla-materialized model equals the raw engine's own headless output field for field, over a **multi-platform** corpus (C/C++/Go/Rust x gcc/clang/g++/rustc/go x ten architectures incl. aarch64/riscv64/ppc64le/armhf/i386 x O0-Ofast x pie x strip, k>=1024); characterizes engine nondeterminism and masks it by evidence; an offline replay gate rides `cargo test` | DD-009 / 040 |
 
 The consume-side core (`model` + `schema` + `port`) compiles to **wasm32** (DD-028) — that's the
 `scylla-wasm` browser head, shipped by `scylla-serve`; the engine-touching producers deliberately do not.
@@ -81,6 +82,7 @@ never notices.
 ```
 cargo test --workspace                         # everything, incl. the DD-038 re-anchoring gate (WRONG=0)
 scripts/check-wasm.sh                           # DD-028: consume-side core compiles to wasm32
+GHIDRA_DIST=<dist> abtest/scripts/ab.sh          # A/B parity: inside-Scylla vs raw analyzeHeadless, C/C++/Go/Rust -> abtest/REPORT.md
 cargo +nightly fuzz run artifact_loader         # DD-039 nightly lane (per-commit replay rides in cargo test)
 scylla materialize http://127.0.0.1:50051 <bin> out.scylla   # primary: binary -> .scylla over the engine port
 prototype/harness/materialize.sh <bin> out.scylla            # offline alternative (no engine-service)

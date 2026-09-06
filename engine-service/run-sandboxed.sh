@@ -41,7 +41,7 @@ exec docker run --rm \
   --tmpfs /tmp:rw,exec,size=1g \
   --cap-drop ALL \
   --security-opt no-new-privileges \
-  --memory 4g --cpus 2 --pids-limit 512 \
+  --memory "${SCYLLA_SANDBOX_MEM:-4g}" --cpus "${SCYLLA_SANDBOX_CPUS:-2}" --pids-limit 512 \
   -e HOME=/tmp -e GHIDRA_DIST=/opt/ghidra -e SCYLLA_ENGINE_UDS=/run/scylla/engine.sock \
   -e SCYLLA_ENGINE_WARM="${SCYLLA_ENGINE_WARM:-}" \
   -e SCYLLA_ENGINE_WARM_POOL="${SCYLLA_ENGINE_WARM_POOL:-}" \
@@ -51,6 +51,10 @@ exec docker run --rm \
   -v "$SOCK_DIR":/run/scylla:rw \
   scylla-engine-service:dev
 
+# SCYLLA_SANDBOX_MEM / SCYLLA_SANDBOX_CPUS (defaults 4g / 2) size the resource caps for a bigger
+# warm pool or a higher SCYLLA_ENGINE_COLD_CONCURRENCY (e.g. the abtest harness materializing
+# several binaries at once). They only move the ceiling — every other lockdown knob is unchanged.
+#
 # WARM ENGINE (DD-040), opt-in: run with `SCYLLA_ENGINE_WARM=1 ./run-sandboxed.sh` to keep resident
 # engine JVM(s) warm in-process (~2s/call vs ~6s cold). `SCYLLA_ENGINE_WARM_POOL=N` runs N workers
 # for N-way CONCURRENT materialize (default 1) — each worker is a full Ghidra JVM, so size N to the

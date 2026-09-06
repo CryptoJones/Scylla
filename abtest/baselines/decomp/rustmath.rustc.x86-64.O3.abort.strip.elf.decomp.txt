@@ -1,0 +1,3 @@
+## LANGUAGE x86:LE:64:default / gcc
+## IMAGEBASE 00100000
+## FUNCTIONS 0 (filter: rustmath)

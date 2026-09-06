@@ -124,3 +124,73 @@ fn every_inside_artifact_has_an_outside_snapshot_and_vice_versa() {
         "baseline legs are out of step — a binary was recorded on one leg only"
     );
 }
+
+/// The DECOMPILATION gate: every committed `decompile`-verb output (`baselines/decomp-inside/`,
+/// `scylla decompile --json` through the sandboxed engine-service) must still match the raw
+/// engine's own decompiler dump of the same binary (`baselines/decomp/`) byte for byte per
+/// function. Offline, like the model gate; re-record with `abtest/scripts/ab.sh`.
+#[test]
+fn every_committed_decomp_pair_is_at_parity() {
+    let inside_dir = baselines().join("decomp-inside");
+    let mut pairs = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&inside_dir) {
+        for entry in rd.flatten() {
+            let inside = entry.path();
+            let Some(fname) = inside.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let Some(stem) = fname
+                .strip_suffix(".decomp.json.gz")
+                .or_else(|| fname.strip_suffix(".decomp.json"))
+            else {
+                continue;
+            };
+            let outside = baselines()
+                .join("decomp")
+                .join(format!("{stem}.decomp.txt"));
+            assert!(
+                outside.exists(),
+                "{} has no raw decomp baseline beside it",
+                inside.display()
+            );
+            pairs.push((inside, outside));
+        }
+    }
+    pairs.sort();
+    assert!(
+        !pairs.is_empty(),
+        "no decomp pairs under {} — run abtest/scripts/ab.sh to record them",
+        inside_dir.display()
+    );
+    let mut failures = Vec::new();
+    for (inside_path, outside_path) in &pairs {
+        let text = |p: &Path| {
+            String::from_utf8_lossy(&scylla_abtest::read_maybe_gz(p).unwrap()).into_owned()
+        };
+        let inside = scylla_abtest::decomp::parse_inside(&text(inside_path))
+            .unwrap_or_else(|e| panic!("parsing {}: {e}", inside_path.display()));
+        let outside = scylla_abtest::decomp::parse_baseline(&text(outside_path))
+            .unwrap_or_else(|e| panic!("parsing {}: {e}", outside_path.display()));
+        let report = scylla_abtest::decomp::compare_decomp(&inside, &outside.functions);
+        if !report.is_parity() {
+            failures.push(format!(
+                "{}: only_inside={:?} only_outside={:?} fields={:?}",
+                inside_path.file_name().unwrap().to_string_lossy(),
+                report.only_inside,
+                report.only_outside,
+                report
+                    .field_mismatches
+                    .iter()
+                    .map(|m| format!("{:#x}.{}", m.addr, m.field))
+                    .collect::<Vec<_>>()
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} of {} decomp pairs DIFFER:\n  {}",
+        failures.len(),
+        pairs.len(),
+        failures.join("\n  ")
+    );
+}

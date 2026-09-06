@@ -15,8 +15,11 @@ service Engine {
   // stream is a ProgramInfo header (once, first) followed by one FunctionChunk per function.
   rpc Materialize(MaterializeRequest) returns (stream MaterializeEvent);
 
-  // Decompile one function on demand.
-  rpc Decompile(DecompileRequest) returns (DecompileReply);
+  // Decompile functions on demand — the `decompile` verb (DD-017). The engine is a TRANSIENT
+  // producer (DD-009/040): it keeps no program between calls, so the request carries the binary
+  // and the engine analyzes it once and decompiles every selected function in that one pass.
+  // Server-streaming for the same reason Materialize is: a whole-program decompilation is large.
+  rpc Decompile(DecompileRequest) returns (stream DecompiledFunction);
 
   // Liveness / identity.
   rpc Info(InfoRequest) returns (InfoReply);
@@ -71,8 +74,26 @@ message BsimFeature {
   uint32 weight = 2;
 }
 
-message DecompileRequest { uint64 entry = 1; }
-message DecompileReply { string c = 1; }
+message DecompileRequest {
+  bytes binary = 1;              // the bytes to analyze — adversarial; sandboxed (DD-034)
+  string arch_hint = 2;          // optional loader/arch hint
+  repeated uint64 entries = 3;   // function entry addresses to decompile; EMPTY = every function
+  string name_filter = 4;        // optional: only functions whose QUALIFIED name contains this
+                                 // (rustmath::gcd, main.fib) — the user-code filter for runtime-heavy
+                                 // binaries; combined with `entries` when both are set
+}
+
+// One decompiled function — streamed one per selected function, in entry-address order. `c` is
+// the decompiler's C text verbatim; when the decompiler fails for a function `error` carries its
+// message and `c` is empty. Untrusted engine output (DD-035): a head treats it as data.
+message DecompiledFunction {
+  uint64 entry = 1;
+  string name = 2;               // the QUALIFIED engine name (namespaces kept — rustmath::gcd)
+  string prototype = 3;          // the engine's prototype string
+  string calling_convention = 4;
+  string c = 5;
+  string error = 6;              // non-empty iff decompilation failed for this function
+}
 
 message InfoRequest {}
 message InfoReply {

@@ -5,6 +5,12 @@
 # outside leg, so the only variable is the wrapper.
 #
 #   GHIDRA_DIST=/path/to/dist abtest/scripts/run-inside.sh <out-dir> [bin...]
+#   GHIDRA_DIST=/path/to/dist LEG=decomp abtest/scripts/run-inside.sh <out-dir> [bin...]
+#
+# LEG=decomp runs the DECOMPILATION leg instead: `scylla decompile --json` through the same sandbox
+# (the engine-service `Decompile` RPC — one analysis + the decompiler per binary) into
+# <out-dir>/<bin>.decomp.json, filtered to user code for Go/Rust exactly as the raw DumpDecomp.java
+# baseline is (same decomp_filter rule as run-outside.sh), so the two legs select the same functions.
 #
 # ROBUSTNESS — the sandbox is RESTARTED periodically and on failure. A single long-lived container
 # accumulates state in its RAM-backed /tmp (each cold analyzeHeadless leaves cruft) and, after a few
@@ -31,6 +37,18 @@ mkdir -p "$OUT/log"
 if [ $# -gt 0 ]; then BINS=("$@"); else BINS=("$REPO"/abtest/corpus/bin/*.elf); fi
 SCYLLA="${SCYLLA:-$REPO/target/debug/scylla}"
 [ -x "$SCYLLA" ] || { echo "error: $SCYLLA missing — cargo build -p scylla-cli" >&2; exit 2; }
+LEG="${LEG:-model}"
+
+# User-code filter for the decomp leg, by toolchain field (<prog>.<tc>.…) — MUST match
+# run-outside.sh's decomp_filter, or the legs select different function sets by construction.
+decomp_filter() {
+  local name; name="$(basename "$1")"; local prog="${name%%.*}" tc; tc="$(echo "$name" | cut -d. -f2)"
+  case "$tc" in
+    go*)   echo "main." ;;
+    rustc) echo "$prog" ;;
+    *)     echo "" ;;
+  esac
+}
 
 SOCK_DIR="${SOCK_DIR:-$(mktemp -d)}"
 export SOCK_DIR GHIDRA_DIST
@@ -63,24 +81,34 @@ start_sandbox() {  # start the container and block until the socket is live
 trap stop_sandbox EXIT
 
 materialize_one() {  # materialize_one <bin> -> 0 ok / 1 fail (no restart here)
-  local bin="$1" name; name="$(basename "$bin")"; local art="$OUT/$name.scylla"
+  local bin="$1" name; name="$(basename "$bin")"
+  if [ "$LEG" = decomp ]; then
+    local dec="$OUT/$name.decomp.json" flt; flt="$(decomp_filter "$bin")"
+    local fargs=(); [ -n "$flt" ] && fargs=(--filter "$flt")
+    "$SCYLLA" decompile --json "${fargs[@]}" "unix:$SOCK_DIR/engine.sock" "$bin" >"$dec" 2>"$OUT/log/$name.inside.log" && [ -s "$dec" ]
+    return
+  fi
+  local art="$OUT/$name.scylla"
   "$SCYLLA" materialize "unix:$SOCK_DIR/engine.sock" "$bin" "$art" >"$OUT/log/$name.inside.log" 2>&1 && [ -s "$art" ]
 }
 report_ok() {  # report_ok <name> <t0> [suffix]
+  if [ "$LEG" = decomp ]; then
+    echo "inside   $1  decomp $(python3 -c "import json,sys;print(len(json.load(open(sys.argv[1]))))" "$OUT/$1.decomp.json")  $(( $(date +%s) - $2 ))s${3:-}"
+    return
+  fi
   echo "inside   $1  $("$SCYLLA" info --json "$OUT/$1.scylla" | python3 -c "import json,sys;print(json.load(sys.stdin)['functions'],'functions')")  $(( $(date +%s) - $2 ))s${3:-}"
 }
 
 start_sandbox || exit 2
-echo "engine: unix:$SOCK_DIR/engine.sock ($(basename "$GHIDRA_DIST"))  restart-every=$RESTART_EVERY"
+echo "engine: unix:$SOCK_DIR/engine.sock ($(basename "$GHIDRA_DIST"))  leg=$LEG  restart-every=$RESTART_EVERY"
 
 # Concurrent path (best-effort, no restart) — kept for INSIDE_JOBS>1; the serial path below is robust.
 if [ "${INSIDE_JOBS:-1}" -gt 1 ]; then
-  export SCYLLA OUT SOCK_DIR
-  one() { local bin="$1" name; name="$(basename "$bin")"; local art="$OUT/$name.scylla"; local t0; t0=$(date +%s)
-    if "$SCYLLA" materialize "unix:$SOCK_DIR/engine.sock" "$bin" "$art" >"$OUT/log/$name.inside.log" 2>&1 && [ -s "$art" ]; then
-      echo "inside   $name  $("$SCYLLA" info --json "$art" | python3 -c "import json,sys;print(json.load(sys.stdin)['functions'],'functions')")  $(( $(date +%s) - t0 ))s"
+  export SCYLLA OUT SOCK_DIR LEG
+  one() { local bin="$1" name; name="$(basename "$bin")"; local t0; t0=$(date +%s)
+    if materialize_one "$bin"; then report_ok "$name" "$t0"
     else echo "inside   $name  FAILED (see $OUT/log/$name.inside.log)"; return 1; fi; }
-  export -f one
+  export -f one materialize_one report_ok decomp_filter
   fail=0
   printf '%s\0' "${BINS[@]}" | xargs -0 -P "$INSIDE_JOBS" -n 1 bash -c 'one "$0"' || fail=1
   exit $fail

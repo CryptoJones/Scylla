@@ -1,5 +1,6 @@
 //! `scylla-abtest compare [--json] [--ignore <flaky.json>] <inside.scylla> <outside.snapshot.json>`
 //! `scylla-abtest flaky <out.json> <run1.snapshot.json> <run2.snapshot.json> [...]`
+//! `scylla-abtest decomp [--json] <inside.decomp.json> <outside.decomp.txt>`
 //!
 //! Exit codes follow `scylla diff` / `git diff --exit-code`: 0 = parity, 1 = the legs differ,
 //! 2 = trouble (unreadable input). See `abtest/README.md`.
@@ -26,14 +27,19 @@ fn main() -> ExitCode {
     match args.get(1).map(|s| s.as_str()) {
         Some("compare") if args.len() == 4 => compare(args[2], args[3], ignore.as_deref(), json),
         Some("flaky") if args.len() >= 5 => flaky(args[2], &args[3..]),
+        Some("decomp") if args.len() == 4 => decomp(args[2], args[3], json),
         _ => {
             eprintln!(
                 "usage: {p} compare [--json] [--ignore <flaky.json>] <inside.scylla> <outside.snapshot.json>\n       \
-                 {p} flaky <out.json> <run1.snapshot.json> <run2.snapshot.json> [...]\n\n  \
+                 {p} flaky <out.json> <run1.snapshot.json> <run2.snapshot.json> [...]\n       \
+                 {p} decomp [--json] <inside.decomp.json> <outside.decomp.txt>\n\n  \
                  compare — A/B parity: the Scylla-materialized artifact (inside) vs the raw engine \
                  headless snapshot (outside); exit 0 parity, 1 differs, 2 trouble\n  \
                  flaky   — characterize ENGINE nondeterminism: the functions that differ across several \
-                 direct engine runs of one binary (the only legitimate source of --ignore)",
+                 direct engine runs of one binary (the only legitimate source of --ignore)\n  \
+                 decomp  — decompilation parity: `scylla decompile --json` through Scylla (inside) vs \
+                 the raw engine's DumpDecomp.java text (outside), byte-exact C per function; \
+                 exit 0/1/2 as compare",
                 p = args.first().map(|s| s.as_str()).unwrap_or("scylla-abtest")
             );
             ExitCode::from(2)
@@ -148,6 +154,74 @@ fn compare(inside_path: &str, outside_path: &str, ignore: Option<&str>, json: bo
         }
         for p in &report.projection_mismatches {
             println!("  projection: {p}");
+        }
+        println!(
+            "  verdict: {}",
+            if report.is_parity() {
+                "PARITY"
+            } else {
+                "DIFFERS"
+            }
+        );
+    }
+    if report.is_parity() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+fn decomp(inside_path: &str, outside_path: &str, json: bool) -> ExitCode {
+    let read = |p: &str| -> Result<String, ExitCode> {
+        scylla_abtest::read_maybe_gz(std::path::Path::new(p))
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+            .map_err(|e| {
+                eprintln!("error: reading {p}: {e}");
+                ExitCode::from(2)
+            })
+    };
+    let (inside_text, outside_text) = match (read(inside_path), read(outside_path)) {
+        (Ok(a), Ok(b)) => (a, b),
+        (Err(c), _) | (_, Err(c)) => return c,
+    };
+    let inside = match scylla_abtest::decomp::parse_inside(&inside_text) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: parsing {inside_path}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let outside = match scylla_abtest::decomp::parse_baseline(&outside_text) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("error: parsing {outside_path}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let report = scylla_abtest::decomp::compare_decomp(&inside, &outside.functions);
+    if json {
+        let mut v = serde_json::to_value(&report).expect("a DecompReport serializes infallibly");
+        v["inside"] = serde_json::Value::String(inside_path.to_string());
+        v["outside"] = serde_json::Value::String(outside_path.to_string());
+        v["parity"] = serde_json::Value::Bool(report.is_parity());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&v).expect("a JSON Value serializes infallibly")
+        );
+    } else {
+        println!("scylla-abtest decomp: {inside_path}  vs  {outside_path}");
+        println!(
+            "  functions: inside {}  outside {}",
+            report.functions_inside, report.functions_outside
+        );
+        for a in &report.only_inside {
+            println!("  only inside:  {a:#x}");
+        }
+        for a in &report.only_outside {
+            println!("  only outside: {a:#x}");
+        }
+        for m in &report.field_mismatches {
+            println!("  {:#x} {} .{}: differs", m.addr, m.name, m.field);
         }
         println!(
             "  verdict: {}",

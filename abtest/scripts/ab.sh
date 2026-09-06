@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # The A/B parity run, end to end:
-#   corpus build -> OUTSIDE leg (+ a CONTROL repeat) -> INSIDE leg -> compare -> REPORT.md -> baselines
+#   corpus build -> OUTSIDE leg (+ a CONTROL repeat) -> INSIDE leg -> DECOMP leg -> compare -> REPORT.md -> baselines
 #
 #   GHIDRA_DIST=/path/to/ghidra_26.3.0_GayHydra-26.3.0 abtest/scripts/ab.sh [run-dir]
 #
-# STAGES=build,outside,control,inside,compare,report,baselines (default all) selects stages, so a
-# failed leg can be re-run alone into the same run-dir. CONTROL_RUNS=N (default 1) repeats the raw
+# STAGES=build,outside,control,inside,decomp,compare,report,baselines (default all) selects stages,
+# so a failed leg can be re-run alone into the same run-dir. The `decomp` stage is the DECOMPILATION
+# leg: `scylla decompile --json` through the sandbox for every binary (the engine-service `Decompile`
+# RPC), compared byte-for-byte per function against the raw engine's own DumpDecomp.java dump from
+# the outside leg (`scylla-abtest decomp`). CONTROL_RUNS=N (default 1) repeats the raw
 # outside leg N times into control, control2, ...: the ENGINE's own run-to-run nondeterminism is
 # characterized from those raw runs alone (`scylla-abtest flaky`) and the functions it flips are
 # masked — and listed — in the inside-vs-outside verdict, so an engine wobble is never mistaken for
@@ -28,7 +31,7 @@ if [ -z "${ABTEST_SNAPPED:-}" ]; then
   mkdir -p "$RUN/scripts"; cp "$HERE"/*.sh "$HERE"/*.py "$HERE"/*.java "$RUN/scripts/"
   exec env ABTEST_SNAPPED=1 ABTEST_REPO="$REPO" bash "$RUN/scripts/ab.sh" "$RUN"
 fi
-STAGES="${STAGES:-build,outside,control,inside,compare,report,baselines}"
+STAGES="${STAGES:-build,outside,control,inside,decomp,compare,report,baselines}"
 has() { [[ ",$STAGES," == *",$1,"* ]]; }
 mkdir -p "$RUN"
 export PATH="$HOME/.cargo/bin:$PATH" CC="${CC:-/usr/bin/gcc}" CXX="${CXX:-/usr/bin/g++}"
@@ -56,9 +59,13 @@ if has inside; then
   log "inside leg -> $RUN/inside (INSIDE_JOBS=${INSIDE_JOBS:-1})"
   INSIDE_JOBS="${INSIDE_JOBS:-1}" "$HERE/run-inside.sh" "$RUN/inside" || log "inside: some binaries FAILED (continuing)"
 fi
+if has decomp; then
+  log "decomp leg (scylla decompile through the sandbox) -> $RUN/decomp-inside (INSIDE_JOBS=${INSIDE_JOBS:-1})"
+  LEG=decomp INSIDE_JOBS="${INSIDE_JOBS:-1}" "$HERE/run-inside.sh" "$RUN/decomp-inside" || log "decomp: some binaries FAILED (continuing)"
+fi
 if has compare; then
   log "compare"
-  mkdir -p "$RUN/compare" "$RUN/cli" "$RUN/tmp" "$RUN/flaky"
+  mkdir -p "$RUN/compare" "$RUN/cli" "$RUN/tmp" "$RUN/flaky" "$RUN/decomp-compare"
   for snap in "$RUN"/outside/*.elf.snapshot.json; do
     name="$(basename "$snap" .snapshot.json)"
     art="$RUN/inside/$name.scylla"
@@ -97,11 +104,17 @@ if has compare; then
     { "$SCYLLA" functions --json "$art" detail; "$SCYLLA" info --json "$art" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("name");print(json.dumps(d))'; } >"$RUN/tmp/$name.cli.inside"
     { "$SCYLLA" functions --json "$RUN/tmp/$name.outside.scylla" detail; "$SCYLLA" info --json "$RUN/tmp/$name.outside.scylla" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("name");print(json.dumps(d))'; } >"$RUN/tmp/$name.cli.outside"
     diff "$RUN/tmp/$name.cli.inside" "$RUN/tmp/$name.cli.outside" >"$RUN/cli/$name.diff" || true
+    # DECOMPILATION: the decompile verb's output (inside) vs the raw DumpDecomp.java dump (outside),
+    # byte-exact C per function. A missing leg is reported as n/a, never as parity.
+    d=n/a
+    if [ -s "$RUN/decomp-inside/$name.decomp.json" ] && [ -s "$RUN/outside/decomp/$name.decomp.txt" ]; then
+      if "$ABTEST" decomp --json "$RUN/decomp-inside/$name.decomp.json" "$RUN/outside/decomp/$name.decomp.txt" >"$RUN/decomp-compare/$name.json"; then d=PARITY; else d=DIFFERS; fi
+    fi
     v=PARITY; [ $rc -eq 0 ] || v=DIFFERS
     m="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["masked"]))' "$RUN/compare/$name.json")"
     c=n/a; [ -s "$RUN/control/$name.json" ] && c="$(python3 -c 'import json,sys;print("deterministic" if json.load(open(sys.argv[1]))["parity"] else "DRIFTS")' "$RUN/control/$name.json")"
     k=identical; [ -s "$RUN/cli/$name.diff" ] && k=DIFFERS
-    log "  $name: $v  masked=$m  control=$c  cli=$k  raw-runs=${#raw[@]}"
+    log "  $name: $v  masked=$m  control=$c  cli=$k  decomp=$d  raw-runs=${#raw[@]}"
   done
 fi
 if has report; then
@@ -125,6 +138,12 @@ for lg in sorted(glob.glob(os.path.join(run,"inside","log","*.inside.log"))):
     if not os.path.exists(os.path.join(run,"inside",n+".scylla")):
         tail=open(lg,errors="replace").read().strip().splitlines()[-2:]
         notes.append(f"inside leg FAILED on `{n}`: `{' | '.join(t[:200] for t in tail)}`")
+for lg in sorted(glob.glob(os.path.join(run,"decomp-inside","log","*.inside.log"))):
+    n=os.path.basename(lg)[:-11]
+    dj=os.path.join(run,"decomp-inside",n+".decomp.json")
+    if not (os.path.exists(dj) and os.path.getsize(dj) > 0):
+        tail=open(lg,errors="replace").read().strip().splitlines()[-2:]
+        notes.append(f"decomp leg FAILED on `{n}`: `{' | '.join(t[:200] for t in tail)}`")
 meta={"date":datetime.datetime.now().strftime("%Y-%m-%d %H:%M %Z").strip(),"host":socket.gethostname(),
       "dist":os.path.basename(dist),"scylla_rev":subprocess.run(["git","-C",repo,"rev-parse","--short","HEAD"],capture_output=True,text=True).stdout.strip(),
       "notes":notes}
@@ -135,15 +154,15 @@ PY
 fi
 if has baselines && [ "${NO_BASELINES:-0}" != 1 ]; then
   log "baselines -> abtest/baselines (only pairs that produced BOTH legs)"
-  B="$REPO/abtest/baselines"; mkdir -p "$B/outside" "$B/inside" "$B/decomp" "$B/nondeterministic"
+  B="$REPO/abtest/baselines"; mkdir -p "$B/outside" "$B/inside" "$B/decomp" "$B/decomp-inside" "$B/nondeterministic"
   # The COMMITTED baseline set is a small, stable REPRESENTATIVE subset (REPRESENTATIVE.txt) — the
   # offline cargo-test parity gate replays exactly these. The full corpus + full baselines are NOT
   # committed (reproducible via ab.sh); a run refreshes the representative pairs in place.
   REPR="$B/REPRESENTATIVE.txt"
   is_repr() { [ -f "$REPR" ] || return 0; grep -qxF "$1" "$REPR"; }   # no manifest => commit all (back-compat)
-  for f in "$B"/outside/* "$B"/inside/* "$B"/decomp/* "$B"/nondeterministic/*; do
+  for f in "$B"/outside/* "$B"/inside/* "$B"/decomp/* "$B"/decomp-inside/* "$B"/nondeterministic/*; do
     [ -e "$f" ] || continue
-    bn="$(basename "$f")"; bn="${bn%.snapshot.json.gz}"; bn="${bn%.scylla.gz}"; bn="${bn%.decomp.txt}"; bn="${bn%.json}"
+    bn="$(basename "$f")"; bn="${bn%.snapshot.json.gz}"; bn="${bn%.scylla.gz}"; bn="${bn%.decomp.txt}"; bn="${bn%.decomp.json.gz}"; bn="${bn%.json}"
     { [ -f "$REPO/abtest/corpus/bin/$bn" ] && is_repr "$bn"; } || rm -f "$f"
   done
   for snap in "$RUN"/outside/*.elf.snapshot.json; do
@@ -155,6 +174,9 @@ if has baselines && [ "${NO_BASELINES:-0}" != 1 ]; then
     gzip -n -9 -c "$snap" >"$B/outside/$name.snapshot.json.gz"
     gzip -n -9 -c "$RUN/inside/$name.scylla" >"$B/inside/$name.scylla.gz"
     [ -s "$RUN/outside/decomp/$name.decomp.txt" ] && cp "$RUN/outside/decomp/$name.decomp.txt" "$B/decomp/$name.decomp.txt"
+    # the decompile-verb leg rides beside the raw dump it is gated against (tests/parity.rs)
+    rm -f "$B/decomp-inside/$name.decomp.json.gz"
+    [ -s "$RUN/decomp-inside/$name.decomp.json" ] && gzip -n -9 -c "$RUN/decomp-inside/$name.decomp.json" >"$B/decomp-inside/$name.decomp.json.gz"
     # the engine-nondeterminism record rides with the pair ONLY when it names at least one function
     rm -f "$B/nondeterministic/$name.json"
     if [ -s "$RUN/flaky/$name.json" ] && [ "$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["functions"]))' "$RUN/flaky/$name.json")" != 0 ]; then

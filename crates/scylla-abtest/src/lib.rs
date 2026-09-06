@@ -16,6 +16,11 @@
 //! the model underneath.
 //!
 //! A [`Report`] never hides a difference: `is_parity()` is true only when *nothing* differs.
+//!
+//! The DECOMPILATION leg — the `decompile` verb vs the raw engine's own decompiler dump — lives in
+//! [`decomp`], with the same discipline (keyed by entry address, byte-exact text, nothing hidden).
+
+pub mod decomp;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;

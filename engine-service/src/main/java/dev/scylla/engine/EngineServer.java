@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
 import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerDomainSocketChannel;
@@ -18,12 +19,15 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import scylla.engine.v1.BsimFeature;
-import scylla.engine.v1.DecompileReply;
 import scylla.engine.v1.DecompileRequest;
+import scylla.engine.v1.DecompiledFunction;
 import scylla.engine.v1.EngineGrpc;
 import scylla.engine.v1.FunctionChunk;
 import scylla.engine.v1.InfoReply;
@@ -45,6 +49,12 @@ import scylla.engine.v1.ProgramInfo;
  * ONCE and imports+analyzes each binary in-process (~2s), up to pool-size CONCURRENTLY, with the cold
  * subprocess as the fallback if a warm call fails. Both paths emit the same snapshot JSON, so
  * {@link EngineImpl#streamSnapshot} is shared. The dist (stock Ghidra or GayHydra) is selected by GHIDRA_DIST; the service never ships one.
+ *
+ * <p>{@code Decompile} (the {@code decompile} verb, DD-017) rides the SAME two paths: the engine is a
+ * transient producer that keeps no program between calls, so the request carries the binary; the
+ * engine analyzes it once (warm worker, or cold {@code analyzeHeadless} + {@code dump_decomp.java})
+ * and streams the decompiled C of every selected function from that one pass. The extraction is
+ * {@code scripts/ScyllaDecomp.java}, shared by both paths like {@code ScyllaModel} (DD-041).
  */
 public final class EngineServer {
 
@@ -278,11 +288,26 @@ public final class EngineServer {
             return proc.isAlive();
         }
 
-        /** Import + analyze {@code binary}; returns the snapshot JSON path (caller deletes it). The
-         *  caller holds this worker exclusively (checked out of the pool), so no synchronization is
-         *  needed. On timeout the worker is KILLED (a wedged serial worker would poison itself) — the
-         *  pool then drops it and the caller falls back to the cold subprocess. */
+        /** Import + analyze {@code binary}; returns the snapshot JSON path (caller deletes it). */
         Path materialize(byte[] binary, int timeoutSec) throws Exception {
+            return submit("", binary, "", timeoutSec);
+        }
+
+        /** Import + analyze {@code binary} and decompile the selected functions ({@code entriesCsv}:
+         *  hex entry addresses, "" = all; {@code filter}: qualified-name substring, "" = none — the
+         *  worker's DECOMP request); returns the decompile JSON path (caller deletes it). */
+        Path decompile(byte[] binary, String entriesCsv, String filter, int timeoutSec)
+                throws Exception {
+            return submit("DECOMP\t", binary, "\t" + entriesCsv + "\t" + filter, timeoutSec);
+        }
+
+        /** One round on the worker's line protocol: write {@code binary} to a temp file, send
+         *  {@code <prefix><bin>\t<out><suffix>}, wait for the marker, return the output path. The
+         *  caller holds this worker exclusively (checked out of the pool), so no synchronization is
+         *  needed. On timeout the worker is KILLED (a wedged serial worker would poison itself) —
+         *  the pool then drops it and the caller falls back to the cold subprocess. */
+        private Path submit(String prefix, byte[] binary, String suffix, int timeoutSec)
+                throws Exception {
             if (!proc.isAlive()) {
                 throw new IOException("warm worker is not alive");
             }
@@ -290,7 +315,8 @@ public final class EngineServer {
             Path out = Files.createTempFile("scylla-warm-snap", ".json");
             try {
                 Files.write(bin, binary);
-                toWorker.write(bin.toAbsolutePath() + "\t" + out.toAbsolutePath() + "\n");
+                toWorker.write(prefix + bin.toAbsolutePath() + "\t" + out.toAbsolutePath() + suffix
+                        + "\n");
                 toWorker.flush();
                 String marker = markers.poll(timeoutSec, TimeUnit.SECONDS);
                 if (marker == null) {
@@ -342,17 +368,19 @@ public final class EngineServer {
         private final java.util.List<WarmWorker> workers = new java.util.ArrayList<>();
         private final BlockingQueue<WarmWorker> available = new LinkedBlockingQueue<>();
 
-        WarmEngine(String dist, String workerSrc, String modelSrc, int poolSize) throws Exception {
+        WarmEngine(String dist, String workerSrc, String modelSrc, String decompSrc, int poolSize)
+                throws Exception {
             String distCp = distClasspath(dist);
             Path classesDir = Files.createTempDirectory("scylla-warm-classes");
 
-            // Compile the worker, the shared ScyllaModel extraction (DD-041 — same source the cold
-            // dump_model.java script uses), AND the BSim extractor (DD-044, a sibling of the worker:
-            // it uses the decompiler/BSim API the OSGi cold path can't, so it lives here and is
-            // compiled against the dist). ONCE; javac ships in the JDK image. ~1s, shared by the pool.
+            // Compile the worker, the shared ScyllaModel + ScyllaDecomp extractions (DD-041 — the
+            // same sources the cold dump_model.java / dump_decomp.java scripts use), AND the BSim
+            // extractor (DD-044, a sibling of the worker: it uses the decompiler/BSim API the OSGi
+            // cold path can't, so it lives here and is compiled against the dist). ONCE; javac ships
+            // in the JDK image. ~1s, shared by the pool.
             String bsimSrc = Path.of(workerSrc).resolveSibling("ScyllaBsim.java").toString();
             Process jc = new ProcessBuilder("javac", "-proc:none", "-cp", distCp,
-                    "-d", classesDir.toString(), workerSrc, modelSrc, bsimSrc)
+                    "-d", classesDir.toString(), workerSrc, modelSrc, decompSrc, bsimSrc)
                     .redirectErrorStream(true).start();
             byte[] jcLog = jc.getInputStream().readAllBytes();
             if (!jc.waitFor(120, TimeUnit.SECONDS) || jc.exitValue() != 0) {
@@ -379,16 +407,32 @@ public final class EngineServer {
             return workers.stream().anyMatch(WarmWorker::isAlive);
         }
 
-        /** Check out a free worker (waiting up to {@code timeoutSec} for one), analyze, return it to
-         *  the pool iff it survived. A killed/dead worker is dropped — the pool shrinks rather than
-         *  handing back a corpse. */
+        /** One call against a checked-out worker. */
+        interface WorkerCall {
+            Path call(WarmWorker w) throws Exception;
+        }
+
+        /** Import + analyze on a free worker; the snapshot JSON path (caller deletes it). */
         Path materialize(byte[] binary, int timeoutSec) throws Exception {
+            return run(w -> w.materialize(binary, timeoutSec), timeoutSec);
+        }
+
+        /** Import + analyze + decompile on a free worker; the decompile JSON path (caller deletes it). */
+        Path decompile(byte[] binary, String entriesCsv, String filter, int timeoutSec)
+                throws Exception {
+            return run(w -> w.decompile(binary, entriesCsv, filter, timeoutSec), timeoutSec);
+        }
+
+        /** Check out a free worker (waiting up to {@code timeoutSec} for one), run the call, return
+         *  the worker to the pool iff it survived. A killed/dead worker is dropped — the pool shrinks
+         *  rather than handing back a corpse. */
+        private Path run(WorkerCall call, int timeoutSec) throws Exception {
             WarmWorker w = available.poll(timeoutSec, TimeUnit.SECONDS);
             if (w == null) {
                 throw new IOException("no warm worker free within " + timeoutSec + "s");
             }
             try {
-                Path out = w.materialize(binary, timeoutSec);
+                Path out = call.call(w);
                 available.offer(w); // healthy → back in the pool
                 return out;
             } catch (Exception e) {
@@ -444,10 +488,11 @@ public final class EngineServer {
             // it does we fall through to the cold subprocess — the subprocess is the fallback behind
             // the same RPC (DD-040), so one pathological binary never takes warm-mode down. Stream
             // errors AFTER production started are terminal (the client is already mid-stream).
+            byte[] binary = req.getBinary().toByteArray();
             if (warm != null && warm.isAlive()) {
                 Path warmOut = null;
                 try {
-                    warmOut = warm.materialize(req.getBinary().toByteArray(), timeoutSeconds());
+                    warmOut = warm.materialize(binary, timeoutSeconds());
                 } catch (Exception e) {
                     System.err.println("warm engine failed (" + e.getMessage()
                             + "); falling back to cold subprocess");
@@ -464,6 +509,30 @@ public final class EngineServer {
                     return;
                 }
             }
+            Path out = null;
+            try {
+                out = coldRun(binary, "dump_model.java");
+                streamSnapshot(out, resp);
+            } catch (StatusRuntimeException e) {
+                resp.onError(e);
+            } catch (Exception e) {
+                resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
+                        .asRuntimeException());
+            } finally {
+                try { if (out != null) Files.deleteIfExists(out); } catch (Exception ignored) {}
+            }
+        }
+
+        /**
+         * The COLD path (DD-040's proven, dependency-light default and the warm path's fallback):
+         * run the dist's {@code analyzeHeadless} as a subprocess over {@code binary} with
+         * {@code postScript} — the output path is always its FIRST script argument, {@code scriptArgs}
+         * follow — and return the file it wrote (the caller owns and deletes it). Bounded by the
+         * wall-clock deadline (GAP-2 / DD-034). Failures are thrown as a {@link StatusRuntimeException}
+         * (DEADLINE_EXCEEDED / INTERNAL, with the subprocess log tail — DD-021) for the RPC handler
+         * to hand straight to {@code onError}.
+         */
+        private Path coldRun(byte[] binary, String postScript, String... scriptArgs) throws Exception {
             Path bin = null, out = null, proj = null;
             boolean slot = false;
             try {
@@ -473,15 +542,17 @@ public final class EngineServer {
                 bin = Files.createTempFile("scylla-bin", ".bin");
                 out = Files.createTempFile("scylla-snap", ".json");
                 proj = Files.createTempDirectory("scylla-proj");
-                Files.write(bin, req.getBinary().toByteArray());
+                Files.write(bin, binary);
 
-                ProcessBuilder pb = new ProcessBuilder(
+                List<String> cmd = new ArrayList<>(List.of(
                         Path.of(dist, "support", "analyzeHeadless").toString(), proj.toString(),
                         "scylla_engine",
                         "-import", bin.toString(),
                         "-scriptPath", scriptDir,
-                        "-postScript", "dump_model.java", out.toString(),
-                        "-deleteProject");
+                        "-postScript", postScript, out.toString()));
+                cmd.addAll(Arrays.asList(scriptArgs));
+                cmd.add("-deleteProject");
+                ProcessBuilder pb = new ProcessBuilder(cmd);
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
                 // Drain stdout OFF-THREAD: keep it (a bare exit code is useless when a hostile
@@ -507,27 +578,23 @@ public final class EngineServer {
                     // hostile binary) past the deadline (GAP-2). Kill the whole tree, descendants first.
                     p.descendants().forEach(ProcessHandle::destroyForcibly);
                     p.destroyForcibly();
-                    resp.onError(Status.DEADLINE_EXCEEDED
+                    throw Status.DEADLINE_EXCEEDED
                             .withDescription("Engine headless exceeded the " + timeoutSeconds()
                                     + "s wall-clock limit — killed (a hostile or pathological binary).")
-                            .asRuntimeException());
-                    return;
+                            .asRuntimeException();
                 }
                 drain.join(2000); // the process exited; let the drain finish reading the tail
                 byte[] log = logRef.get();
                 int code = p.exitValue();
                 if (code != 0 || !Files.exists(out) || Files.size(out) == 0) {
                     String tail = tail(new String(log, java.nio.charset.StandardCharsets.UTF_8), 1200);
-                    resp.onError(Status.INTERNAL
+                    throw Status.INTERNAL
                             .withDescription("Engine headless failed (exit " + code + "): " + tail)
-                            .asRuntimeException());
-                    return;
+                            .asRuntimeException();
                 }
-
-                streamSnapshot(out, resp);
-            } catch (Exception e) {
-                resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
-                        .asRuntimeException());
+                Path result = out;
+                out = null; // ownership passes to the caller; don't delete it below
+                return result;
             } finally {
                 if (slot) {
                     COLD_SLOTS.release();
@@ -617,12 +684,78 @@ public final class EngineServer {
         }
 
         @Override
-        public void decompile(DecompileRequest req, StreamObserver<DecompileReply> resp) {
-            // Not yet implemented — return UNIMPLEMENTED rather than a placeholder string a caller
-            // can't distinguish from a real (empty) decompilation.
-            resp.onError(Status.UNIMPLEMENTED
-                    .withDescription("decompile is not yet implemented (on-demand engine call pending)")
-                    .asRuntimeException());
+        public void decompile(DecompileRequest req, StreamObserver<DecompiledFunction> resp) {
+            // The `decompile` verb (DD-017) on the same transient-producer contract as Materialize:
+            // the request carries the bytes, the engine analyzes them once and decompiles every
+            // selected function in that pass — WARM first, cold subprocess as the fallback.
+            String filter = req.getNameFilter();
+            if (filter.chars().anyMatch(ch -> ch < 0x20)) {
+                // The filter travels on the worker's tab-delimited line protocol and in argv.
+                resp.onError(Status.INVALID_ARGUMENT
+                        .withDescription("name_filter must not contain control characters")
+                        .asRuntimeException());
+                return;
+            }
+            String entriesCsv = req.getEntriesList().stream()
+                    .map(Long::toHexString)
+                    .collect(java.util.stream.Collectors.joining(","));
+            byte[] binary = req.getBinary().toByteArray();
+            if (warm != null && warm.isAlive()) {
+                Path warmOut = null;
+                try {
+                    warmOut = warm.decompile(binary, entriesCsv, filter, timeoutSeconds());
+                } catch (Exception e) {
+                    System.err.println("warm engine failed (" + e.getMessage()
+                            + "); falling back to cold subprocess");
+                }
+                if (warmOut != null) {
+                    try {
+                        streamDecomp(warmOut, resp);
+                    } catch (Exception e) {
+                        resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
+                                .asRuntimeException());
+                    } finally {
+                        try { Files.deleteIfExists(warmOut); } catch (Exception ignored) {}
+                    }
+                    return;
+                }
+            }
+            Path out = null;
+            try {
+                // "-" = none: the headless launcher's argv is no place for an empty string.
+                out = coldRun(binary, "dump_decomp.java",
+                        entriesCsv.isEmpty() ? "-" : entriesCsv,
+                        filter.isEmpty() ? "-" : filter);
+                streamDecomp(out, resp);
+            } catch (StatusRuntimeException e) {
+                resp.onError(e);
+            } catch (Exception e) {
+                resp.onError(Status.INTERNAL.withDescription(String.valueOf(e.getMessage()))
+                        .asRuntimeException());
+            } finally {
+                try { if (out != null) Files.deleteIfExists(out); } catch (Exception ignored) {}
+            }
+        }
+
+        /**
+         * Stream a decompile JSON file (warm or cold — same contract, {@code ScyllaDecomp.toJson})
+         * over the Decompile RPC: one {@code DecompiledFunction} per selected function, in the
+         * producer's (entry-address) order.
+         */
+        private void streamDecomp(Path out, StreamObserver<DecompiledFunction> resp) throws Exception {
+            JsonObject root = JsonParser.parseString(Files.readString(out)).getAsJsonObject();
+            for (JsonElement fe : root.getAsJsonArray("functions")) {
+                JsonObject f = fe.getAsJsonObject();
+                resp.onNext(DecompiledFunction.newBuilder()
+                        .setEntry(parseAddr(f.get("entry").getAsString()))
+                        .setName(f.get("name").getAsString())
+                        .setPrototype(f.get("prototype").getAsString())
+                        .setCallingConvention(f.get("cconv").getAsString())
+                        .setC(f.get("c").getAsString())
+                        .setError(f.get("error").getAsString())
+                        .build());
+            }
+            resp.onCompleted();
         }
     }
 
@@ -656,11 +789,13 @@ public final class EngineServer {
             return;
         }
         String scriptDir = resolveScriptDir();
-        if (scriptDir.isEmpty() || !Files.isRegularFile(Path.of(scriptDir, "dump_model.java"))) {
-            System.err.println("FATAL: dump_model.java not found (scriptDir='" + scriptDir
-                    + "'). It ships in the install's scripts/ dir; set SCYLLA_SCRIPT_DIR to override.");
-            System.exit(2);
-            return;
+        for (String script : new String[] {"dump_model.java", "dump_decomp.java"}) {
+            if (scriptDir.isEmpty() || !Files.isRegularFile(Path.of(scriptDir, script))) {
+                System.err.println("FATAL: " + script + " not found (scriptDir='" + scriptDir
+                        + "'). It ships in the install's scripts/ dir; set SCYLLA_SCRIPT_DIR to override.");
+                System.exit(2);
+                return;
+            }
         }
 
         // Establish GayHydra's first-launch JDK settings ONCE, serially, so concurrent cold
@@ -674,18 +809,20 @@ public final class EngineServer {
         WarmEngine warm = null;
         if (isTruthy(System.getenv("SCYLLA_ENGINE_WARM"))) {
             String workerSrc = resolveWarmWorkerSrc();
-            // ScyllaModel.java (the shared extraction, DD-041) lives beside dump_model.java in the
-            // script dir; the worker is compiled together with it.
+            // ScyllaModel.java + ScyllaDecomp.java (the shared extractions, DD-041) live beside the
+            // scripts that use them in the script dir; the worker is compiled together with them.
             String modelSrc = Path.of(scriptDir, "ScyllaModel.java").toString();
-            if (workerSrc.isEmpty() || !Files.isRegularFile(Path.of(modelSrc))) {
+            String decompSrc = Path.of(scriptDir, "ScyllaDecomp.java").toString();
+            if (workerSrc.isEmpty() || !Files.isRegularFile(Path.of(modelSrc))
+                    || !Files.isRegularFile(Path.of(decompSrc))) {
                 System.err.println("WARN: SCYLLA_ENGINE_WARM set but the warm worker sources weren't "
-                        + "found (worker='" + workerSrc + "', model='" + modelSrc
-                        + "'; set SCYLLA_WARM_WORKER_SRC). Running COLD.");
+                        + "found (worker='" + workerSrc + "', model='" + modelSrc + "', decomp='"
+                        + decompSrc + "'; set SCYLLA_WARM_WORKER_SRC). Running COLD.");
             } else {
                 long t0 = System.nanoTime();
                 int poolSize = warmPoolSize();
                 try {
-                    warm = new WarmEngine(dist, workerSrc, modelSrc, poolSize);
+                    warm = new WarmEngine(dist, workerSrc, modelSrc, decompSrc, poolSize);
                     System.out.println("warm engine ready in "
                             + ((System.nanoTime() - t0) / 1_000_000L) + " ms (" + poolSize
                             + " in-process engine worker" + (poolSize == 1 ? "" : "s") + ")");

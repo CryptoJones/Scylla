@@ -53,6 +53,16 @@ cargo run -p scylla-cli -- materialize \
   output.scylla
 ```
 
+The same endpoint serves the on-demand `Decompile` RPC — the `decompile` verb. The engine keeps
+no program between calls, so the binary is the argument (not a `.scylla`); one engine pass
+decompiles every selected function:
+
+```sh
+cargo run -p scylla-cli -- decompile unix:/tmp/tmp.example/engine.sock /absolute/path/to/input-binary
+cargo run -p scylla-cli -- decompile --json --filter main. unix:… ./gomath      # user code only
+cargo run -p scylla-cli -- decompile unix:… ./mathlib 0x401156 0x401200      # by entry address
+```
+
 Set `SOCK_DIR` when a stable socket location is preferable:
 
 ```sh
@@ -65,7 +75,8 @@ GHIDRA_DIST=/absolute/path/to/ghidra-or-gayhydra-distribution \
 
 - `SCYLLA_ENGINE_WARM=1` keeps a resident engine JVM warm for lower per-call latency.
 - `SCYLLA_ENGINE_WARM_POOL=N` selects the number of resident workers.
-- `SCYLLA_ENGINE_TIMEOUT_SEC=N` bounds one materialization; the service default is 300 seconds.
+- `SCYLLA_ENGINE_TIMEOUT_SEC=N` bounds one materialization or decompilation (the whole engine pass,
+  every selected function included); the service default is 300 seconds.
 - `SCYLLA_ENGINE_COLD_CONCURRENCY=N` caps concurrent cold engine processes.
 
 Each worker is a full JVM. Size the warm pool and concurrency for the launcher's 4 GiB memory and

@@ -341,6 +341,22 @@ Tracked "later / someday" items that aren't on the current sprint path
   the MCP head. The offline snapshot path (`scylla-ingest` + `materialize.sh`) stays for dev /
   corpus work without a running service. The composition lives in a CLI crate so neither the port
   adapter nor the WASM consume-side core carries the other's dependencies (DD-002).
+- [x] **`Decompile` RPC + the `decompile` verb — BUILT (DD-017), A/B-gated.** The RPC was a stub
+  (`UNIMPLEMENTED`) with a contract that could not work: `DecompileRequest { entry }` presumes a
+  program the engine still holds, and this engine holds nothing between calls (a transient producer,
+  DD-009/040). Fixed the contract, not the engine: the request carries the binary + a selection
+  (`entries`, `name_filter`), the engine analyzes once and STREAMS one `DecompiledFunction` per
+  selected function from that pass (server-streaming, like `Materialize` — a whole-program
+  decompilation is large). Warm worker + cold `dump_decomp.java` both implement it over one shared
+  extraction (`scripts/ScyllaDecomp.java`, the DD-041 pattern), configured exactly like the A/B
+  baseline dumper so the output is byte-comparable. The harness gained the decomp leg it was
+  waiting for (`ab.sh` stage `decomp`, `scylla-abtest decomp`, offline gate over
+  `baselines/decomp-inside/`). **Honest cost:** every `decompile` call is a full re-analysis
+  (~25 s cold in the sandbox, ~2 s warm) because the engine is stateless by design; the cheap
+  follow-ups are (a) an MCP `decompile` tool (already wrapped as untrusted by default, DD-035) and
+  (b) carrying the C in the model (`Function.decompiled`, DD-001 lists decompiled output as
+  in-model) so the heads read it offline — the RPC shape supports both without change. A per-session
+  program cache in the engine is NOT planned: it would make the sandboxed producer stateful.
 - [x] **Config-ify the engine-service.** `dump_model.java` now lives in `engine-service/scripts/`
   (single source of truth) and ships in the install/image; `EngineServer` resolves it relative to
   its own jar, so the service no longer reaches into `prototype/harness` at run time and the

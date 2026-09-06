@@ -215,17 +215,45 @@ pub async fn materialize(
     Ok(assemble(&prog_name, &language, &chunks))
 }
 
-/// The engine-port `decompile` verb (DD-017): ask the engine for the decompiled C of the function
-/// at `entry`. Producer-side and on-demand — the client port surfaces it but the call lives up here
-/// on the async side, so the sync model-consuming port stays pure (DD-009). The returned C is
-/// untrusted engine output (DD-035); a head treats it as data, never instruction.
-pub async fn decompile(endpoint: String, entry: u64) -> Result<String, Box<dyn std::error::Error>> {
+/// The engine-port `decompile` verb (DD-017): analyze `binary` once and return the decompiled C of
+/// the selected functions — `entries` (entry addresses; empty = every function), narrowed by
+/// `name_filter` (a substring of the engine's QUALIFIED name, e.g. `rustmath` / `main.`; empty =
+/// none). Producer-side and on-demand: the engine is a transient producer that keeps no program
+/// between calls (DD-009/040), so the bytes ride along and one engine pass serves every selected
+/// function; the call lives up here on the async side so the sync model-consuming port stays pure
+/// (DD-009). Every function comes back in entry-address order, a failed one with `error` set and
+/// `c` empty. The C is untrusted engine output (DD-035): bounded like the `Materialize` stream
+/// (GAP-3) and treated by every head as data, never instruction.
+pub async fn decompile(
+    endpoint: String,
+    binary: Vec<u8>,
+    entries: Vec<u64>,
+    name_filter: &str,
+) -> Result<Vec<pb::DecompiledFunction>, Box<dyn std::error::Error>> {
     let mut client = connect_engine(endpoint).await?;
-    let reply = client
-        .decompile(pb::DecompileRequest { entry })
+    let mut stream = client
+        .decompile(pb::DecompileRequest {
+            binary,
+            arch_hint: String::new(),
+            entries,
+            name_filter: name_filter.to_string(),
+        })
         .await?
         .into_inner();
-    Ok(reply.c)
+    let mut out = Vec::new();
+    let mut total_bytes = 0usize;
+    while let Some(f) = stream.message().await? {
+        // Bound the untrusted stream BEFORE retaining the function — fail closed, never OOM.
+        total_bytes += decompiled_bytes(&f);
+        check_stream_caps(out.len() + 1, 0, total_bytes)?;
+        out.push(f);
+    }
+    Ok(out)
+}
+
+/// The retained byte size of one streamed decompiled function (every text field).
+fn decompiled_bytes(f: &pb::DecompiledFunction) -> usize {
+    f.name.len() + f.prototype.len() + f.calling_convention.len() + f.c.len() + f.error.len()
 }
 
 #[cfg(test)]
@@ -282,6 +310,24 @@ mod tests {
         assert!(
             check_stream_caps(1, 0, MAX_TOTAL_BYTES + 1).is_err(),
             "a byte flood with zero mnemonics is refused"
+        );
+    }
+
+    #[test]
+    fn decompiled_function_bytes_count_every_text_field() {
+        // GAP-3 for the Decompile stream: the cap sees the C text AND the smaller fields, so a
+        // flood of huge prototypes/errors with empty `c` is bounded too.
+        let f = pb::DecompiledFunction {
+            entry: 0x1000,
+            name: "gcd".into(),
+            prototype: "int gcd(int a, int b)".into(),
+            calling_convention: "__stdcall".into(),
+            c: "int gcd(int a, int b)\n{\n  return a;\n}\n".into(),
+            error: String::new(),
+        };
+        assert_eq!(
+            decompiled_bytes(&f),
+            3 + "int gcd(int a, int b)".len() + "__stdcall".len() + f.c.len()
         );
     }
 

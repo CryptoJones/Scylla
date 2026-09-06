@@ -11,6 +11,21 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ### Added
 
+- **The `decompile` verb (DD-017) — the engine-service `Decompile` RPC, implemented.** Until now the
+  RPC returned `UNIMPLEMENTED`. The contract changed to fit the engine's actual shape: a transient
+  producer that keeps no program between calls, so `DecompileRequest` carries the binary plus a
+  function selection (`entries`, `name_filter`) and the reply is a server stream of
+  `DecompiledFunction {entry, name, prototype, calling_convention, c, error}` in entry order — one
+  engine pass serves every selected function. Both engine paths implement it: the warm worker
+  (`DECOMP` request on its line protocol) and the cold `analyzeHeadless` fallback
+  (`scripts/dump_decomp.java`); the decompiler extraction is one shared source,
+  `scripts/ScyllaDecomp.java`, configured exactly as the A/B baseline dumper (default
+  `DecompileOptions`, syntax tree off, 60 s per function). Rust: `scylla_engine::decompile`
+  (stream-capped like `Materialize`, GAP-3) and `scylla decompile [--json] [--filter <substr>]
+  <endpoint> <binary> [<entry-hex>…]`. **A/B-tested:** the harness gained a decomp leg (`ab.sh`
+  stage `decomp`, `run-inside.sh LEG=decomp`, `scylla-abtest decomp`) that compares the verb's C
+  byte-for-byte per function against the raw engine's own `DumpDecomp.java` dump, an offline replay
+  gate over the committed pairs (`baselines/decomp-inside/`), and a decomp column in `REPORT.md`.
 - **A/B parity harness (`abtest/`, `crates/scylla-abtest`).** Proves that what Scylla reports for a
   binary — materialized through the sandboxed engine-service over gRPC into a `.scylla` — is field
   for field what the engine dist reports when its `analyzeHeadless` is run directly with the same

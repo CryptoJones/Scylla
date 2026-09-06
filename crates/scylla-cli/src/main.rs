@@ -4,6 +4,8 @@
 //! Proto artifact. No intermediate snapshot file, no `materialize.sh`, no second path.
 //!
 //!   scylla materialize <engine-endpoint> <binary> <out.scylla>
+//!   scylla decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]
+//!                                               # the engine port's on-demand decompile verb (DD-017)
 //!   scylla diff [--json] <a.scylla> <b.scylla>   # structural diff of two model artifacts (DD-017)
 //!   scylla info [--json] <artifact.scylla>          # name / language / function count
 //!   scylla functions [--json] <artifact.scylla> [intent|domain|detail]   # list functions at a zoom
@@ -28,6 +30,7 @@ async fn main() -> ExitCode {
     let args: Vec<String> = raw.into_iter().filter(|a| a != "--json").collect();
     match args.get(1).map(String::as_str) {
         Some("materialize") if args.len() == 5 => materialize(&args[2], &args[3], &args[4]).await,
+        Some("decompile") if args.len() >= 4 => decompile(&args[2..], json).await,
         Some("diff") if args.len() == 4 => diff(&args[2], &args[3], json),
         Some("info") if args.len() == 3 => info(&args[2], json),
         Some("functions") if args.len() == 3 || args.len() == 4 => {
@@ -44,6 +47,7 @@ async fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
+                 {prog} decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]\n       \
                  {prog} diff [--json] <a.scylla> <b.scylla>\n       \
                  {prog} info [--json] <artifact.scylla>\n       \
                  {prog} functions [--json] <artifact.scylla> [intent|domain|detail]\n       \
@@ -52,6 +56,8 @@ async fn main() -> ExitCode {
                  {prog} callers <artifact.scylla> <id>\n       \
                  {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
                  materialize — the engine port (DD-009/040): engine over gRPC -> canonical artifact\n  \
+                 decompile   — the engine port's decompile verb (DD-017): the decompiled C of every\n                \
+                 function, or of the given hex entry addresses / names containing --filter; exit 1 if any failed\n  \
                  diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
                  info        — artifact metadata (name / language / function count)\n  \
                  functions   — list functions at a zoom altitude (default domain)\n  \
@@ -480,4 +486,118 @@ async fn materialize(endpoint: &str, bin_path: &str, out: &str) -> ExitCode {
         bytes.len(),
     );
     ExitCode::SUCCESS
+}
+
+/// `scylla decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]` — the
+/// engine port's `decompile` verb (DD-017): the engine analyzes the binary once and streams back the
+/// decompiled C of every function, or only of the given entry addresses (hex, `0x` optional) and/or
+/// of the functions whose qualified name contains `--filter` (`rustmath`, `main.`). The `.scylla`
+/// artifact carries no bytes and the engine keeps no program between calls, so the binary is the
+/// argument, not an artifact. Text output is one block per function (`==== FUNCTION <addr> <name>
+/// ====`, `PROTO`, `CCONV`, `---- DECOMP ----`, the C verbatim); `--json` is an array of
+/// `{entry, name, prototype, calling_convention, c, error}`. The C is UNTRUSTED engine output
+/// (DD-035). Exit 0 when every selected function decompiled, 1 if any reported an error (its
+/// record still prints, with the message), 2 on trouble.
+async fn decompile(rest: &[String], json: bool) -> ExitCode {
+    let mut filter = String::new();
+    let mut positional: Vec<&String> = Vec::new();
+    let mut it = rest.iter();
+    while let Some(a) = it.next() {
+        if a == "--filter" {
+            match it.next() {
+                Some(f) => filter = f.clone(),
+                None => {
+                    eprintln!("error: --filter needs a value");
+                    return ExitCode::from(2);
+                }
+            }
+        } else {
+            positional.push(a);
+        }
+    }
+    let (endpoint, bin_path) = match positional.as_slice() {
+        [e, b, ..] => (e.as_str(), b.as_str()),
+        _ => {
+            eprintln!("usage: scylla decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]");
+            return ExitCode::from(2);
+        }
+    };
+    let mut entries = Vec::new();
+    for e in &positional[2..] {
+        let hex = e
+            .strip_prefix("0x")
+            .or_else(|| e.strip_prefix("0X"))
+            .unwrap_or(e);
+        match u64::from_str_radix(hex, 16) {
+            Ok(v) => entries.push(v),
+            Err(_) => {
+                eprintln!("error: entry must be a hex address, got {e:?}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    let binary = match std::fs::read(bin_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("error: reading {bin_path}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let name = std::path::Path::new(bin_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("program");
+    let fns = match scylla_engine::decompile(endpoint.to_string(), binary, entries, &filter).await {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("error: engine decompile ({endpoint}): {e}");
+            return ExitCode::from(2);
+        }
+    };
+    if json {
+        let arr: Vec<serde_json::Value> = fns
+            .iter()
+            .map(|f| {
+                serde_json::json!({
+                    "entry": f.entry,
+                    "name": f.name,
+                    "prototype": f.prototype,
+                    "calling_convention": f.calling_convention,
+                    "c": f.c,
+                    "error": f.error,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&arr).expect("a JSON Value serializes infallibly")
+        );
+    } else {
+        for f in &fns {
+            println!("==== FUNCTION 0x{:x} {} ====", f.entry, f.name);
+            println!("PROTO {}", f.prototype);
+            println!("CCONV {}", f.calling_convention);
+            println!("---- DECOMP ----");
+            if f.error.is_empty() {
+                print!("{}", f.c);
+            } else {
+                println!("<decompile-failed: {}>", f.error);
+            }
+        }
+    }
+    let failed = fns.iter().filter(|f| !f.error.is_empty()).count();
+    eprintln!(
+        "scylla decompile: {} function(s) from {name}{}",
+        fns.len(),
+        if failed > 0 {
+            format!(", {failed} failed")
+        } else {
+            String::new()
+        }
+    );
+    if failed > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }

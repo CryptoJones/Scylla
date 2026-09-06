@@ -85,6 +85,7 @@ scripts/check-wasm.sh                           # DD-028: consume-side core comp
 GHIDRA_DIST=<dist> abtest/scripts/ab.sh          # A/B parity: inside-Scylla vs raw analyzeHeadless, C/C++/Go/Rust -> abtest/REPORT.md
 cargo +nightly fuzz run artifact_loader         # DD-039 nightly lane (per-commit replay rides in cargo test)
 scylla materialize http://127.0.0.1:50051 <bin> out.scylla   # primary: binary -> .scylla over the engine port
+scylla decompile [--json] [--filter main.] <endpoint> <bin> [0x401156 …]   # the decompile verb: C per function, over the same port
 prototype/harness/materialize.sh <bin> out.scylla            # offline alternative (no engine-service)
 scylla diff [--json] a.scylla b.scylla          # structural diff (exit 1 if they differ); info/functions/view/callers too
 scylla merge annotated.scylla rebuilt.scylla out.scylla      # carry annotations forward (DD-005)

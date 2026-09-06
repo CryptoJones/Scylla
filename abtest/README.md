@@ -16,12 +16,16 @@ attributable to the wrapper, never to the engine:
 | **inside** (A) | `scylla materialize unix:… <bin> out.scylla` → `engine-service/run-sandboxed.sh` (DD-034 container: no network, RO rootfs, caps dropped) → cold `analyzeHeadless` + `dump_model.java` → gRPC `Materialize` stream → `scylla_engine::assemble` → `.scylla` | `baselines/inside/<bin>.scylla.gz` |
 | **outside** (B) | the dist's `support/analyzeHeadless` run *directly on the host* with the *same* `engine-service/scripts/dump_model.java` post-script — the command line `EngineServer.java` uses, minus Scylla | `baselines/outside/<bin>.snapshot.json.gz` |
 | **control** | the outside leg run again (`CONTROL_RUNS`, default 2) | engine determinism: separates "the engine drifts" from "the wrapper is wrong" — see below |
-| **decomp** | outside only: `scripts/DumpDecomp.java` — decompiled C, prototype, calling convention, disassembly + raw P-code per function, sorted by entry | `baselines/decomp/<bin>.decomp.txt` |
+| **decomp** (B) | outside: `scripts/DumpDecomp.java` under the same direct `analyzeHeadless` — decompiled C, prototype, calling convention, disassembly + raw P-code per function, sorted by entry | `baselines/decomp/<bin>.decomp.txt` |
+| **decomp** (A) | inside: `scylla decompile --json unix:… <bin>` → the engine-service `Decompile` RPC through the same sandbox (one analysis + `DecompInterface` per binary, `engine-service/scripts/ScyllaDecomp.java`) | `baselines/decomp-inside/<bin>.decomp.json.gz` |
 
-Scylla's model carries **no decompiled C yet** (the engine-service `Decompile` RPC is unimplemented),
-so the decomp leg is recorded, not compared: it is the committed baseline the `decompile` verb will
-be A/B-tested against the day it lands. For Go and Rust it is filtered to user code (`main.`,
-`rustmath`) so the committed text stays small; C/C++ dump every function.
+The decompilation leg is the `decompile` verb's A/B: the C the verb returns for a function must be
+**byte-identical** to what the raw engine's own decompiler emits for it — same dist, same
+`DecompInterface` configuration (default options, syntax tree off, 60 s per function) on both legs.
+`scylla-abtest decomp` compares them per entry address (name, prototype, calling convention, the C,
+the failure message). For Go and Rust both legs are filtered to user code (`main.`, `rustmath` — the
+`--filter` argument on the inside, the same rule in `DumpDecomp.java` on the outside) so the
+committed text stays small; C/C++ decompile every function.
 
 ## What "parity" means
 
@@ -95,8 +99,14 @@ target/debug/scylla-abtest compare abtest/baselines/inside/mathlib.c.x86-64.O0.e
 
 **The offline gate.** `crates/scylla-abtest/tests/parity.rs` replays every committed baseline pair on
 every `cargo test --workspace` — no engine, no docker — so a change to the ingest / assemble / loader
-path that made Scylla's model drift from the engine's own output fails CI. Re-record with `ab.sh`
-when the engine dist or the snapshot schema changes on purpose.
+path that made Scylla's model drift from the engine's own output fails CI. The decompilation pairs
+(`baselines/decomp-inside/` vs `baselines/decomp/`) are replayed the same way. Re-record with `ab.sh`
+when the engine dist or the snapshot schema changes on purpose. One decomp pair by hand:
+
+```sh
+target/debug/scylla-abtest decomp abtest/baselines/decomp-inside/constructs.gcc.x86-64.O0.nopie.elf.decomp.json.gz \
+                                  abtest/baselines/decomp/constructs.gcc.x86-64.O0.nopie.elf.decomp.txt
+```
 
 ## The corpus (`corpus/`)
 

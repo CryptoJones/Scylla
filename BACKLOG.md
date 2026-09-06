@@ -351,12 +351,16 @@ Tracked "later / someday" items that aren't on the current sprint path
   extraction (`scripts/ScyllaDecomp.java`, the DD-041 pattern), configured exactly like the A/B
   baseline dumper so the output is byte-comparable. The harness gained the decomp leg it was
   waiting for (`ab.sh` stage `decomp`, `scylla-abtest decomp`, offline gate over
-  `baselines/decomp-inside/`). **Honest cost:** every `decompile` call is a full re-analysis
-  (~25 s cold in the sandbox, ~2 s warm) because the engine is stateless by design; the cheap
-  follow-ups are (a) an MCP `decompile` tool (already wrapped as untrusted by default, DD-035) and
-  (b) carrying the C in the model (`Function.decompiled`, DD-001 lists decompiled output as
-  in-model) so the heads read it offline — the RPC shape supports both without change. A per-session
-  program cache in the engine is NOT planned: it would make the sandboxed producer stateful.
+  `baselines/decomp-inside/`). Shipped in [#55](https://github.com/CryptoJones/Scylla/pull/55).
+  **Honest cost:** every `decompile` call is a full re-analysis (~5 s C / ~30 s Go / ~80 s Rust O0
+  cold in the sandbox, ~2 s warm) because the engine is stateless by design. A per-session program
+  cache in the engine is NOT planned: it would make the sandboxed producer stateful. The RPC shape
+  supports both follow-ups below without change:
+  - [ ] **MCP `decompile` tool** — surface the verb to agents; already fenced as untrusted by
+    default (DD-035) — [#56](https://github.com/CryptoJones/Scylla/issues/56) <!-- ISSUE:GH-56 -->
+  - [ ] **`Function.decompiled` in the model** — opt-in `materialize --decompile`, so heads read
+    the C offline (DD-001 lists decompiled output as in-model; DD-036 caps must bound it; DD-005
+    must not key on it) — [#57](https://github.com/CryptoJones/Scylla/issues/57) <!-- ISSUE:GH-57 -->
 - [x] **Config-ify the engine-service.** `dump_model.java` now lives in `engine-service/scripts/`
   (single source of truth) and ships in the install/image; `EngineServer` resolves it relative to
   its own jar, so the service no longer reaches into `prototype/harness` at run time and the

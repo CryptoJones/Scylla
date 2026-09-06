@@ -17,6 +17,7 @@ members = [
     "crates/scylla-graphql",
     "crates/scylla-tui",
     "crates/scylla-lsp",
+    "crates/scylla-abtest",
 ]
 
 [workspace.package]

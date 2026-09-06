@@ -1,0 +1,1677 @@
+## LANGUAGE x86:LE:32:default / gcc
+## IMAGEBASE 08048000
+## FUNCTIONS 13
+
+==== FUNCTION 08049000 _init ====
+PROTO int _init(EVP_PKEY_CTX * ctx)
+CCONV __cdecl
+---- DECOMP ----
+
+/* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
+
+int _init(EVP_PKEY_CTX *ctx)
+
+{
+  int iVar1;
+  
+  iVar1 = __gmon_start__();
+  return iVar1;
+}
+
+---- ASM+PCODE ----
+08049000: PUSH EBX
+    (unique, 0x41200, 4) COPY (register, 0xc, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049001: SUB ESP,0x8
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x8, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049004: CALL 0x08049260
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049009, 4)
+     ---  CALL (ram, 0x8049260, 4)
+08049009: ADD EBX,0x2feb
+    (register, 0x200, 1) INT_CARRY (register, 0xc, 4) , (const, 0x2feb, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0xc, 4) , (const, 0x2feb, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0xc, 4) , (const, 0x2feb, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0xc, 4) , (const, 0x2feb, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0xc, 4) INT_ADD (register, 0xc, 4) , (const, 0x2feb, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804900f: MOV EAX,dword ptr [EBX + 0xfffffffc]
+    (unique, 0x6800, 4) INT_ADD (register, 0xc, 4) , (const, 0xfffffffc, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+08049015: TEST EAX,EAX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (unique, 0xb0400, 4) INT_AND (register, 0x0, 4) , (register, 0x0, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0xb0400, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049017: JZ 0x0804901b
+     ---  CBRANCH (ram, 0x804901b, 4) , (register, 0x206, 1)
+08049019: CALL EAX
+    (unique, 0x65900, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x804901b, 4)
+     ---  CALLIND (unique, 0x65900, 4)
+0804901b: ADD ESP,0x8
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804901e: POP EBX
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0xc, 4) COPY (unique, 0x89000, 4)
+0804901f: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049020 FUN_08049020 ====
+PROTO undefined FUN_08049020()
+CCONV unknown
+---- DECOMP ----
+
+void FUN_08049020(void)
+
+{
+  (*(code *)(undefined *)0x0)();
+  return;
+}
+
+---- ASM+PCODE ----
+08049020: PUSH dword ptr [0x0804bff8]
+    (unique, 0x41200, 4) COPY (ram, 0x804bff8, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049026: JMP dword ptr [0x0804bffc]
+     ---  BRANCHIND (ram, 0x804bffc, 4)
+
+==== FUNCTION 08049080 main ====
+PROTO int main(int argc, char * * argv)
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Function: __x86.get_pc_thunk.ax replaced with injection: get_pc_thunk_ax */
+/* WARNING: Unknown calling convention */
+
+int main(int argc, char *(*argv))
+
+{
+  char cVar1;
+  char *pcVar2;
+  size_t sVar3;
+  int iVar4;
+  uint uVar5;
+  uint uVar6;
+  byte bVar7;
+  char *pcVar8;
+  char *pcVar9;
+  int iVar10;
+  int in_GS_OFFSET;
+  char local_124 [4];
+  char buf [256];
+  
+                    /* Unresolved local var: char * src@[???] */
+  buf._252_4_ = *(undefined4 *)(in_GS_OFFSET + 0x14);
+  if (argc < 2) {
+    pcVar2 = "reverse engineering";
+  }
+  else {
+    pcVar2 = argv[1];
+  }
+  strncpy(local_124, pcVar2, 0xff);
+                    /* Unresolved local var: uint c@[???]
+                       Unresolved local var: uint i@[???] */
+  buf[0xfb] = '\0';
+  if (local_124[0] == '\0') {
+    iVar10 = 0;
+    iVar4 = 0;
+  }
+  else {
+    iVar10 = 0;
+    pcVar2 = local_124;
+    bVar7 = local_124[0];
+    do {
+                    /* Unresolved local var: char ch@[???] */
+      bVar7 = (bVar7 | 0x20) + 0x9f;
+      if (bVar7 < 0x15) {
+        iVar10 = (0x104111U >> (bVar7 & 0x1f) & 1) + iVar10;
+      }
+      bVar7 = pcVar2[1];
+      pcVar2 = pcVar2 + 1;
+    } while (bVar7 != 0);
+                    /* Unresolved local var: uint n@[DW_OP_reg0(EAX)] */
+    sVar3 = strlen(local_124 + 1);
+    iVar4 = sVar3 + 1;
+  }
+  __printf_chk(2, "len=%u vowels=%u\n", iVar4, iVar10);
+                    /* Unresolved local var: uint n@[???] */
+  if (local_124[0] != '\0') {
+    uVar6 = 0;
+    do {
+      uVar5 = uVar6;
+      uVar6 = uVar5 + 1;
+    } while (local_124[uVar6] != '\0');
+                    /* Unresolved local var: uint i@[???] */
+    if (uVar6 >> 1 != 0) {
+      pcVar2 = local_124;
+      pcVar9 = local_124 + uVar5;
+      do {
+                    /* Unresolved local var: char t@[???] */
+        cVar1 = *pcVar2;
+        pcVar8 = pcVar2 + 1;
+        *pcVar2 = *pcVar9;
+        *pcVar9 = cVar1;
+        pcVar2 = pcVar8;
+        pcVar9 = pcVar9 + -1;
+      } while (local_124 + (uVar6 >> 1) != pcVar8);
+    }
+  }
+  __printf_chk(2, "reversed=%s\n", local_124, iVar10);
+  if (buf._252_4_ == *(int *)(in_GS_OFFSET + 0x14)) {
+    return 0;
+  }
+                    /* WARNING: Subroutine does not return */
+  __stack_chk_fail_local();
+}
+
+---- ASM+PCODE ----
+08049080: CALL 0x08049326
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049085, 4)
+     ---  CALL (ram, 0x8049326, 4)
+08049085: ADD EAX,0x2f6f
+    (register, 0x200, 1) INT_CARRY (register, 0x0, 4) , (const, 0x2f6f, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x0, 4) , (const, 0x2f6f, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x0, 4) , (const, 0x2f6f, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x0, 4) , (const, 0x2f6f, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_ADD (register, 0x0, 4) , (const, 0x2f6f, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804908a: LEA ECX,[ESP + 0x4]
+    (unique, 0x7600, 4) INT_ADD (const, 0x4, 4) , (register, 0x10, 4)
+    (register, 0x4, 4) COPY (unique, 0x7600, 4)
+0804908e: AND ESP,0xfffffff0
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x10, 4) INT_AND (register, 0x10, 4) , (const, 0xfffffff0, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049091: PUSH dword ptr [ECX + -0x4]
+    (unique, 0x6600, 4) INT_ADD (register, 0x4, 4) , (const, 0xfffffffc, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6600, 4)
+    (unique, 0x41200, 4) COPY (unique, 0x16f00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049094: PUSH EBP
+    (unique, 0x41200, 4) COPY (register, 0x14, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049095: MOV EBP,ESP
+    (register, 0x14, 4) COPY (register, 0x10, 4)
+08049097: PUSH EDI
+    (unique, 0x41200, 4) COPY (register, 0x1c, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049098: PUSH ESI
+    (unique, 0x41200, 4) COPY (register, 0x18, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049099: PUSH EBX
+    (unique, 0x41200, 4) COPY (register, 0xc, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804909a: PUSH ECX
+    (unique, 0x41200, 4) COPY (register, 0x4, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804909b: SUB ESP,0x128
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x128, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x128, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x128, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x128, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490a1: MOV dword ptr [EBP + 0xfffffed4],EAX
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0xa000, 4) COPY (register, 0x0, 4)
+     ---  STORE (const, 0x1a1, 4) , (unique, 0x6800, 4) , (unique, 0xa000, 4)
+080490a7: MOV EAX,GS:[0x14]
+    (unique, 0x11d00, 4) INT_ADD (register, 0x114, 4) , (const, 0x14, 4)
+    (unique, 0x11e00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x11d00, 4)
+    (register, 0x0, 4) COPY (unique, 0x11e00, 4)
+080490ad: MOV dword ptr [EBP + -0x1c],EAX
+    (unique, 0x6600, 4) INT_ADD (register, 0x14, 4) , (const, 0xffffffe4, 4)
+    (unique, 0xa000, 4) COPY (register, 0x0, 4)
+     ---  STORE (const, 0x1a1, 4) , (unique, 0x6600, 4) , (unique, 0xa000, 4)
+080490b0: MOV EAX,dword ptr [ECX + 0x4]
+    (unique, 0x6600, 4) INT_ADD (register, 0x4, 4) , (const, 0x4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6600, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+080490b3: CMP dword ptr [ECX],0x1
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (register, 0x4, 4)
+    (unique, 0x68900, 4) COPY (unique, 0x16f00, 4)
+    (register, 0x200, 1) INT_LESS (unique, 0x68900, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x68900, 4) , (const, 0x1, 4)
+    (unique, 0x4ce00, 4) INT_AND (unique, 0x68900, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x1, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (unique, 0x68b00, 4) INT_SUB (unique, 0x68900, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0x68b00, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x68b00, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0x68b00, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490b6: JLE 0x080491eb
+    (unique, 0x18700, 1) INT_NOTEQUAL (register, 0x20b, 1) , (register, 0x207, 1)
+    (unique, 0x18900, 1) BOOL_OR (register, 0x206, 1) , (unique, 0x18700, 1)
+     ---  CBRANCH (ram, 0x80491eb, 4) , (unique, 0x18900, 1)
+080490bc: MOV EAX,dword ptr [EAX + 0x4]
+    (unique, 0x6600, 4) INT_ADD (register, 0x0, 4) , (const, 0x4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6600, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+080490bf: SUB ESP,0x4
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x4, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x4, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490c2: LEA EDI,[EBP + 0xfffffee4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffee4, 4)
+    (register, 0x1c, 4) COPY (unique, 0x6800, 4)
+080490c8: MOV EBX,dword ptr [EBP + 0xfffffed4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+080490ce: PUSH 0xff
+    (unique, 0x89c00, 4) COPY (const, 0xff, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89c00, 4)
+080490d3: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080490d4: PUSH EDI
+    (unique, 0x41200, 4) COPY (register, 0x1c, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080490d5: CALL 0x08049060
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x80490da, 4)
+     ---  CALL (ram, 0x8049060, 4)
+080490da: MOVZX ECX,byte ptr [EBP + 0xfffffee4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffee4, 4)
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0x4, 4) INT_ZEXT (unique, 0x16d00, 1)
+080490e1: MOV byte ptr [EBP + -0x1d],0x0
+    (unique, 0x6600, 4) INT_ADD (register, 0x14, 4) , (const, 0xffffffe3, 4)
+    (unique, 0x9e00, 1) COPY (const, 0x0, 1)
+     ---  STORE (const, 0x1a1, 4) , (unique, 0x6600, 4) , (unique, 0x9e00, 1)
+080490e5: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490e8: TEST CL,CL
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (unique, 0xb0000, 1) INT_AND (register, 0x4, 1) , (register, 0x4, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0xb0000, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0xb0000, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0xb0000, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490ea: JZ 0x080491fc
+     ---  CBRANCH (ram, 0x80491fc, 4) , (register, 0x206, 1)
+080490f0: MOV EAX,EDI
+    (register, 0x0, 4) COPY (register, 0x1c, 4)
+080490f2: XOR ESI,ESI
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x18, 4) INT_XOR (register, 0x18, 4) , (register, 0x18, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x18, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x18, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x18, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080490f4: LEA ESI,[ESI]
+    (register, 0x18, 4) COPY (register, 0x18, 4)
+080490f8: LEA ESI,[ESI]
+    (register, 0x18, 4) COPY (register, 0x18, 4)
+08049100: OR ECX,0x20
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x4, 4) INT_OR (register, 0x4, 4) , (const, 0x20, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x4, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x4, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x4, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049103: MOV EBX,0x104111
+    (register, 0xc, 4) COPY (const, 0x104111, 4)
+08049108: SUB ECX,0x61
+    (register, 0x200, 1) INT_LESS (register, 0x4, 4) , (const, 0x61, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x4, 4) , (const, 0x61, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x4, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x61, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x4, 4) INT_SUB (register, 0x4, 4) , (const, 0x61, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x4, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x4, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x4, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804910b: SHR EBX,CL
+    (unique, 0xad500, 1) INT_AND (register, 0x4, 1) , (const, 0x1f, 1)
+    (unique, 0xad600, 4) COPY (register, 0xc, 4)
+    (register, 0xc, 4) INT_RIGHT (register, 0xc, 4) , (unique, 0xad500, 1)
+    (unique, 0x52600, 1) INT_NOTEQUAL (unique, 0xad500, 1) , (const, 0x0, 1)
+    (unique, 0x52700, 1) INT_SUB (unique, 0xad500, 1) , (const, 0x1, 1)
+    (unique, 0x52800, 4) INT_RIGHT (unique, 0xad600, 4) , (unique, 0x52700, 1)
+    (unique, 0x52900, 4) INT_AND (unique, 0x52800, 4) , (const, 0x1, 4)
+    (unique, 0x52b00, 1) INT_NOTEQUAL (unique, 0x52900, 4) , (const, 0x0, 4)
+    (unique, 0x52c00, 1) BOOL_NEGATE (unique, 0x52600, 1)
+    (unique, 0x52d00, 1) INT_AND (unique, 0x52c00, 1) , (register, 0x200, 1)
+    (unique, 0x52e00, 1) INT_AND (unique, 0x52600, 1) , (unique, 0x52b00, 1)
+    (register, 0x200, 1) INT_OR (unique, 0x52d00, 1) , (unique, 0x52e00, 1)
+    (unique, 0x53100, 1) INT_EQUAL (unique, 0xad500, 1) , (const, 0x1, 1)
+    (unique, 0x53300, 1) INT_SLESS (unique, 0xad600, 4) , (const, 0x0, 4)
+    (unique, 0x53400, 1) BOOL_NEGATE (unique, 0x53100, 1)
+    (unique, 0x53500, 1) INT_AND (unique, 0x53400, 1) , (register, 0x20b, 1)
+    (unique, 0x53600, 1) INT_AND (unique, 0x53100, 1) , (unique, 0x53300, 1)
+    (register, 0x20b, 1) INT_OR (unique, 0x53500, 1) , (unique, 0x53600, 1)
+    (unique, 0x4b600, 1) INT_NOTEQUAL (unique, 0xad500, 1) , (const, 0x0, 1)
+    (unique, 0x4b800, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b900, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4ba00, 1) INT_AND (unique, 0x4b900, 1) , (register, 0x207, 1)
+    (unique, 0x4bb00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4b800, 1)
+    (register, 0x207, 1) INT_OR (unique, 0x4ba00, 1) , (unique, 0x4bb00, 1)
+    (unique, 0x4be00, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4bf00, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c000, 1) INT_AND (unique, 0x4bf00, 1) , (register, 0x206, 1)
+    (unique, 0x4c100, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4be00, 1)
+    (register, 0x206, 1) INT_OR (unique, 0x4c000, 1) , (unique, 0x4c100, 1)
+    (unique, 0x4c300, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4c400, 1) POPCOUNT (unique, 0x4c300, 4)
+    (unique, 0x4c500, 1) INT_AND (unique, 0x4c400, 1) , (const, 0x1, 1)
+    (unique, 0x4c700, 1) INT_EQUAL (unique, 0x4c500, 1) , (const, 0x0, 1)
+    (unique, 0x4c800, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c900, 1) INT_AND (unique, 0x4c800, 1) , (register, 0x202, 1)
+    (unique, 0x4ca00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4c700, 1)
+    (register, 0x202, 1) INT_OR (unique, 0x4c900, 1) , (unique, 0x4ca00, 1)
+0804910d: AND EBX,0x1
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0xc, 4) INT_AND (register, 0xc, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049110: ADD EBX,ESI
+    (register, 0x200, 1) INT_CARRY (register, 0xc, 4) , (register, 0x18, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0xc, 4) , (register, 0x18, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0xc, 4) , (register, 0x18, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0xc, 4) , (register, 0x18, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0xc, 4) INT_ADD (register, 0xc, 4) , (register, 0x18, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049112: CMP CL,0x14
+    (unique, 0x67d00, 1) COPY (register, 0x4, 1)
+    (register, 0x200, 1) INT_LESS (unique, 0x67d00, 1) , (const, 0x14, 1)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x67d00, 1) , (const, 0x14, 1)
+    (unique, 0x4ce00, 1) INT_AND (unique, 0x67d00, 1) , (const, 0xf, 1)
+    (unique, 0x4cf00, 1) INT_AND (const, 0x14, 1) , (const, 0xf, 1)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 1) , (unique, 0x4cf00, 1)
+    (unique, 0x67f00, 1) INT_SUB (unique, 0x67d00, 1) , (const, 0x14, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0x67f00, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049115: CMOVBE ESI,EBX
+    (unique, 0x17b00, 1) BOOL_OR (register, 0x200, 1) , (register, 0x206, 1)
+    (unique, 0x67500, 4) COPY (register, 0xc, 4)
+    (unique, 0x67600, 1) BOOL_NEGATE (unique, 0x17b00, 1)
+     ---  CBRANCH (ram, 0x8049118, 4) , (unique, 0x67600, 1)
+    (register, 0x18, 4) COPY (unique, 0x67500, 4)
+08049118: MOVZX ECX,byte ptr [EAX + 0x1]
+    (unique, 0x6600, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (unique, 0x6600, 4)
+    (register, 0x4, 4) INT_ZEXT (unique, 0x16d00, 1)
+0804911c: ADD EAX,0x1
+    (register, 0x200, 1) INT_CARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804911f: TEST CL,CL
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (unique, 0xb0000, 1) INT_AND (register, 0x4, 1) , (register, 0x4, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0xb0000, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0xb0000, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0xb0000, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049121: JNZ 0x08049100
+    (unique, 0x17900, 1) BOOL_NEGATE (register, 0x206, 1)
+     ---  CBRANCH (ram, 0x8049100, 4) , (unique, 0x17900, 1)
+08049123: SUB ESP,0xc
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0xc, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0xc, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0xc, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0xc, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049126: LEA EAX,[EBP + 0xfffffee5]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffee5, 4)
+    (register, 0x0, 4) COPY (unique, 0x6800, 4)
+0804912c: MOV EBX,dword ptr [EBP + 0xfffffed4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+08049132: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049133: CALL 0x08049050
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049138, 4)
+     ---  CALL (ram, 0x8049050, 4)
+08049138: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804913b: ADD EAX,0x1
+    (register, 0x200, 1) INT_CARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804913e: MOV EBX,dword ptr [EBP + 0xfffffed4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+08049144: PUSH ESI
+    (unique, 0x41200, 4) COPY (register, 0x18, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049145: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049146: LEA EAX,[EBX + 0xffffe028]
+    (unique, 0x6800, 4) INT_ADD (register, 0xc, 4) , (const, 0xffffe028, 4)
+    (register, 0x0, 4) COPY (unique, 0x6800, 4)
+0804914c: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804914d: PUSH 0x2
+    (unique, 0x89800, 4) COPY (const, 0x2, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89800, 4)
+0804914f: CALL 0x08049070
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049154, 4)
+     ---  CALL (ram, 0x8049070, 4)
+08049154: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049157: CMP byte ptr [EBP + 0xfffffee4],0x0
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffee4, 4)
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (unique, 0x67d00, 1) COPY (unique, 0x16d00, 1)
+    (register, 0x200, 1) INT_LESS (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (unique, 0x4ce00, 1) INT_AND (unique, 0x67d00, 1) , (const, 0xf, 1)
+    (unique, 0x4cf00, 1) INT_AND (const, 0x0, 1) , (const, 0xf, 1)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 1) , (unique, 0x4cf00, 1)
+    (unique, 0x67f00, 1) INT_SUB (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0x67f00, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804915e: JZ 0x080491b6
+     ---  CBRANCH (ram, 0x80491b6, 4) , (register, 0x206, 1)
+08049160: XOR EAX,EAX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x0, 4) INT_XOR (register, 0x0, 4) , (register, 0x0, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049162: LEA ESI,[ESI]
+    (register, 0x18, 4) COPY (register, 0x18, 4)
+08049168: LEA ESI,[ESI]
+    (register, 0x18, 4) COPY (register, 0x18, 4)
+08049170: MOV EDX,EAX
+    (register, 0x8, 4) COPY (register, 0x0, 4)
+08049172: ADD EAX,0x1
+    (register, 0x200, 1) INT_CARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_ADD (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049175: CMP byte ptr [EDI + EAX*0x1],0x0
+    (unique, 0x6a00, 4) INT_MULT (register, 0x0, 4) , (const, 0x1, 4)
+    (unique, 0x6c00, 4) INT_ADD (register, 0x1c, 4) , (unique, 0x6a00, 4)
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (unique, 0x6c00, 4)
+    (unique, 0x67d00, 1) COPY (unique, 0x16d00, 1)
+    (register, 0x200, 1) INT_LESS (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (unique, 0x4ce00, 1) INT_AND (unique, 0x67d00, 1) , (const, 0xf, 1)
+    (unique, 0x4cf00, 1) INT_AND (const, 0x0, 1) , (const, 0xf, 1)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 1) , (unique, 0x4cf00, 1)
+    (unique, 0x67f00, 1) INT_SUB (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0x67f00, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049179: JNZ 0x08049170
+    (unique, 0x17900, 1) BOOL_NEGATE (register, 0x206, 1)
+     ---  CBRANCH (ram, 0x8049170, 4) , (unique, 0x17900, 1)
+0804917b: SHR EAX,0x1
+    (register, 0x20b, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0xad100, 4) INT_AND (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x200, 1) INT_NOTEQUAL (unique, 0xad100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_RIGHT (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804917d: JZ 0x080491b6
+     ---  CBRANCH (ram, 0x80491b6, 4) , (register, 0x206, 1)
+0804917f: MOV ECX,EDI
+    (register, 0x4, 4) COPY (register, 0x1c, 4)
+08049181: ADD EDX,EDI
+    (register, 0x200, 1) INT_CARRY (register, 0x8, 4) , (register, 0x1c, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x8, 4) , (register, 0x1c, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x8, 4) , (register, 0x1c, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x8, 4) , (register, 0x1c, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x8, 4) INT_ADD (register, 0x8, 4) , (register, 0x1c, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x8, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x8, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x8, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049183: LEA ESI,[EAX + EDI*0x1]
+    (unique, 0x6a00, 4) INT_MULT (register, 0x1c, 4) , (const, 0x1, 4)
+    (unique, 0x6c00, 4) INT_ADD (register, 0x0, 4) , (unique, 0x6a00, 4)
+    (register, 0x18, 4) COPY (unique, 0x6c00, 4)
+08049186: JMP 0x080491a0
+     ---  BRANCH (ram, 0x80491a0, 4)
+080491a0: MOVZX EAX,byte ptr [EDX]
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (register, 0x8, 4)
+    (register, 0x0, 4) INT_ZEXT (unique, 0x16d00, 1)
+080491a3: MOVZX EBX,byte ptr [ECX]
+    (unique, 0x16d00, 1) LOAD (const, 0x1a1, 4) , (register, 0x4, 4)
+    (register, 0xc, 4) INT_ZEXT (unique, 0x16d00, 1)
+080491a6: ADD ECX,0x1
+    (register, 0x200, 1) INT_CARRY (register, 0x4, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x4, 4) , (const, 0x1, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x4, 4) , (const, 0x1, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x4, 4) , (const, 0x1, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x4, 4) INT_ADD (register, 0x4, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x4, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x4, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x4, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491a9: SUB EDX,0x1
+    (register, 0x200, 1) INT_LESS (register, 0x8, 4) , (const, 0x1, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x8, 4) , (const, 0x1, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x8, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x1, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x8, 4) INT_SUB (register, 0x8, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x8, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x8, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x8, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491ac: MOV byte ptr [ECX + -0x1],AL
+    (unique, 0x6600, 4) INT_ADD (register, 0x4, 4) , (const, 0xffffffff, 4)
+    (unique, 0x9e00, 1) COPY (register, 0x0, 1)
+     ---  STORE (const, 0x1a1, 4) , (unique, 0x6600, 4) , (unique, 0x9e00, 1)
+080491af: MOV byte ptr [EDX + 0x1],BL
+    (unique, 0x6600, 4) INT_ADD (register, 0x8, 4) , (const, 0x1, 4)
+    (unique, 0x9e00, 1) COPY (register, 0xc, 1)
+     ---  STORE (const, 0x1a1, 4) , (unique, 0x6600, 4) , (unique, 0x9e00, 1)
+080491b2: CMP ESI,ECX
+    (unique, 0x69200, 4) COPY (register, 0x18, 4)
+    (register, 0x200, 1) INT_LESS (unique, 0x69200, 4) , (register, 0x4, 4)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x69200, 4) , (register, 0x4, 4)
+    (unique, 0x4ce00, 4) INT_AND (unique, 0x69200, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (register, 0x4, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (unique, 0x69400, 4) INT_SUB (unique, 0x69200, 4) , (register, 0x4, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0x69400, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x69400, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0x69400, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491b4: JNZ 0x080491a0
+    (unique, 0x17900, 1) BOOL_NEGATE (register, 0x206, 1)
+     ---  CBRANCH (ram, 0x80491a0, 4) , (unique, 0x17900, 1)
+080491b6: MOV EBX,dword ptr [EBP + 0xfffffed4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+080491bc: SUB ESP,0x4
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x4, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x4, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491bf: PUSH EDI
+    (unique, 0x41200, 4) COPY (register, 0x1c, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080491c0: LEA EAX,[EBX + 0xffffe03a]
+    (unique, 0x6800, 4) INT_ADD (register, 0xc, 4) , (const, 0xffffe03a, 4)
+    (register, 0x0, 4) COPY (unique, 0x6800, 4)
+080491c6: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080491c7: PUSH 0x2
+    (unique, 0x89800, 4) COPY (const, 0x2, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89800, 4)
+080491c9: CALL 0x08049070
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x80491ce, 4)
+     ---  CALL (ram, 0x8049070, 4)
+080491ce: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491d1: MOV EAX,dword ptr [EBP + -0x1c]
+    (unique, 0x6600, 4) INT_ADD (register, 0x14, 4) , (const, 0xffffffe4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6600, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+080491d4: SUB EAX,dword ptr GS:[0x14]
+    (unique, 0x9a00, 4) INT_ADD (register, 0x114, 4) , (const, 0x14, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x9a00, 4)
+    (register, 0x200, 1) INT_LESS (register, 0x0, 4) , (unique, 0x16f00, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x9a00, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x0, 4) , (unique, 0x16f00, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x0, 4) , (const, 0xf, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x9a00, 4)
+    (unique, 0x4cf00, 4) INT_AND (unique, 0x16f00, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x9a00, 4)
+    (register, 0x0, 4) INT_SUB (register, 0x0, 4) , (unique, 0x16f00, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491db: JNZ 0x08049205
+    (unique, 0x17900, 1) BOOL_NEGATE (register, 0x206, 1)
+     ---  CBRANCH (ram, 0x8049205, 4) , (unique, 0x17900, 1)
+080491dd: LEA ESP,[EBP + -0x10]
+    (unique, 0x6600, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffff0, 4)
+    (register, 0x10, 4) COPY (unique, 0x6600, 4)
+080491e0: XOR EAX,EAX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x0, 4) INT_XOR (register, 0x0, 4) , (register, 0x0, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491e2: POP ECX
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x4, 4) COPY (unique, 0x89000, 4)
+080491e3: POP EBX
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0xc, 4) COPY (unique, 0x89000, 4)
+080491e4: POP ESI
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x18, 4) COPY (unique, 0x89000, 4)
+080491e5: POP EDI
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x1c, 4) COPY (unique, 0x89000, 4)
+080491e6: POP EBP
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x14, 4) COPY (unique, 0x89000, 4)
+080491e7: LEA ESP,[ECX + -0x4]
+    (unique, 0x6600, 4) INT_ADD (register, 0x4, 4) , (const, 0xfffffffc, 4)
+    (register, 0x10, 4) COPY (unique, 0x6600, 4)
+080491ea: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+080491eb: MOV EAX,dword ptr [EBP + 0xfffffed4]
+    (unique, 0x6800, 4) INT_ADD (register, 0x14, 4) , (const, 0xfffffed4, 4)
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (unique, 0x6800, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+080491f1: LEA EAX,[EAX + 0xffffe014]
+    (unique, 0x6800, 4) INT_ADD (register, 0x0, 4) , (const, 0xffffe014, 4)
+    (register, 0x0, 4) COPY (unique, 0x6800, 4)
+080491f7: JMP 0x080490bf
+     ---  BRANCH (ram, 0x80490bf, 4)
+080491fc: XOR ESI,ESI
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x18, 4) INT_XOR (register, 0x18, 4) , (register, 0x18, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x18, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x18, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x18, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080491fe: XOR EAX,EAX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x0, 4) INT_XOR (register, 0x0, 4) , (register, 0x0, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049200: JMP 0x0804913e
+     ---  BRANCH (ram, 0x804913e, 4)
+08049205: CALL 0x08049330
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x804920a, 4)
+     ---  CALL (ram, 0x8049330, 4)
+
+==== FUNCTION 08049210 _start ====
+PROTO undefined _start()
+CCONV processEntry
+---- DECOMP ----
+
+/* WARNING: Function: __i686.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
+
+void processEntry _start(undefined4 param_1, undefined4 param_2)
+
+{
+  undefined1 auStack_4 [4];
+  
+  __libc_start_main(&__wrap_main, param_2, &stack0x00000004, 0, 0, param_1, auStack_4);
+  do {
+                    /* WARNING: Do nothing block with infinite loop */
+  } while( true );
+}
+
+---- ASM+PCODE ----
+08049210: XOR EBP,EBP
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x14, 4) INT_XOR (register, 0x14, 4) , (register, 0x14, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x14, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x14, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x14, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049212: POP ESI
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0x18, 4) COPY (unique, 0x89000, 4)
+08049213: MOV ECX,ESP
+    (register, 0x4, 4) COPY (register, 0x10, 4)
+08049215: AND ESP,0xfffffff0
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x10, 4) INT_AND (register, 0x10, 4) , (const, 0xfffffff0, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049218: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049219: PUSH ESP
+    (unique, 0x41200, 4) COPY (register, 0x10, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804921a: PUSH EDX
+    (unique, 0x41200, 4) COPY (register, 0x8, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804921b: CALL 0x08049239
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049220, 4)
+     ---  CALL (ram, 0x8049239, 4)
+08049220: ADD EBX,0x2dd4
+    (register, 0x200, 1) INT_CARRY (register, 0xc, 4) , (const, 0x2dd4, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0xc, 4) , (const, 0x2dd4, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0xc, 4) , (const, 0x2dd4, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0xc, 4) , (const, 0x2dd4, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0xc, 4) INT_ADD (register, 0xc, 4) , (const, 0x2dd4, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049226: PUSH 0x0
+    (unique, 0x89800, 4) COPY (const, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89800, 4)
+08049228: PUSH 0x0
+    (unique, 0x89800, 4) COPY (const, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89800, 4)
+0804922a: PUSH ECX
+    (unique, 0x41200, 4) COPY (register, 0x4, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804922b: PUSH ESI
+    (unique, 0x41200, 4) COPY (register, 0x18, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+0804922c: LEA EAX,[EBX + 0xffffd249]
+    (unique, 0x6800, 4) INT_ADD (register, 0xc, 4) , (const, 0xffffd249, 4)
+    (register, 0x0, 4) COPY (unique, 0x6800, 4)
+08049232: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049233: CALL 0x08049030
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049238, 4)
+     ---  CALL (ram, 0x8049030, 4)
+08049238: HLT
+     ---  BRANCH (ram, 0x8049238, 4)
+
+==== FUNCTION 08049239 __i686.get_pc_thunk.bx ====
+PROTO undefined __i686.get_pc_thunk.bx()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: This is an inlined function */
+
+void __i686_get_pc_thunk_bx(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+08049239: MOV EBX,dword ptr [ESP]
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (register, 0x10, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+0804923c: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049250 _dl_relocate_static_pie ====
+PROTO undefined _dl_relocate_static_pie()
+CCONV unknown
+---- DECOMP ----
+
+void _dl_relocate_static_pie(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+08049250: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049260 __x86.get_pc_thunk.bx ====
+PROTO undefined __x86.get_pc_thunk.bx()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: This is an inlined function */
+
+void __x86_get_pc_thunk_bx(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+08049260: MOV EBX,dword ptr [ESP]
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (register, 0x10, 4)
+    (register, 0xc, 4) COPY (unique, 0x16f00, 4)
+08049263: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049270 deregister_tm_clones ====
+PROTO undefined deregister_tm_clones()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x0804927c) */
+/* WARNING: Removing unreachable block (ram,0x08049285) */
+
+void deregister_tm_clones(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+08049270: MOV EAX,0x804c01c
+    (register, 0x0, 4) COPY (const, 0x804c01c, 4)
+08049275: CMP EAX,0x804c01c
+    (register, 0x200, 1) INT_LESS (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x0, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x804c01c, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (unique, 0x67c00, 4) INT_SUB (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0x67c00, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x67c00, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0x67c00, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804927a: JZ 0x080492a0
+     ---  CBRANCH (ram, 0x80492a0, 4) , (register, 0x206, 1)
+0804927c: MOV EAX,0x0
+    (register, 0x0, 4) COPY (const, 0x0, 4)
+08049281: TEST EAX,EAX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (unique, 0xb0400, 4) INT_AND (register, 0x0, 4) , (register, 0x0, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0xb0400, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049283: JZ 0x080492a0
+     ---  CBRANCH (ram, 0x80492a0, 4) , (register, 0x206, 1)
+08049285: PUSH EBP
+    (unique, 0x41200, 4) COPY (register, 0x14, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049286: MOV EBP,ESP
+    (register, 0x14, 4) COPY (register, 0x10, 4)
+08049288: SUB ESP,0x14
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x14, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x14, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x14, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x14, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804928b: PUSH 0x804c01c
+    (unique, 0x89c00, 4) COPY (const, 0x804c01c, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89c00, 4)
+08049290: CALL EAX
+    (unique, 0x65900, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049292, 4)
+     ---  CALLIND (unique, 0x65900, 4)
+08049292: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049295: LEAVE
+    (register, 0x10, 4) COPY (register, 0x14, 4)
+    (register, 0x14, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+08049296: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+080492a0: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 080492b0 register_tm_clones ====
+PROTO undefined register_tm_clones()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Removing unreachable block (ram,0x080492c8) */
+/* WARNING: Removing unreachable block (ram,0x080492d1) */
+
+void register_tm_clones(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+080492b0: MOV EAX,0x804c01c
+    (register, 0x0, 4) COPY (const, 0x804c01c, 4)
+080492b5: SUB EAX,0x804c01c
+    (register, 0x200, 1) INT_LESS (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x0, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x804c01c, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x0, 4) INT_SUB (register, 0x0, 4) , (const, 0x804c01c, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492ba: MOV EDX,EAX
+    (register, 0x8, 4) COPY (register, 0x0, 4)
+080492bc: SHR EAX,0x1f
+    (unique, 0xad900, 4) INT_AND (const, 0x1f, 4) , (const, 0x1f, 4)
+    (unique, 0xada00, 4) COPY (register, 0x0, 4)
+    (register, 0x0, 4) INT_RIGHT (register, 0x0, 4) , (unique, 0xad900, 4)
+    (unique, 0x52600, 1) INT_NOTEQUAL (unique, 0xad900, 4) , (const, 0x0, 4)
+    (unique, 0x52700, 4) INT_SUB (unique, 0xad900, 4) , (const, 0x1, 4)
+    (unique, 0x52800, 4) INT_RIGHT (unique, 0xada00, 4) , (unique, 0x52700, 4)
+    (unique, 0x52900, 4) INT_AND (unique, 0x52800, 4) , (const, 0x1, 4)
+    (unique, 0x52b00, 1) INT_NOTEQUAL (unique, 0x52900, 4) , (const, 0x0, 4)
+    (unique, 0x52c00, 1) BOOL_NEGATE (unique, 0x52600, 1)
+    (unique, 0x52d00, 1) INT_AND (unique, 0x52c00, 1) , (register, 0x200, 1)
+    (unique, 0x52e00, 1) INT_AND (unique, 0x52600, 1) , (unique, 0x52b00, 1)
+    (register, 0x200, 1) INT_OR (unique, 0x52d00, 1) , (unique, 0x52e00, 1)
+    (unique, 0x53100, 1) INT_EQUAL (unique, 0xad900, 4) , (const, 0x1, 4)
+    (unique, 0x53300, 1) INT_SLESS (unique, 0xada00, 4) , (const, 0x0, 4)
+    (unique, 0x53400, 1) BOOL_NEGATE (unique, 0x53100, 1)
+    (unique, 0x53500, 1) INT_AND (unique, 0x53400, 1) , (register, 0x20b, 1)
+    (unique, 0x53600, 1) INT_AND (unique, 0x53100, 1) , (unique, 0x53300, 1)
+    (register, 0x20b, 1) INT_OR (unique, 0x53500, 1) , (unique, 0x53600, 1)
+    (unique, 0x4b600, 1) INT_NOTEQUAL (unique, 0xad900, 4) , (const, 0x0, 4)
+    (unique, 0x4b800, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b900, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4ba00, 1) INT_AND (unique, 0x4b900, 1) , (register, 0x207, 1)
+    (unique, 0x4bb00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4b800, 1)
+    (register, 0x207, 1) INT_OR (unique, 0x4ba00, 1) , (unique, 0x4bb00, 1)
+    (unique, 0x4be00, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4bf00, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c000, 1) INT_AND (unique, 0x4bf00, 1) , (register, 0x206, 1)
+    (unique, 0x4c100, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4be00, 1)
+    (register, 0x206, 1) INT_OR (unique, 0x4c000, 1) , (unique, 0x4c100, 1)
+    (unique, 0x4c300, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4c400, 1) POPCOUNT (unique, 0x4c300, 4)
+    (unique, 0x4c500, 1) INT_AND (unique, 0x4c400, 1) , (const, 0x1, 1)
+    (unique, 0x4c700, 1) INT_EQUAL (unique, 0x4c500, 1) , (const, 0x0, 1)
+    (unique, 0x4c800, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c900, 1) INT_AND (unique, 0x4c800, 1) , (register, 0x202, 1)
+    (unique, 0x4ca00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4c700, 1)
+    (register, 0x202, 1) INT_OR (unique, 0x4c900, 1) , (unique, 0x4ca00, 1)
+080492bf: SAR EDX,0x2
+    (unique, 0xa5200, 4) INT_AND (const, 0x2, 4) , (const, 0x1f, 4)
+    (unique, 0xa5300, 4) COPY (register, 0x8, 4)
+    (register, 0x8, 4) INT_SRIGHT (register, 0x8, 4) , (unique, 0xa5200, 4)
+    (unique, 0x51700, 1) INT_NOTEQUAL (unique, 0xa5200, 4) , (const, 0x0, 4)
+    (unique, 0x51800, 4) INT_SUB (unique, 0xa5200, 4) , (const, 0x1, 4)
+    (unique, 0x51900, 4) INT_SRIGHT (unique, 0xa5300, 4) , (unique, 0x51800, 4)
+    (unique, 0x51a00, 4) INT_AND (unique, 0x51900, 4) , (const, 0x1, 4)
+    (unique, 0x51c00, 1) INT_NOTEQUAL (unique, 0x51a00, 4) , (const, 0x0, 4)
+    (unique, 0x51d00, 1) BOOL_NEGATE (unique, 0x51700, 1)
+    (unique, 0x51e00, 1) INT_AND (unique, 0x51d00, 1) , (register, 0x200, 1)
+    (unique, 0x51f00, 1) INT_AND (unique, 0x51700, 1) , (unique, 0x51c00, 1)
+    (register, 0x200, 1) INT_OR (unique, 0x51e00, 1) , (unique, 0x51f00, 1)
+    (unique, 0x52200, 1) INT_EQUAL (unique, 0xa5200, 4) , (const, 0x1, 4)
+    (unique, 0x52300, 1) BOOL_NEGATE (unique, 0x52200, 1)
+    (register, 0x20b, 1) INT_AND (unique, 0x52300, 1) , (register, 0x20b, 1)
+    (unique, 0x4b600, 1) INT_NOTEQUAL (unique, 0xa5200, 4) , (const, 0x0, 4)
+    (unique, 0x4b800, 1) INT_SLESS (register, 0x8, 4) , (const, 0x0, 4)
+    (unique, 0x4b900, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4ba00, 1) INT_AND (unique, 0x4b900, 1) , (register, 0x207, 1)
+    (unique, 0x4bb00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4b800, 1)
+    (register, 0x207, 1) INT_OR (unique, 0x4ba00, 1) , (unique, 0x4bb00, 1)
+    (unique, 0x4be00, 1) INT_EQUAL (register, 0x8, 4) , (const, 0x0, 4)
+    (unique, 0x4bf00, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c000, 1) INT_AND (unique, 0x4bf00, 1) , (register, 0x206, 1)
+    (unique, 0x4c100, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4be00, 1)
+    (register, 0x206, 1) INT_OR (unique, 0x4c000, 1) , (unique, 0x4c100, 1)
+    (unique, 0x4c300, 4) INT_AND (register, 0x8, 4) , (const, 0xff, 4)
+    (unique, 0x4c400, 1) POPCOUNT (unique, 0x4c300, 4)
+    (unique, 0x4c500, 1) INT_AND (unique, 0x4c400, 1) , (const, 0x1, 1)
+    (unique, 0x4c700, 1) INT_EQUAL (unique, 0x4c500, 1) , (const, 0x0, 1)
+    (unique, 0x4c800, 1) BOOL_NEGATE (unique, 0x4b600, 1)
+    (unique, 0x4c900, 1) INT_AND (unique, 0x4c800, 1) , (register, 0x202, 1)
+    (unique, 0x4ca00, 1) INT_AND (unique, 0x4b600, 1) , (unique, 0x4c700, 1)
+    (register, 0x202, 1) INT_OR (unique, 0x4c900, 1) , (unique, 0x4ca00, 1)
+080492c2: ADD EAX,EDX
+    (register, 0x200, 1) INT_CARRY (register, 0x0, 4) , (register, 0x8, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x0, 4) , (register, 0x8, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x0, 4) , (register, 0x8, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x0, 4) , (register, 0x8, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x0, 4) INT_ADD (register, 0x0, 4) , (register, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492c4: SAR EAX,0x1
+    (unique, 0xa4a00, 4) INT_AND (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x200, 1) INT_NOTEQUAL (unique, 0xa4a00, 4) , (const, 0x0, 4)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (register, 0x0, 4) INT_SRIGHT (register, 0x0, 4) , (const, 0x1, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x0, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x0, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x0, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492c6: JZ 0x080492e8
+     ---  CBRANCH (ram, 0x80492e8, 4) , (register, 0x206, 1)
+080492c8: MOV EDX,0x0
+    (register, 0x8, 4) COPY (const, 0x0, 4)
+080492cd: TEST EDX,EDX
+    (register, 0x200, 1) COPY (const, 0x0, 1)
+    (register, 0x20b, 1) COPY (const, 0x0, 1)
+    (unique, 0xb0400, 4) INT_AND (register, 0x8, 4) , (register, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (unique, 0xb0400, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (unique, 0xb0400, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492cf: JZ 0x080492e8
+     ---  CBRANCH (ram, 0x80492e8, 4) , (register, 0x206, 1)
+080492d1: PUSH EBP
+    (unique, 0x41200, 4) COPY (register, 0x14, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080492d2: MOV EBP,ESP
+    (register, 0x14, 4) COPY (register, 0x10, 4)
+080492d4: SUB ESP,0x10
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x10, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492d7: PUSH EAX
+    (unique, 0x41200, 4) COPY (register, 0x0, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080492d8: PUSH 0x804c01c
+    (unique, 0x89c00, 4) COPY (const, 0x804c01c, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x89c00, 4)
+080492dd: CALL EDX
+    (unique, 0x65900, 4) COPY (register, 0x8, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x80492df, 4)
+     ---  CALLIND (unique, 0x65900, 4)
+080492df: ADD ESP,0x10
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x10, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x10, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492e2: LEAVE
+    (register, 0x10, 4) COPY (register, 0x14, 4)
+    (register, 0x14, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+080492e3: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+080492e8: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 080492f0 __do_global_dtors_aux ====
+PROTO undefined __do_global_dtors_aux()
+CCONV unknown
+---- DECOMP ----
+
+void __do_global_dtors_aux(void)
+
+{
+  if (completed_0 == '\0') {
+    deregister_tm_clones();
+    completed_0 = 1;
+    return;
+  }
+  return;
+}
+
+---- ASM+PCODE ----
+080492f0: ENDBR32
+080492f4: CMP byte ptr [0x0804c01c],0x0
+    (unique, 0x67d00, 1) COPY (ram, 0x804c01c, 1)
+    (register, 0x200, 1) INT_LESS (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x20b, 1) INT_SBORROW (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (unique, 0x4ce00, 1) INT_AND (unique, 0x67d00, 1) , (const, 0xf, 1)
+    (unique, 0x4cf00, 1) INT_AND (const, 0x0, 1) , (const, 0xf, 1)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 1) , (unique, 0x4cf00, 1)
+    (unique, 0x67f00, 1) INT_SUB (unique, 0x67d00, 1) , (const, 0x0, 1)
+    (register, 0x207, 1) INT_SLESS (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (register, 0x206, 1) INT_EQUAL (unique, 0x67f00, 1) , (const, 0x0, 1)
+    (unique, 0x4b100, 1) INT_AND (unique, 0x67f00, 1) , (const, 0xff, 1)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 1)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+080492fb: JNZ 0x08049318
+    (unique, 0x17900, 1) BOOL_NEGATE (register, 0x206, 1)
+     ---  CBRANCH (ram, 0x8049318, 4) , (unique, 0x17900, 1)
+080492fd: PUSH EBP
+    (unique, 0x41200, 4) COPY (register, 0x14, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+080492fe: MOV EBP,ESP
+    (register, 0x14, 4) COPY (register, 0x10, 4)
+08049300: SUB ESP,0x8
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x8, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049303: CALL 0x08049270
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049308, 4)
+     ---  CALL (ram, 0x8049270, 4)
+08049308: MOV byte ptr [0x0804c01c],0x1
+    (ram, 0x804c01c, 1) COPY (const, 0x1, 1)
+0804930f: LEAVE
+    (register, 0x10, 4) COPY (register, 0x14, 4)
+    (register, 0x14, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+08049310: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+08049318: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049326 __x86.get_pc_thunk.ax ====
+PROTO undefined __x86.get_pc_thunk.ax()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: This is an inlined function */
+
+undefined4 __x86_get_pc_thunk_ax(void)
+
+{
+  undefined4 unaff_retaddr;
+  
+  return unaff_retaddr;
+}
+
+---- ASM+PCODE ----
+08049326: MOV EAX,dword ptr [ESP]
+    (unique, 0x16f00, 4) LOAD (const, 0x1a1, 4) , (register, 0x10, 4)
+    (register, 0x0, 4) COPY (unique, 0x16f00, 4)
+08049329: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)
+
+==== FUNCTION 08049330 __stack_chk_fail_local ====
+PROTO undefined __stack_chk_fail_local()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
+
+void __stack_chk_fail_local(void)
+
+{
+                    /* WARNING: Subroutine does not return */
+  __stack_chk_fail();
+}
+
+---- ASM+PCODE ----
+08049330: PUSH EBX
+    (unique, 0x41200, 4) COPY (register, 0xc, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049331: CALL 0x08049260
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049336, 4)
+     ---  CALL (ram, 0x8049260, 4)
+08049336: ADD EBX,0x2cbe
+    (register, 0x200, 1) INT_CARRY (register, 0xc, 4) , (const, 0x2cbe, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0xc, 4) , (const, 0x2cbe, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0xc, 4) , (const, 0x2cbe, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0xc, 4) , (const, 0x2cbe, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0xc, 4) INT_ADD (register, 0xc, 4) , (const, 0x2cbe, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804933c: SUB ESP,0x8
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x8, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+0804933f: CALL 0x08049040
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x8049344, 4)
+     ---  CALL (ram, 0x8049040, 4)
+
+==== FUNCTION 08049344 _fini ====
+PROTO undefined _fini()
+CCONV unknown
+---- DECOMP ----
+
+/* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
+
+void _fini(void)
+
+{
+  return;
+}
+
+---- ASM+PCODE ----
+08049344: PUSH EBX
+    (unique, 0x41200, 4) COPY (register, 0xc, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (unique, 0x41200, 4)
+08049345: SUB ESP,0x8
+    (register, 0x200, 1) INT_LESS (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SBORROW (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x4ce00, 4) INT_AND (register, 0x10, 4) , (const, 0xf, 4)
+    (unique, 0x4cf00, 4) INT_AND (const, 0x8, 4) , (const, 0xf, 4)
+    (register, 0x204, 1) INT_LESS (unique, 0x4ce00, 4) , (unique, 0x4cf00, 4)
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049348: CALL 0x08049260
+    (register, 0x10, 4) INT_SUB (register, 0x10, 4) , (const, 0x4, 4)
+     ---  STORE (const, 0x1a1, 8) , (register, 0x10, 4) , (const, 0x804934d, 4)
+     ---  CALL (ram, 0x8049260, 4)
+0804934d: ADD EBX,0x2ca7
+    (register, 0x200, 1) INT_CARRY (register, 0xc, 4) , (const, 0x2ca7, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0xc, 4) , (const, 0x2ca7, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0xc, 4) , (const, 0x2ca7, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0xc, 4) , (const, 0x2ca7, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0xc, 4) INT_ADD (register, 0xc, 4) , (const, 0x2ca7, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0xc, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0xc, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0xc, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049353: ADD ESP,0x8
+    (register, 0x200, 1) INT_CARRY (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x20b, 1) INT_SCARRY (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x47e00, 4) INT_ADD (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x47f00, 4) INT_XOR (register, 0x10, 4) , (const, 0x8, 4)
+    (unique, 0x48000, 4) INT_XOR (unique, 0x47f00, 4) , (unique, 0x47e00, 4)
+    (unique, 0x48100, 4) INT_AND (unique, 0x48000, 4) , (const, 0x10, 4)
+    (register, 0x204, 1) INT_NOTEQUAL (unique, 0x48100, 4) , (const, 0x0, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x8, 4)
+    (register, 0x207, 1) INT_SLESS (register, 0x10, 4) , (const, 0x0, 4)
+    (register, 0x206, 1) INT_EQUAL (register, 0x10, 4) , (const, 0x0, 4)
+    (unique, 0x4b100, 4) INT_AND (register, 0x10, 4) , (const, 0xff, 4)
+    (unique, 0x4b200, 1) POPCOUNT (unique, 0x4b100, 4)
+    (unique, 0x4b300, 1) INT_AND (unique, 0x4b200, 1) , (const, 0x1, 1)
+    (register, 0x202, 1) INT_EQUAL (unique, 0x4b300, 1) , (const, 0x0, 1)
+08049356: POP EBX
+    (unique, 0x89000, 4) COPY (const, 0x0, 4)
+    (unique, 0x89000, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+    (register, 0xc, 4) COPY (unique, 0x89000, 4)
+08049357: RET
+    (register, 0x284, 4) LOAD (const, 0x1a1, 8) , (register, 0x10, 4)
+    (register, 0x10, 4) INT_ADD (register, 0x10, 4) , (const, 0x4, 4)
+     ---  RETURN (register, 0x284, 4)

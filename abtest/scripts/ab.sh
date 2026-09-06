@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# The A/B parity run, end to end:
+#   corpus build -> OUTSIDE leg (+ a CONTROL repeat) -> INSIDE leg -> compare -> REPORT.md -> baselines
+#
+#   GHIDRA_DIST=/path/to/ghidra_26.3.0_GayHydra-26.3.0 abtest/scripts/ab.sh [run-dir]
+#
+# STAGES=build,outside,control,inside,compare,report,baselines (default all) selects stages, so a
+# failed leg can be re-run alone into the same run-dir. CONTROL_RUNS=N (default 2) repeats the raw
+# outside leg N times into control, control2, ...: the ENGINE's own run-to-run nondeterminism is
+# characterized from those raw runs alone (`scylla-abtest flaky`) and the functions it flips are
+# masked — and listed — in the inside-vs-outside verdict, so an engine wobble is never mistaken for
+# a wrapper fault and a wrapper fault is never hidden behind one. NO_BASELINES=1 leaves
+# abtest/baselines/ untouched (a dry run). Requires: the engine dist, docker + scylla-engine-service:dev, JDK 21,
+# the Rust workspace (built here), python3. Runs the legs SEQUENTIALLY — each headless run is a
+# full JVM, and running both legs at once would contend for the host and blur timings.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+: "${GHIDRA_DIST:?set GHIDRA_DIST to the unpacked engine dist}"
+RUN="${1:-$REPO/abtest/out/$(date +%Y%m%d-%H%M%S)}"
+STAGES="${STAGES:-build,outside,control,inside,compare,report,baselines}"
+has() { [[ ",$STAGES," == *",$1,"* ]]; }
+mkdir -p "$RUN"
+export PATH="$HOME/.cargo/bin:$PATH" CC="${CC:-/usr/bin/gcc}" CXX="${CXX:-/usr/bin/g++}"
+SCYLLA="$REPO/target/debug/scylla"; ABTEST="$REPO/target/debug/scylla-abtest"; INGEST="$REPO/target/debug/scylla-ingest"
+export SCYLLA
+log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+if has build; then
+  log "build: corpus + rust tools"
+  "$REPO/abtest/corpus/build.sh" | tail -1
+  (cd "$REPO" && cargo build -q -p scylla-cli -p scylla-abtest -p scylla-ingest)
+fi
+if has outside; then
+  log "outside leg -> $RUN/outside"
+  "$HERE/run-outside.sh" "$RUN/outside" || log "outside: some binaries FAILED (continuing)"
+fi
+if has control; then
+  for i in $(seq 1 "${CONTROL_RUNS:-2}"); do
+    d="$RUN/control"; [ "$i" -gt 1 ] && d="$RUN/control$i"
+    log "control leg $i/${CONTROL_RUNS:-2} (outside repeated, snapshot only) -> $d"
+    NO_DECOMP=1 "$HERE/run-outside.sh" "$d" || log "control $i: some binaries FAILED (continuing)"
+  done
+fi
+if has inside; then
+  log "inside leg -> $RUN/inside"
+  "$HERE/run-inside.sh" "$RUN/inside" || log "inside: some binaries FAILED (continuing)"
+fi
+if has compare; then
+  log "compare"
+  mkdir -p "$RUN/compare" "$RUN/cli" "$RUN/tmp" "$RUN/flaky"
+  for snap in "$RUN"/outside/*.elf.snapshot.json; do
+    name="$(basename "$snap" .snapshot.json)"
+    art="$RUN/inside/$name.scylla"
+    [ -s "$art" ] || { log "  $name: no inside artifact — skipped"; continue; }
+    # ENGINE nondeterminism: every raw run of this binary (outside + all controls), engine-only evidence
+    raw=("$snap"); for c in "$RUN"/control*/"$name.snapshot.json"; do [ -s "$c" ] && raw+=("$c"); done
+    ignore=()
+    if [ "${#raw[@]}" -ge 2 ]; then
+      "$ABTEST" flaky "$RUN/flaky/$name.json" "${raw[@]}" >/dev/null
+      ignore=(--ignore "$RUN/flaky/$name.json")
+    fi
+    set +e
+    "$ABTEST" compare --json "${ignore[@]}" "$art" "$snap" >"$RUN/compare/$name.json"; rc=$?
+    set -e
+    # control: outside vs outside-repeat, UNMASKED, via ingest (same tool, same canonical form)
+    if [ -s "$RUN/control/$name.snapshot.json" ]; then
+      "$INGEST" "$RUN/control/$name.snapshot.json" "$RUN/tmp/$name.control.scylla" 2>/dev/null
+      "$ABTEST" compare --json "$RUN/tmp/$name.control.scylla" "$snap" >"$RUN/control/$name.json" || true
+    fi
+    # CLI-level byte check: what the terminal head prints, inside vs an ingest of the outside snapshot
+    "$INGEST" "$snap" "$RUN/tmp/$name.outside.scylla" 2>/dev/null
+    { "$SCYLLA" functions --json "$art" detail; "$SCYLLA" info --json "$art" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("name");print(json.dumps(d))'; } >"$RUN/tmp/$name.cli.inside"
+    { "$SCYLLA" functions --json "$RUN/tmp/$name.outside.scylla" detail; "$SCYLLA" info --json "$RUN/tmp/$name.outside.scylla" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("name");print(json.dumps(d))'; } >"$RUN/tmp/$name.cli.outside"
+    diff "$RUN/tmp/$name.cli.inside" "$RUN/tmp/$name.cli.outside" >"$RUN/cli/$name.diff" || true
+    v=PARITY; [ $rc -eq 0 ] || v=DIFFERS
+    m="$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["masked"]))' "$RUN/compare/$name.json")"
+    c=n/a; [ -s "$RUN/control/$name.json" ] && c="$(python3 -c 'import json,sys;print("deterministic" if json.load(open(sys.argv[1]))["parity"] else "DRIFTS")' "$RUN/control/$name.json")"
+    k=identical; [ -s "$RUN/cli/$name.diff" ] && k=DIFFERS
+    log "  $name: $v  masked=$m  control=$c  cli=$k  raw-runs=${#raw[@]}"
+  done
+fi
+if has report; then
+  python3 - "$RUN" "$GHIDRA_DIST" "$REPO" <<'PY'
+import json,sys,socket,subprocess,datetime,glob,os
+run,dist,repo=sys.argv[1:4]
+notes=[]
+for lg in sorted(glob.glob(os.path.join(run,"outside","log","*.snapshot.log"))):
+    n=os.path.basename(lg)[:-13]
+    if not os.path.exists(os.path.join(run,"outside",n+".snapshot.json")):
+        tail=open(lg,errors="replace").read().strip().splitlines()[-3:]
+        notes.append(f"outside leg FAILED on `{n}`: `{' | '.join(t[:160] for t in tail)}`")
+for lg in sorted(glob.glob(os.path.join(run,"outside","log","*.snapshot.log"))):
+    n=os.path.basename(lg)[:-13]
+    txt=open(lg,errors="replace").read()
+    if "Go analysis failure" in txt:
+        ver=[l for l in txt.splitlines() if "Go version" in l]
+        notes.append(f"`{n}`: the engine's GolangSymbolAnalyzer failed on this binary (`{ver[0].strip()[:60] if ver else 'version unknown'}` -> `InvocationTargetException`): the dist's Go struct definitions do not cover this Go release. Function names still came from the ELF symtab, and BOTH legs report the identical partial result, so it is at parity — but a stripped Go binary of this release would lose its names on both legs.")
+for lg in sorted(glob.glob(os.path.join(run,"inside","log","*.inside.log"))):
+    n=os.path.basename(lg)[:-11]
+    if not os.path.exists(os.path.join(run,"inside",n+".scylla")):
+        tail=open(lg,errors="replace").read().strip().splitlines()[-2:]
+        notes.append(f"inside leg FAILED on `{n}`: `{' | '.join(t[:200] for t in tail)}`")
+meta={"date":datetime.datetime.now().strftime("%Y-%m-%d %H:%M %Z").strip(),"host":socket.gethostname(),
+      "dist":os.path.basename(dist),"scylla_rev":subprocess.run(["git","-C",repo,"rev-parse","--short","HEAD"],capture_output=True,text=True).stdout.strip(),
+      "notes":notes}
+json.dump(meta,open(os.path.join(run,"meta.json"),"w"),indent=1)
+PY
+  python3 "$HERE/report.py" "$RUN" "$RUN/REPORT.md"
+  cp "$RUN/REPORT.md" "$REPO/abtest/REPORT.md"
+fi
+if has baselines && [ "${NO_BASELINES:-0}" != 1 ]; then
+  log "baselines -> abtest/baselines (only pairs that produced BOTH legs)"
+  B="$REPO/abtest/baselines"; mkdir -p "$B/outside" "$B/inside" "$B/decomp" "$B/nondeterministic"
+  for snap in "$RUN"/outside/*.elf.snapshot.json; do
+    name="$(basename "$snap" .snapshot.json)"
+    [ -s "$RUN/inside/$name.scylla" ] || continue
+    # gzipped, -n for a timestamp-free (reproducible) member; the tools read .gz in place
+    rm -f "$B/outside/$name.snapshot.json" "$B/inside/$name.scylla"
+    gzip -n -9 -c "$snap" >"$B/outside/$name.snapshot.json.gz"
+    gzip -n -9 -c "$RUN/inside/$name.scylla" >"$B/inside/$name.scylla.gz"
+    [ -s "$RUN/outside/decomp/$name.decomp.txt" ] && cp "$RUN/outside/decomp/$name.decomp.txt" "$B/decomp/$name.decomp.txt"
+    # the engine-nondeterminism record rides with the pair ONLY when it names at least one function
+    rm -f "$B/nondeterministic/$name.json"
+    if [ -s "$RUN/flaky/$name.json" ] && [ "$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["functions"]))' "$RUN/flaky/$name.json")" != 0 ]; then
+      cp "$RUN/flaky/$name.json" "$B/nondeterministic/$name.json"
+    fi
+  done
+  log "  $(ls "$B/inside" | wc -l) pairs recorded"
+fi
+log "done: $RUN"

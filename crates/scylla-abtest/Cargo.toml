@@ -1,0 +1,25 @@
+[package]
+name = "scylla-abtest"
+description = "A/B parity harness: prove a Scylla-materialized model equals the raw engine's own headless output, field for field (abtest/)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "scylla-abtest"
+path = "src/main.rs"
+
+[dependencies]
+# Consume side only: the inside leg is a .scylla artifact (port), the outside leg is a raw
+# headless snapshot (ingest). Both land in the same `Program`; the differ works on that.
+scylla-model = { path = "../scylla-model" }
+scylla-port = { path = "../scylla-port" }
+scylla-ingest = { path = "../scylla-ingest" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Committed baselines are gzipped (a Go .scylla is ~4 MB raw, ~400 KB gzipped); read them in place.
+flate2 = "1"
+
+[dev-dependencies]
+serde_json = "1"

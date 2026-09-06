@@ -1,0 +1,115 @@
+{
+  "runs": 6,
+  "functions": [
+    {
+      "addr": "0x134f80",
+      "names": [
+        "rust_eh_personality"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1168,
+          83
+        ],
+        [
+          1370,
+          90
+        ]
+      ]
+    },
+    {
+      "addr": "0x13fcc0",
+      "names": [
+        "float_to_decimal_common_exact<f64>"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1056,
+          26
+        ],
+        [
+          1112,
+          34
+        ]
+      ]
+    },
+    {
+      "addr": "0x1400e0",
+      "names": [
+        "float_to_decimal_common_shortest<f64>"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          787,
+          22
+        ],
+        [
+          810,
+          23
+        ]
+      ]
+    },
+    {
+      "addr": "0x140470",
+      "names": [
+        "escape_debug_ext"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          586,
+          33
+        ],
+        [
+          601,
+          35
+        ]
+      ]
+    },
+    {
+      "addr": "0x147b50",
+      "names": [
+        "fmt"
+      ],
+      "fields": [
+        "size",
+        "bb_count",
+        "mnemonics",
+        "trigrams"
+      ],
+      "variants": [
+        [
+          1701,
+          82
+        ],
+        [
+          1759,
+          87
+        ]
+      ]
+    }
+  ]
+}

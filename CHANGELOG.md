@@ -9,6 +9,25 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+### Added
+
+- **A/B parity harness (`abtest/`, `crates/scylla-abtest`).** Proves that what Scylla reports for a
+  binary — materialized through the sandboxed engine-service over gRPC into a `.scylla` — is field
+  for field what the engine dist reports when its `analyzeHeadless` is run directly with the same
+  `dump_model.java`: same GayHydra dist on both legs, so any delta is the wrapper's. A 22-binary
+  corpus (C, C++, Go 1.22/1.26, Rust; O0/O2; stripped variants) with both legs committed under
+  `abtest/baselines/`, a control run for engine determinism, a CLI-level byte check, a raw
+  decompilation baseline (outside only — the `decompile` verb's future A/B target), and an offline
+  replay gate (`tests/parity.rs`) that fails `cargo test` if the ingest/assemble/loader path ever
+  drifts from the engine. `GHIDRA_DIST=<dist> abtest/scripts/ab.sh` re-runs it; `abtest/REPORT.md`
+  is the latest result: **22/22 at parity** on GayHydra 26.3.0. Two engine findings the run
+  surfaced, recorded not hidden: the raw engine's auto-analysis is **nondeterministic** on five Rust
+  std functions (`rust_eh_personality`, `float_to_decimal_common_{exact,shortest}<f64>`,
+  `escape_debug_ext`, `fmt` flip body extent from one direct `analyzeHeadless` run to the next,
+  more often under a 2-CPU pin) — characterized from raw runs alone (`scylla-abtest flaky`) and
+  masked by that evidence, never by hand; and the dist's Go analyzer fails on Go 1.26 binaries
+  (`InvocationTargetException`; names still recovered from the ELF symtab, both legs identical).
+
 ### Security
 
 - **The artifact loader's caps are now proportional to the artifact, not absolute (scylla-schema,

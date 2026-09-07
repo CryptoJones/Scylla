@@ -71,3 +71,17 @@ shapes.gxx.x86-64.O0.nopie.elf
 shapes.gxx.x86-64.O1.nopie.elf
 shapes.gxx.x86-64.O2.nopie.strip.elf
 shapes.gxx.x86-64.O3.nopie.strip.elf
+selfrep.rustc.x86-64.O0.abort.strip.elf
+selfrep.rustc.x86-64.O1.abort.strip.elf
+selfrep.rustc.x86-64.O1.unwind.elf
+selfrep.rustc.x86-64.O1.unwind.strip.elf
+selfrep.rustc.x86-64.O2.abort.elf
+selfrep.rustc.x86-64.O2.abort.strip.elf
+selfrep.rustc.x86-64.O3.abort.strip.elf
+selfrep.rustc.x86-64.O3.unwind.elf
+selfrep.rustc.x86-64.O3.unwind.strip.elf
+selfrep.rustc.x86-64.Os.abort.strip.elf
+selfrep.rustc.x86-64.Os.unwind.strip.elf
+selfrep.rustc.x86-64.Oz.abort.strip.elf
+selfrep.rustc.x86-64.Oz.unwind.elf
+selfrep.rustc.x86-64.Oz.unwind.strip.elf

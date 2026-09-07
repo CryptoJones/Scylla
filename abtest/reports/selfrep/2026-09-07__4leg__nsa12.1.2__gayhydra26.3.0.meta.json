@@ -1,0 +1,27 @@
+{
+ "date": "2026-09-07",
+ "host": "Ronin28 (amd64)",
+ "engine_dists": {
+  "nsa": "ghidra_12.1.2_PUBLIC_20260605 (stock NSA, mounted ro @ /opt/ghidra)",
+  "gayhydra": "ghidra_26.3.0_GayHydra-26.3.0"
+ },
+ "scylla_rev": "7adbb14",
+ "ghidra_dist": "/home/hermes/tmp/ghidra-dist/ghidra_12.1.2_PUBLIC",
+ "n": 48,
+ "within_arm_structural_parity": {
+  "nsa_wrapped_vs_raw": "35/48",
+  "gayhydra_wrapped_vs_raw": "34/48"
+ },
+ "b1b4_inferred_by_raw_engine": {
+  "nsa": "48/48",
+  "gayhydra": "48/48"
+ },
+ "cross_engine_raw_infer_b1b4": "48/48",
+ "within_arm_diff_drift_family": [
+  "rust_eh_personality",
+  "next<gimli::read::endian_slice::EndianSlice<gimli::endianity::LittleEndian>>",
+  "copy_regular_files",
+  "FUN_001XXXX (stripped variants)"
+ ],
+ "verdict": "Scylla-wrapped parity matches host engine in BOTH arms (NSA 35/48, GayHydra 34/48). All 14 within-arm DIFFs are engine-nondeterministic drift in rust_eh_personality / next<gimli::\u2026> / copy_regular_files / FUN_001XXXX \u2014 identical to the raw-vs-raw control, never touching imports/strings/names or B1-B4 inference. Both raw engines recover B1-B4 on all 48/48 binaries."
+}

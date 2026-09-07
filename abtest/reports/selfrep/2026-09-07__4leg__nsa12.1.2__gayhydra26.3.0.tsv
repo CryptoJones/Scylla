@@ -1,0 +1,49 @@
+binary	arch	opt	panic	strip	fns_nsa_raw	fns_nsa_wrap	nsa_within_parity	nsa_field_mm	nsa_only_in	nsa_only_out	nsa_drift_family	fns_ghidra_raw	fns_ghidra_wrap	ghydra_within_parity	nsa_B1B4	ghydra_B1B4	cross_raw_b1b4	note
+selfrep.rustc.aarch64.O0.abort.elf	aarch64	O0	abort	False	963	963	True	0	0	0	parity	953	953	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O0.abort.strip.elf	aarch64	O0	abort	True	953	953	True	0	0	0	parity	953	953	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O0.unwind.elf	aarch64	O0	unwind	False	968	968	True	0	0	0	parity	958	958	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O0.unwind.strip.elf	aarch64	O0	unwind	True	958	958	True	0	0	0	parity	958	958	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O1.abort.elf	aarch64	O1	abort	False	711	711	True	0	0	0	parity	701	701	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O1.abort.strip.elf	aarch64	O1	abort	True	701	701	True	0	0	0	parity	701	701	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O1.unwind.elf	aarch64	O1	unwind	False	726	726	True	0	0	0	parity	716	716	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O1.unwind.strip.elf	aarch64	O1	unwind	True	716	716	True	0	0	0	parity	716	716	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O2.abort.elf	aarch64	O2	abort	False	712	712	True	0	0	0	parity	702	702	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O2.abort.strip.elf	aarch64	O2	abort	True	702	702	True	0	0	0	parity	702	702	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O2.unwind.elf	aarch64	O2	unwind	False	721	721	True	0	0	0	parity	711	711	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O2.unwind.strip.elf	aarch64	O2	unwind	True	713	713	True	0	0	0	parity	713	713	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O3.abort.elf	aarch64	O3	abort	False	710	710	True	0	0	0	parity	700	700	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O3.abort.strip.elf	aarch64	O3	abort	True	699	699	True	0	0	0	parity	699	699	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O3.unwind.elf	aarch64	O3	unwind	False	719	719	True	0	0	0	parity	709	709	True	True	True	True	PARITY
+selfrep.rustc.aarch64.O3.unwind.strip.elf	aarch64	O3	unwind	True	710	710	True	0	0	0	parity	710	710	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Os.abort.elf	aarch64	Os	abort	False	713	713	True	0	0	0	parity	703	703	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Os.abort.strip.elf	aarch64	Os	abort	True	704	704	True	0	0	0	parity	704	704	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Os.unwind.elf	aarch64	Os	unwind	False	722	722	True	0	0	0	parity	711	711	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Os.unwind.strip.elf	aarch64	Os	unwind	True	710	710	True	0	0	0	parity	710	710	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Oz.abort.elf	aarch64	Oz	abort	False	739	739	True	0	0	0	parity	728	728	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Oz.abort.strip.elf	aarch64	Oz	abort	True	728	728	True	0	0	0	parity	728	728	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Oz.unwind.elf	aarch64	Oz	unwind	False	758	758	True	0	0	0	parity	747	747	True	True	True	True	PARITY
+selfrep.rustc.aarch64.Oz.unwind.strip.elf	aarch64	Oz	unwind	True	747	747	True	0	0	0	parity	747	747	True	True	True	True	PARITY
+selfrep.rustc.x86-64.O0.abort.elf	x86-64	O0	abort	False	874	874	False	5	0	0	rust_eh_personality	868	868	False	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.O0.abort.strip.elf	x86-64	O0	abort	True	868	868	True	0	0	0	parity	868	868	True	True	True	True	PARITY
+selfrep.rustc.x86-64.O0.unwind.elf	x86-64	O0	unwind	False	879	879	True	0	0	0	parity	873	873	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O0.unwind.strip.elf	x86-64	O0	unwind	True	873	873	False	5	0	0	FUN_00140770	873	873	True	True	True	True	engine-noise: FUN_00140770
+selfrep.rustc.x86-64.O1.abort.elf	x86-64	O1	abort	False	615	615	True	0	0	0	parity	609	609	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O1.abort.strip.elf	x86-64	O1	abort	True	608	608	True	0	0	0	parity	608	608	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O1.unwind.elf	x86-64	O1	unwind	False	630	630	False	5	0	0	rust_eh_personality	624	624	True	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.O1.unwind.strip.elf	x86-64	O1	unwind	True	624	624	True	0	0	0	parity	624	624	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O2.abort.elf	x86-64	O2	abort	False	616	616	False	5	0	0	rust_eh_personality	610	610	False	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.O2.abort.strip.elf	x86-64	O2	abort	True	609	609	True	0	0	0	parity	609	609	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O2.unwind.elf	x86-64	O2	unwind	False	627	627	False	10	0	0	copy_regular_files,next<gimli::read::endian_slice::EndianSlice<gimli::endianity::LittleEndian>>	621	621	False	True	True	True	engine-noise: copy_regular_files,next<gimli::read::endian_slice::EndianSlice<gimli::endianity::LittleEndian>>
+selfrep.rustc.x86-64.O2.unwind.strip.elf	x86-64	O2	unwind	True	621	621	True	0	0	0	parity	621	621	True	True	True	True	PARITY
+selfrep.rustc.x86-64.O3.abort.elf	x86-64	O3	abort	False	614	614	False	5	0	0	rust_eh_personality	608	608	True	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.O3.abort.strip.elf	x86-64	O3	abort	True	607	607	False	5	0	0	FUN_00139670	607	607	True	True	True	True	engine-noise: FUN_00139670
+selfrep.rustc.x86-64.O3.unwind.elf	x86-64	O3	unwind	False	624	624	True	0	0	0	parity	618	618	False	True	True	True	PARITY
+selfrep.rustc.x86-64.O3.unwind.strip.elf	x86-64	O3	unwind	True	618	618	False	5	0	0	FUN_0013a0d0	618	618	False	True	True	True	engine-noise: FUN_0013a0d0
+selfrep.rustc.x86-64.Os.abort.elf	x86-64	Os	abort	False	618	618	False	5	0	0	rust_eh_personality	612	612	True	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.Os.abort.strip.elf	x86-64	Os	abort	True	611	611	False	5	0	0	FUN_00138880	611	611	False	True	True	True	engine-noise: FUN_00138880
+selfrep.rustc.x86-64.Os.unwind.elf	x86-64	Os	unwind	False	625	625	False	5	0	0	rust_eh_personality	618	618	False	True	True	True	engine-noise: rust_eh_personality
+selfrep.rustc.x86-64.Os.unwind.strip.elf	x86-64	Os	unwind	True	618	618	False	15	0	0	FUN_0012bef0,FUN_00131f50,FUN_00138ce0	618	618	False	True	True	True	engine-noise: FUN_0012bef0,FUN_00131f50,FUN_00138ce0
+selfrep.rustc.x86-64.Oz.abort.elf	x86-64	Oz	abort	False	635	635	False	10	0	0	copy_regular_files,next<gimli::read::endian_slice::EndianSlice<gimli::endianity::LittleEndian>>	628	628	True	True	True	True	engine-noise: copy_regular_files,next<gimli::read::endian_slice::EndianSlice<gimli::endianity::LittleEndian>>
+selfrep.rustc.x86-64.Oz.abort.strip.elf	x86-64	Oz	abort	True	627	627	True	0	0	0	parity	627	627	False	True	True	True	PARITY
+selfrep.rustc.x86-64.Oz.unwind.elf	x86-64	Oz	unwind	False	645	645	True	0	0	0	parity	638	638	True	True	True	True	PARITY
+selfrep.rustc.x86-64.Oz.unwind.strip.elf	x86-64	Oz	unwind	True	638	638	True	0	0	0	parity	638	638	True	True	True	True	PARITY

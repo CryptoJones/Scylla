@@ -11,7 +11,9 @@
 #   C++ : {shapes,shapes_eh} x {g++/x86-64, clang++/x86-64, g++/aarch64} x (same opt/pie/strip axes)
 #   Go  : {gomath,gostr} x {go1.22 over amd64,arm64,arm,386,ppc64le,riscv64; go1.26 amd64}
 #         x {O0 (-N -l), O2} x {-,strip}
-#   Rust: {rustmath,ruststr} x {x86-64, aarch64} x {opt 0,1,2,3,s,z} x {panic unwind,abort} x {-,strip}
+#   Rust: {rustmath,ruststr,selfrep} x {x86-64, aarch64} x {opt 0,1,2,3,s,z} x {panic unwind,abort} x {-,strip}
+#       selfrep = synthetic GUARDED fixture: file enumeration, self-replication logic,
+#       network-share (mount(2)) awareness, anti-analysis stubs; inert unless RUN_MODE=live.
 #
 # Name: <prog>.<tc>.<arch>.<opt>.<pie>[.strip].elf     (Go: <prog>.<tc>.<arch>.<opt>[.strip].elf)
 #   tc in gcc|clang|gxx|clangxx|go122|go126|rustc ; arch names are the corpus's own (armhf, ppc64le...)
@@ -102,7 +104,7 @@ else echo "skip Go (go missing)"; skipped=$((skipped+1)); fi
 # Rust — x86-64 native + aarch64 (cross linker now present).
 if [ -n "$RUSTC" ] && [ -x "$RUSTC" ]; then
   targets="$("$RUSTC" --print target-list 2>/dev/null)"
-  for prog in rustmath ruststr; do
+  for prog in rustmath ruststr selfrep; do  # selfrep: guarded multi-behavior fixture (B1 enum, B2 self-replica, B3 net-share, B4 anti-analyze)
     src="$LSRC/$prog.rs"
     for rt in "x86-64|x86_64-unknown-linux-gnu|/usr/bin/gcc" "aarch64|aarch64-unknown-linux-gnu|aarch64-linux-gnu-gcc"; do
       arch="${rt%%|*}"; rest="${rt#*|}"; target="${rest%%|*}"; linker="${rest##*|}"

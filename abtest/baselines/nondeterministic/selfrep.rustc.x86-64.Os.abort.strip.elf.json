@@ -1,0 +1,71 @@
+{
+ "runs": 2,
+ "functions": [
+  {
+   "addr": "0x12ba90",
+   "names": [
+    "FUN_0012ba90"
+   ],
+   "fields": [
+    "size",
+    "bb_count",
+    "mnemonics",
+    "trigrams"
+   ],
+   "variants": [
+    [
+     3977,
+     226
+    ],
+    [
+     3990,
+     230
+    ]
+   ]
+  },
+  {
+   "addr": "0x131af0",
+   "names": [
+    "FUN_00131af0"
+   ],
+   "fields": [
+    "size",
+    "bb_count",
+    "mnemonics",
+    "trigrams"
+   ],
+   "variants": [
+    [
+     703,
+     55
+    ],
+    [
+     718,
+     59
+    ]
+   ]
+  },
+  {
+   "addr": "0x138880",
+   "names": [
+    "FUN_00138880"
+   ],
+   "fields": [
+    "size",
+    "bb_count",
+    "mnemonics",
+    "trigrams"
+   ],
+   "variants": [
+    [
+     1168,
+     83
+    ],
+    [
+     1370,
+     90
+    ]
+   ]
+  }
+ ]
+}

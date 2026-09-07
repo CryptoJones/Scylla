@@ -1,0 +1,27 @@
+{
+ "runs": 2,
+ "functions": [
+  {
+   "addr": "0x13a0d0",
+   "names": [
+    "FUN_0013a0d0"
+   ],
+   "fields": [
+    "size",
+    "bb_count",
+    "mnemonics",
+    "trigrams"
+   ],
+   "variants": [
+    [
+     1168,
+     83
+    ],
+    [
+     1370,
+     90
+    ]
+   ]
+  }
+ ]
+}

@@ -47,16 +47,22 @@ When implementing changes or cutting a new release, follow this mandatory step-b
 ### Step 3: Local Verification Gate
 Before committing, all required verification checks must pass cleanly:
 ```bash
-# 1. Full workspace tests
+# 1. Code formatting check (rustfmt)
+cargo fmt --all -- --check
+
+# 2. Lint checks (deny warnings)
+cargo clippy --workspace --all-targets -- -D warnings
+
+# 3. Full workspace tests
 cargo test --workspace
 
-# 2. Security audit (zero vulnerabilities)
+# 4. Security audit (zero vulnerabilities)
 cargo audit
 
-# 3. Consume-side WASM compilation check (DD-028)
+# 5. Consume-side WASM compilation check (DD-028)
 ./scripts/check-wasm.sh
 
-# 4. WASM browser round-trip verification
+# 6. WASM browser round-trip verification
 node crates/scylla-wasm/web/verify.mjs
 ```
 

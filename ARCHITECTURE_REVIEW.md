@@ -93,7 +93,7 @@ in the trackers until the branch is merged.
 | USE-P2-7 | **OPEN** | [Codeberg #149](https://codeberg.org/CryptoJones/Scylla/issues/149) · [GitHub #34](https://github.com/CryptoJones/Scylla/issues/34) |
 | USE-P2-8 | **OPEN** | [Codeberg #150](https://codeberg.org/CryptoJones/Scylla/issues/150) · [GitHub #35](https://github.com/CryptoJones/Scylla/issues/35) |
 | USE-P2-9 | **OPEN** | [Codeberg #151](https://codeberg.org/CryptoJones/Scylla/issues/151) · [GitHub #36](https://github.com/CryptoJones/Scylla/issues/36) |
-| USE-P3-1 | **OPEN** | [Codeberg #152](https://codeberg.org/CryptoJones/Scylla/issues/152) · [GitHub #37](https://github.com/CryptoJones/Scylla/issues/37) |
+| USE-P3-1 | **RESOLVED ON BRANCH** — added -h/--help on stdout (exit 0) and -V/--version | [Codeberg #152](https://codeberg.org/CryptoJones/Scylla/issues/152) · [GitHub #37](https://github.com/CryptoJones/Scylla/issues/37) |
 | USE-P3-2 | **OPEN** | [Codeberg #153](https://codeberg.org/CryptoJones/Scylla/issues/153) · [GitHub #38](https://github.com/CryptoJones/Scylla/issues/38) |
 | USE-P3-3 | **OPEN** | [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) |
 | SCALE-P1-1 | **OPEN** | [Codeberg #155](https://codeberg.org/CryptoJones/Scylla/issues/155) · [GitHub #40](https://github.com/CryptoJones/Scylla/issues/40) |
@@ -462,7 +462,9 @@ see PERF-P2-4 — consider making it the default).
 `crates/scylla-cli/src/main.rs:43-64` — unrecognized args (incl. `--help`/`-h`) fall through to a usage
 string on **stderr** with exit **2**; there is no `--version`. `scylla --help | less` shows nothing;
 scripts checking `--version` get an error. **Advised:** treat `-h`/`--help` as success on stdout, add
-`--version`.
+`--version`. **Remediated:** `-h`/`--help` and `help` now print usage to stdout and exit with code 0;
+`-V`/`--version` prints `scylla <version>` to stdout and exits with code 0. Unrecognized/missing arguments
+continue to print usage to stderr and exit with code 2.
 
 ### USE-P3-2 · Annotate-verb param names and id types diverge
 GraphQL retype takes `new_type` (`schema.rs:343`) while HTTP/MCP use `type`; GraphQL ids are `String`

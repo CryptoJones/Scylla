@@ -12,6 +12,8 @@
 //!   scylla view [--json] <artifact.scylla> <id> [zoom]   # one function's detail + call graph
 //!   scylla callers <artifact.scylla> <id>       # functions that call <id>
 //!   scylla merge <annotated.scylla> <reanalysis.scylla> <out.scylla>   # carry annotations forward
+//!   scylla [-h|--help]                          # print usage help
+//!   scylla [-V|--version]                       # print version
 //!
 //! The offline headless-snapshot path still lives in `scylla-ingest`, for dev / corpus
 //! work without a running engine-service — but the engine port is the one the product ships on.
@@ -21,13 +23,62 @@ use std::process::ExitCode;
 use scylla_model::StableId;
 use scylla_port::{Session, Zoom};
 
+fn usage(prog: &str) -> String {
+    format!(
+        "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
+         {prog} decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]\n       \
+         {prog} diff [--json] <a.scylla> <b.scylla>\n       \
+         {prog} info [--json] <artifact.scylla>\n       \
+         {prog} functions [--json] <artifact.scylla> [intent|domain|detail]\n       \
+         {prog} search [--json] <artifact.scylla> <query> [intent|domain|detail]\n       \
+         {prog} view [--json] <artifact.scylla> <id> [intent|domain|detail]\n       \
+         {prog} callers <artifact.scylla> <id>\n       \
+         {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
+         materialize — the engine port (DD-009/040): engine over gRPC -> canonical artifact\n  \
+         decompile   — the engine port's decompile verb (DD-017): the decompiled C of every\n                \
+         function, or of the given hex entry addresses / names containing --filter; exit 1 if any failed\n  \
+         diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
+         info        — artifact metadata (name / language / function count)\n  \
+         functions   — list functions at a zoom altitude (default domain)\n  \
+         search      — functions whose name contains <query> (case-insensitive)\n  \
+         view        — one function by stable id at a zoom altitude\n  \
+         callers     — the functions that call a given function (call-graph navigation)\n  \
+         merge       — re-anchor the annotations from one artifact onto a re-analysis (DD-005)\n\n  \
+         -h, --help    — print this help message\n  \
+         -V, --version — print version information",
+    )
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let raw: Vec<String> = std::env::args().collect();
+    let prog = raw.first().cloned().unwrap_or_else(|| "scylla".to_string());
+
+    // Version flag: `-V` or `--version`
+    if raw.iter().skip(1).any(|a| a == "-V" || a == "--version") {
+        println!("scylla {}", env!("CARGO_PKG_VERSION"));
+        return ExitCode::SUCCESS;
+    }
+
     // `--json` is a global flag for the read commands (diff/info/functions/view); strip it once so
     // it can sit anywhere, and the per-command parsing stays positional.
     let json = raw.iter().any(|a| a == "--json");
     let args: Vec<String> = raw.into_iter().filter(|a| a != "--json").collect();
+
+    // Check for help: `-h`, `--help`, or `help` command.
+    // Allow `--help`/`-h` globally unless it is a search query in a 4- or 5-arg `search` invocation.
+    let is_search_query = args.get(1).map(String::as_str) == Some("search")
+        && (args.len() == 4 || args.len() == 5)
+        && args[2] != "-h"
+        && args[2] != "--help";
+
+    if (args.iter().skip(1).any(|a| a == "-h" || a == "--help") && !is_search_query)
+        || args.get(1).map(String::as_str) == Some("help")
+    {
+        println!("{}", usage(&prog));
+        return ExitCode::SUCCESS;
+    }
+
     match args.get(1).map(String::as_str) {
         Some("materialize") if args.len() == 5 => materialize(&args[2], &args[3], &args[4]).await,
         Some("decompile") if args.len() >= 4 => decompile(&args[2..], json).await,
@@ -45,28 +96,7 @@ async fn main() -> ExitCode {
         Some("callers") if args.len() == 4 => callers(&args[2], &args[3]),
         Some("merge") if args.len() == 5 => merge(&args[2], &args[3], &args[4]),
         _ => {
-            eprintln!(
-                "usage: {prog} materialize <engine-endpoint> <binary> <out.scylla>\n       \
-                 {prog} decompile [--json] [--filter <substr>] <engine-endpoint> <binary> [<entry-hex>...]\n       \
-                 {prog} diff [--json] <a.scylla> <b.scylla>\n       \
-                 {prog} info [--json] <artifact.scylla>\n       \
-                 {prog} functions [--json] <artifact.scylla> [intent|domain|detail]\n       \
-                 {prog} search [--json] <artifact.scylla> <query> [intent|domain|detail]\n       \
-                 {prog} view [--json] <artifact.scylla> <id> [intent|domain|detail]\n       \
-                 {prog} callers <artifact.scylla> <id>\n       \
-                 {prog} merge <annotated.scylla> <reanalysis.scylla> <out.scylla>\n\n  \
-                 materialize — the engine port (DD-009/040): engine over gRPC -> canonical artifact\n  \
-                 decompile   — the engine port's decompile verb (DD-017): the decompiled C of every\n                \
-                 function, or of the given hex entry addresses / names containing --filter; exit 1 if any failed\n  \
-                 diff        — structural diff of two artifacts (DD-017); exit 1 if they differ\n  \
-                 info        — artifact metadata (name / language / function count)\n  \
-                 functions   — list functions at a zoom altitude (default domain)\n  \
-                 search      — functions whose name contains <query> (case-insensitive)\n  \
-                 view        — one function by stable id at a zoom altitude\n  \
-                 callers     — the functions that call a given function (call-graph navigation)\n  \
-                 merge       — re-anchor the annotations from one artifact onto a re-analysis (DD-005)",
-                prog = args.first().map(String::as_str).unwrap_or("scylla"),
-            );
+            eprintln!("{}", usage(&prog));
             ExitCode::from(2)
         }
     }

@@ -4,11 +4,14 @@
 #
 # scylla-mcp takes a .scylla artifact to load; the bundled mathlib sample is a
 # safe, checked-in fixture. SCYLLA_MCP_ROOT confines the filesystem tools.
-# The probes are read-only navigation tools (list_functions, search); the
+# The probes are read-only navigation tools (info, list_functions, search); the
 # mutating/exporting tools (rename, export, merge, ...) are intentionally not
 # probed.
 command = ["target/debug/scylla-mcp", "crates/scylla-wasm/web/mathlib.scylla"]
 env = { SCYLLA_MCP_ROOT = "." }
+
+[[probe]]
+tool = "info"
 
 [[probe]]
 tool = "list_functions"

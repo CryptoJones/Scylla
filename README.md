@@ -82,7 +82,7 @@ varies by head and is called out below.
   `diff` / `info` / `functions` / `search` / `view` / `callers` an artifact offline. `scylla diff`
   carries `git diff --exit-code` semantics for CI.
 - **AI agents (MCP)** — `crates/scylla-mcp`: an MCP server exposing the port 1:1 as tools
-  (list_functions / search / get_function / callers / rename / retype / comment / diff / merge / export),
+  (info / list_functions / search / get_function / callers / rename / retype / comment / diff / merge / export),
   so an agent reverse-engineers a binary directly. Binary-derived text is wrapped untrusted (DD-035).
 - **Remote (Cap'n Proto RPC)** — `crates/scylla-rpc`: `scylla-rpc-serve` serves the model over TCP
   and `scylla-rpc-connect` drives it from off-box, navigating by **promise-pipelining**

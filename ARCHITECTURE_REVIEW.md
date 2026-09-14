@@ -87,7 +87,7 @@ in the trackers until the branch is merged.
 | USE-P2-1 | **PARTIAL ON BRANCH** — parity overclaim removed; CLI mutation verbs remain absent | [Codeberg #143](https://codeberg.org/CryptoJones/Scylla/issues/143) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
 | USE-P2-2 | **OPEN** — docs no longer claim parity, but `merge` remains absent from seven heads | [Codeberg #144](https://codeberg.org/CryptoJones/Scylla/issues/144) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
 | USE-P2-3 | **OPEN** | [Codeberg #145](https://codeberg.org/CryptoJones/Scylla/issues/145) · [GitHub #31](https://github.com/CryptoJones/Scylla/issues/31) |
-| USE-P2-4 | **OPEN** | [Codeberg #146](https://codeberg.org/CryptoJones/Scylla/issues/146) · [GitHub #32](https://github.com/CryptoJones/Scylla/issues/32) |
+| USE-P2-4 | **RESOLVED ON BRANCH** — `info` MCP tool added mirroring `Session::program()` with DD-035 untrusted wrapping | [Codeberg #146](https://codeberg.org/CryptoJones/Scylla/issues/146) · [GitHub #32](https://github.com/CryptoJones/Scylla/issues/32) |
 | USE-P2-5 | **OPEN** — parity overclaim removed, but cross-head naming drift remains | [Codeberg #147](https://codeberg.org/CryptoJones/Scylla/issues/147) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
 | USE-P2-6 | **OPEN** | [Codeberg #148](https://codeberg.org/CryptoJones/Scylla/issues/148) · [GitHub #33](https://github.com/CryptoJones/Scylla/issues/33) |
 | USE-P2-7 | **OPEN** | [Codeberg #149](https://codeberg.org/CryptoJones/Scylla/issues/149) · [GitHub #34](https://github.com/CryptoJones/Scylla/issues/34) |
@@ -422,6 +422,7 @@ expose it.)
 `crates/scylla-mcp/src/lib.rs:70-102` omits `info`, though CLI/HTTP/GraphQL/RPC all have it. An agent can't
 get program name/language/function-count to orient and must infer size from a full `list_functions` dump.
 **Advised:** add an `info` MCP tool mirroring `Session::program()`.
+_(Resolved: added `info` tool to `scylla-mcp` returning `name`, `language`, `functions` count wrapped in the DD-035 untrusted envelope.)_
 
 ### USE-P2-5 · Same concept, different verb name across heads
 "One function's detail" is `view` (CLI/RPC), `get_function` (MCP `lib.rs:77`), and `function` (GraphQL

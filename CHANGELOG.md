@@ -9,8 +9,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-09-14
+
 ### Added
 
+- **MCP `info` tool (`crates/scylla-mcp`, USE-P2-4 / GH-32).** Surfaces program identity
+  (`name`, `language`, `functions` count) to MCP agents, mirroring the `info` verb on CLI,
+  HTTP, GraphQL, and RPC. Binary-derived content (`name`) is wrapped in the `<untrusted-data>`
+  envelope (DD-035).
 - **The `decompile` verb (DD-017) — the engine-service `Decompile` RPC, implemented.** Until now the
   RPC returned `UNIMPLEMENTED`. The contract changed to fit the engine's actual shape: a transient
   producer that keeps no program between calls, so `DecompileRequest` carries the binary plus a
@@ -318,7 +324,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...HEAD
+[0.7.1]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...v0.7.1
 [0.7.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...v0.7.0
 [0.6.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.5.0...v0.6.0
 [0.5.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.4.0...v0.5.0

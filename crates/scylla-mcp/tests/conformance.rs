@@ -53,6 +53,32 @@ fn payload(resp: &Value) -> Value {
 }
 
 #[test]
+fn mcp_info_matches_the_port() {
+    let p = port(ARTIFACT);
+    let mut head = port(ARTIFACT);
+    let prog = p.program();
+
+    let resp = call(&mut head, "info", json!({}));
+    let v = payload(&resp);
+
+    assert_eq!(
+        v["name"].as_str().expect("name"),
+        prog.name,
+        "info name == program name"
+    );
+    assert_eq!(
+        v["language"].as_str().expect("language"),
+        prog.language,
+        "info language == program language"
+    );
+    assert_eq!(
+        v["functions"].as_u64().expect("functions number") as usize,
+        prog.functions.len(),
+        "info function count matches the port"
+    );
+}
+
+#[test]
 fn mcp_list_functions_matches_the_port() {
     let p = port(ARTIFACT);
     let mut head = port(ARTIFACT);

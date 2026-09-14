@@ -9,6 +9,16 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.4] — 2026-09-14
+
+### Added
+
+- **Enumerate valid `zoom` values in MCP tool schemas (`crates/scylla-mcp`, USE-P3-3 / GH-39).**
+  `list_functions`, `search`, and `get_function` MCP tool schemas now explicitly define
+  `"enum": ["intent", "domain", "detail"]` for their `zoom` parameter.
+  Tool invocation validates `zoom` arguments against the enumerated values, returning a
+  descriptive error when an unrecognized zoom altitude or non-string type is supplied.
+
 ## [0.7.3] — 2026-09-14
 
 ### Added
@@ -343,7 +353,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...HEAD
+[0.7.4]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...v0.7.4
 [0.7.3]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...v0.7.3
 [0.7.2]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...v0.7.2
 [0.7.1]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...v0.7.1

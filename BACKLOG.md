@@ -456,7 +456,7 @@ _Status: 46/46 filed on Codeberg (#119–#164) and represented on GitHub (#4, #6
 - [ ] **[USE-P2-9]** ARCHITECTURE claims the warm engine is "not built yet" but it is fully implemented — [Codeberg #151](https://codeberg.org/CryptoJones/Scylla/issues/151) · [GitHub #36](https://github.com/CryptoJones/Scylla/issues/36) <!-- ISSUE:USE-P2-9 -->
 - [x] **[USE-P3-1]** CLI has no real --help/--version — [Codeberg #152](https://codeberg.org/CryptoJones/Scylla/issues/152) · [GitHub #37](https://github.com/CryptoJones/Scylla/issues/37) _(resolved: added -h/--help on stdout, --version/-V)_ <!-- ISSUE:USE-P3-1 -->
 - [ ] **[USE-P3-2]** Annotate-verb param names and id types diverge — [Codeberg #153](https://codeberg.org/CryptoJones/Scylla/issues/153) · [GitHub #38](https://github.com/CryptoJones/Scylla/issues/38) <!-- ISSUE:USE-P3-2 -->
-- [ ] **[USE-P3-3]** MCP zoom input schemas don't enumerate valid values — [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) <!-- ISSUE:USE-P3-3 -->
+- [x] **[USE-P3-3]** MCP zoom input schemas don't enumerate valid values — [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) _(resolved: enumerated valid values in tool schemas and validated zoom in call_tool)_ <!-- ISSUE:USE-P3-3 -->
 
 ### Scalability
 

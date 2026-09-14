@@ -9,6 +9,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-09-14
+
+### Security
+
+- **Upgrade `rustls` to 0.23.45 (RUSTSEC-2026-0285 / #60).** Fixes TLS 1.3 handshake
+  messages incorrectly accepted across encryption level boundaries. Explicitly pinned in
+  `crates/scylla-rpc` manifest with the `ring` crypto provider, resolving the security advisory.
+
 ## [0.7.1] — 2026-09-14
 
 ### Added
@@ -324,7 +332,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...HEAD
+[0.7.2]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...v0.7.2
 [0.7.1]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...v0.7.1
 [0.7.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...v0.7.0
 [0.6.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.5.0...v0.6.0

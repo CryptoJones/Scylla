@@ -9,6 +9,17 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-09-14
+
+### Added
+
+- **CLI `--help` and `--version` support (`crates/scylla-cli`, USE-P3-1 / GH-37).**
+  `scylla -h`, `--help`, and `help` now output usage to stdout and exit 0;
+  subcommands invoked with `--help` also print usage and exit 0.
+  `scylla -V` and `--version` print `scylla <version>` to stdout and exit 0.
+  Unrecognized arguments and missing required parameters continue to output usage to
+  stderr and exit 2.
+
 ## [0.7.2] — 2026-09-14
 
 ### Security
@@ -332,7 +343,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...HEAD
+[0.7.3]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...v0.7.3
 [0.7.2]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...v0.7.2
 [0.7.1]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.0...v0.7.1
 [0.7.0]: https://codeberg.org/CryptoJones/Scylla/compare/v0.6.0...v0.7.0

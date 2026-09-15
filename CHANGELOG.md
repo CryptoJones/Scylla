@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.9] — 2026-09-15
+
+### Performance
+
+- **Pre-index base facts by target and kind discriminant in `collaborate` (`crates/scylla-merge`, SCALE-P2-4 / GH-46).**
+  In `scylla_merge::collaborate`, pre-build a `HashMap<(StableId, Discriminant<FactKind>), usize>` over `base.facts` once before processing incoming facts. Turns both the existing fact check in the incoming loop and post-loop confidence replacement into O(1) lookups, eliminating quadratic O(F_incoming · F_base) scans when merging artifacts with large fact collections.
+
 ## [0.7.8] — 2026-09-15
 
 ### Security
@@ -382,7 +389,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.9...HEAD
+[0.7.9]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...v0.7.9
 [0.7.8]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...v0.7.8
 [0.7.7]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...v0.7.7
 [0.7.6]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...v0.7.6

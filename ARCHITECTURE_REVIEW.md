@@ -102,7 +102,7 @@ in the trackers until the branch is merged.
 | SCALE-P2-1 | **OPEN** | [Codeberg #158](https://codeberg.org/CryptoJones/Scylla/issues/158) · [GitHub #43](https://github.com/CryptoJones/Scylla/issues/43) |
 | SCALE-P2-2 | **OPEN** | [Codeberg #159](https://codeberg.org/CryptoJones/Scylla/issues/159) · [GitHub #44](https://github.com/CryptoJones/Scylla/issues/44) |
 | SCALE-P2-3 | **OPEN** | [Codeberg #160](https://codeberg.org/CryptoJones/Scylla/issues/160) · [GitHub #45](https://github.com/CryptoJones/Scylla/issues/45) |
-| SCALE-P2-4 | **OPEN** | [Codeberg #161](https://codeberg.org/CryptoJones/Scylla/issues/161) · [GitHub #46](https://github.com/CryptoJones/Scylla/issues/46) |
+| SCALE-P2-4 | **RESOLVED ON BRANCH** — pre-index base facts by (target, kind_discriminant) in collaborate | [Codeberg #161](https://codeberg.org/CryptoJones/Scylla/issues/161) · [GitHub #46](https://github.com/CryptoJones/Scylla/issues/46) |
 | SCALE-P3-1 | **OPEN** | [Codeberg #162](https://codeberg.org/CryptoJones/Scylla/issues/162) · [GitHub #47](https://github.com/CryptoJones/Scylla/issues/47) |
 | SCALE-P3-2 | **OPEN** | [Codeberg #163](https://codeberg.org/CryptoJones/Scylla/issues/163) · [GitHub #48](https://github.com/CryptoJones/Scylla/issues/48) |
 | SCALE-P3-3 | **OPEN** | [Codeberg #164](https://codeberg.org/CryptoJones/Scylla/issues/164) · [GitHub #49](https://github.com/CryptoJones/Scylla/issues/49) |
@@ -564,7 +564,7 @@ file + decoded together; `scylla-serve` additionally `Box::leak`s the raw bytes 
 `base.facts.iter().find(...)` — a full scan per incoming fact. Merging two 100k-fact artifacts → 10¹⁰
 comparisons. Facts are usually fewer than functions, so lower severity, but it grows quadratically as
 teams accumulate annotations. **Advised:** pre-build a `HashMap<(target, kind_discriminant), &UserFact>`
-over `base.facts` once → O(1) lookup.
+over `base.facts` once → O(1) lookup. **Remediated:** pre-indexed `base.facts` by `(target, kind_discriminant)` in `collaborate` for O(1) existing fact lookups and post-loop replacements.
 
 ### SCALE-P3-1 · 1,000,000-function/-fact hard decode caps reject a very large corpus binary outright
 `crates/scylla-schema/src/lib.rs:17-19` — `MAX_DECODED_FUNCTIONS`/`MAX_DECODED_FACTS`/

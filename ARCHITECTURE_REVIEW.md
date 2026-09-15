@@ -95,7 +95,7 @@ in the trackers until the branch is merged.
 | USE-P2-9 | **OPEN** | [Codeberg #151](https://codeberg.org/CryptoJones/Scylla/issues/151) · [GitHub #36](https://github.com/CryptoJones/Scylla/issues/36) |
 | USE-P3-1 | **RESOLVED ON BRANCH** — added -h/--help on stdout (exit 0) and -V/--version | [Codeberg #152](https://codeberg.org/CryptoJones/Scylla/issues/152) · [GitHub #37](https://github.com/CryptoJones/Scylla/issues/37) |
 | USE-P3-2 | **OPEN** | [Codeberg #153](https://codeberg.org/CryptoJones/Scylla/issues/153) · [GitHub #38](https://github.com/CryptoJones/Scylla/issues/38) |
-| USE-P3-3 | **OPEN** | [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) |
+| USE-P3-3 | **RESOLVED ON BRANCH** — enumerated `["intent", "domain", "detail"]` in MCP tool schemas and validated zoom arguments | [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) |
 | SCALE-P1-1 | **OPEN** | [Codeberg #155](https://codeberg.org/CryptoJones/Scylla/issues/155) · [GitHub #40](https://github.com/CryptoJones/Scylla/issues/40) |
 | SCALE-P1-2 | **OPEN** | [Codeberg #156](https://codeberg.org/CryptoJones/Scylla/issues/156) · [GitHub #41](https://github.com/CryptoJones/Scylla/issues/41) |
 | SCALE-P1-3 | **OPEN** | [Codeberg #157](https://codeberg.org/CryptoJones/Scylla/issues/157) · [GitHub #42](https://github.com/CryptoJones/Scylla/issues/42) |
@@ -474,7 +474,8 @@ GraphQL retype takes `new_type` (`schema.rs:343`) while HTTP/MCP use `type`; Gra
 ### USE-P3-3 · MCP `zoom` input schemas don't enumerate valid values
 `crates/scylla-mcp/src/lib.rs:73,79` declare `zoom` as bare `{"type":"string"}`; only `list_functions`'s
 *description* names `intent|domain|detail`. An LLM guesses an invalid zoom and errors. **Advised:** add
-`"enum":["intent","domain","detail"]` to every `zoom` property.
+`"enum":["intent","domain","detail"]` to every `zoom` property. **Remediated:** added `"enum":["intent","domain","detail"]`
+to `list_functions`, `search`, and `get_function` input schemas and validated zoom values in `zoom_from` failing closed on invalid inputs.
 
 **Positive (no action):** LSP capabilities are honest (all five advertised providers have dispatch arms,
 `crates/scylla-lsp/src/lib.rs:40-54`); MCP tool descriptions consistently carry the untrusted-data

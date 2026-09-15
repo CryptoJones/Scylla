@@ -1136,6 +1136,19 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
     let incoming_by_id: HashMap<StableId, &Function> =
         incoming.functions.iter().map(|f| (f.id, f)).collect();
 
+    // Pre-index existing base facts by (target, kind_discriminant) -> index in base.facts.
+    // This turns both the existing fact check in the incoming loop and the post-loop confidence
+    // replacement into O(1) lookups instead of O(F_incoming * F_base) (SCALE-P2-4).
+    let mut base_facts_by_target_kind: HashMap<
+        (StableId, std::mem::Discriminant<FactKind>),
+        usize,
+    > = HashMap::with_capacity(base.facts.len());
+    for (idx, bf) in base.facts.iter().enumerate() {
+        base_facts_by_target_kind
+            .entry((bf.target, std::mem::discriminant(&bf.kind)))
+            .or_insert(idx);
+    }
+
     let mut report = CollabReport::default();
     let mut conflicts = Vec::new();
     let mut to_add = Vec::new();
@@ -1154,10 +1167,9 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
             continue;
         };
         let kind_disc = std::mem::discriminant(&fact.kind);
-        let existing = base
-            .facts
-            .iter()
-            .find(|bf| bf.target == tid && std::mem::discriminant(&bf.kind) == kind_disc);
+        let existing = base_facts_by_target_kind
+            .get(&(tid, kind_disc))
+            .map(|&idx| &base.facts[idx]);
         match existing {
             Some(bf) if bf.kind != fact.kind => {
                 // DD-027: a disagreement. Settle it by confidence when one side clearly wins; a
@@ -1193,12 +1205,8 @@ pub fn collaborate(base: &mut Program, incoming: &Program) -> (CollabReport, Vec
     // higher-confidence incoming one (same target + kind discriminant).
     for r in to_replace {
         let d = std::mem::discriminant(&r.kind);
-        if let Some(slot) = base
-            .facts
-            .iter_mut()
-            .find(|bf| bf.target == r.target && std::mem::discriminant(&bf.kind) == d)
-        {
-            *slot = r;
+        if let Some(&idx) = base_facts_by_target_kind.get(&(r.target, d)) {
+            base.facts[idx] = r;
         }
     }
     (report, conflicts)
@@ -2498,5 +2506,78 @@ mod tests {
             .facts
             .iter()
             .any(|f| matches!(&f.kind, FactKind::Rename(n) if n == "fib_a")));
+    }
+
+    #[test]
+    fn collaborate_handles_many_facts_with_indexed_lookup() {
+        let mut a = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let mut b = scylla_ingest::snapshot_to_program(V1).unwrap();
+        let a_fib = a.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let b_fib = b.functions.iter().find(|f| f.name == "fib").unwrap().id;
+        let a_gcd = a.functions.iter().find(|f| f.name == "gcd").unwrap().id;
+        let b_gcd = b.functions.iter().find(|f| f.name == "gcd").unwrap().id;
+
+        // Base has rename and comment on fib, and comment on gcd
+        a.facts.push(
+            UserFact::new(a_fib, FactKind::Rename("fib_v1".into())).with_provenance(Provenance {
+                producer: "analyst".into(),
+                confidence: 50,
+            }),
+        );
+        a.facts.push(
+            UserFact::new(a_fib, FactKind::Comment("base fib comment".into())).with_provenance(
+                Provenance {
+                    producer: "analyst".into(),
+                    confidence: 90,
+                },
+            ),
+        );
+        a.facts.push(UserFact::new(
+            a_gcd,
+            FactKind::Comment("base gcd comment".into()),
+        ));
+
+        // Incoming has higher-confidence rename on fib, lower-confidence comment on fib, and rename on gcd
+        b.facts.push(
+            UserFact::new(b_fib, FactKind::Rename("fib_v2".into())).with_provenance(Provenance {
+                producer: "lead".into(),
+                confidence: 90,
+            }),
+        );
+        b.facts.push(
+            UserFact::new(b_fib, FactKind::Comment("incoming fib comment".into())).with_provenance(
+                Provenance {
+                    producer: "junior".into(),
+                    confidence: 30,
+                },
+            ),
+        );
+        b.facts
+            .push(UserFact::new(b_gcd, FactKind::Rename("gcd_v2".into())));
+
+        let (report, conflicts) = collaborate(&mut a, &b);
+        assert_eq!(conflicts.len(), 0);
+        assert_eq!(report.merged, 1, "gcd rename should be merged");
+        assert_eq!(
+            report.resolved_by_confidence, 2,
+            "fib rename replaced and fib comment kept"
+        );
+
+        // Verify higher-confidence incoming rename won
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| f.target == a_fib && matches!(&f.kind, FactKind::Rename(n) if n == "fib_v2")));
+        // Verify higher-confidence base comment won
+        assert!(a.facts.iter().any(|f| f.target == a_fib
+            && matches!(&f.kind, FactKind::Comment(c) if c == "base fib comment")));
+        // Verify new gcd rename was added
+        assert!(a
+            .facts
+            .iter()
+            .any(|f| f.target == a_gcd && matches!(&f.kind, FactKind::Rename(n) if n == "gcd_v2")));
+        // Verify base gcd comment remains
+        assert!(a.facts.iter().any(|f| f.target == a_gcd
+            && matches!(&f.kind, FactKind::Comment(c) if c == "base gcd comment")));
     }
 }

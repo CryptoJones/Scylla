@@ -391,11 +391,14 @@ pub fn load(bytes: &[u8]) -> Result<(Program, LoadReport), LoadError> {
         func.callees.retain(|c| valid_ids.contains(&c.0));
         report.dropped_dangling_callees += before - func.callees.len();
         // Per-edge provenance must describe a surviving callee edge; drop dangling entries, counted.
-        let callee_set: HashSet<StableId> = func.callees.iter().copied().collect();
-        let ep_before = func.edge_provenance.len();
-        func.edge_provenance
-            .retain(|e| callee_set.contains(&e.target));
-        report.dropped_dangling_edge_provenance += ep_before - func.edge_provenance.len();
+        // Only build the callee_set if the function actually has edge_provenance (PERF-P3-1).
+        if !func.edge_provenance.is_empty() {
+            let callee_set: HashSet<StableId> = func.callees.iter().copied().collect();
+            let ep_before = func.edge_provenance.len();
+            func.edge_provenance
+                .retain(|e| callee_set.contains(&e.target));
+            report.dropped_dangling_edge_provenance += ep_before - func.edge_provenance.len();
+        }
     }
 
     let before_facts = prog.facts.len();

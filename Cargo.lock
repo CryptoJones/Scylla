@@ -1446,7 +1446,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "scylla-abtest"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "flate2",
  "scylla-ingest",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-cli"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-engine",
  "scylla-model",
@@ -1470,7 +1470,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-engine"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "hyper-util",
  "prost",
@@ -1484,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-graphql"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "base64",
  "juniper",
@@ -1498,7 +1498,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-http"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "rcgen",
  "scylla-model",
@@ -1510,7 +1510,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-ingest"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-model",
  "scylla-schema",
@@ -1520,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-lsp"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-model",
  "scylla-port",
@@ -1529,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-mcp"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-merge"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-ingest",
  "scylla-model",
@@ -1547,11 +1547,11 @@ dependencies = [
 
 [[package]]
 name = "scylla-model"
-version = "0.7.5"
+version = "0.7.6"
 
 [[package]]
 name = "scylla-port"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-ingest",
  "scylla-merge",
@@ -1561,7 +1561,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-rpc"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "capnp",
  "capnp-rpc",
@@ -1580,7 +1580,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-schema"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "capnp",
  "capnpc",
@@ -1589,11 +1589,11 @@ dependencies = [
 
 [[package]]
 name = "scylla-serve"
-version = "0.7.5"
+version = "0.7.6"
 
 [[package]]
 name = "scylla-tui"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "ratatui",
  "scylla-model",
@@ -1602,7 +1602,7 @@ dependencies = [
 
 [[package]]
 name = "scylla-wasm"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "scylla-ingest",
  "scylla-model",

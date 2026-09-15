@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.6] — 2026-09-15
+
+### Performance
+
+- **Avoid per-function `callee_set` allocation when edge provenance is empty (`crates/scylla-schema`, PERF-P3-1 / GH-16).**
+  In the total artifact loader (`scylla_schema::load`), only construct the callee `HashSet` and perform retention filtering when `func.edge_provenance` is non-empty, eliminating 100k throwaway allocations on typical artifacts where edge provenance is sparse or empty.
+
 ## [0.7.5] — 2026-09-15
 
 ### Security
@@ -361,7 +368,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...HEAD
+[0.7.6]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...v0.7.6
 [0.7.5]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...v0.7.5
 [0.7.4]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...v0.7.4
 [0.7.3]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...v0.7.3

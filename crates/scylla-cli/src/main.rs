@@ -108,10 +108,14 @@ fn load_session(path: &str) -> Result<Session, ExitCode> {
         eprintln!("error: reading {path}: {e}");
         ExitCode::from(2)
     })?;
-    Session::from_artifact(&bytes).map_err(|e| {
+    let session = Session::from_artifact(&bytes).map_err(|e| {
         eprintln!("error: loading {path}: {e}");
         ExitCode::from(2)
-    })
+    })?;
+    if let Some(w) = session.load_report().warning(path) {
+        eprintln!("{w}");
+    }
+    Ok(session)
 }
 
 /// `scylla info [--json] <artifact>` — the artifact's name, language, and function count (offline).
@@ -355,7 +359,11 @@ fn merge(base_path: &str, reanalysis_path: &str, out_path: &str) -> ExitCode {
 fn diff(a_path: &str, b_path: &str, json: bool) -> ExitCode {
     let load = |p: &str| -> Result<Session, String> {
         let bytes = std::fs::read(p).map_err(|e| format!("reading {p}: {e}"))?;
-        Session::from_artifact(&bytes).map_err(|e| format!("loading {p}: {e}"))
+        let s = Session::from_artifact(&bytes).map_err(|e| format!("loading {p}: {e}"))?;
+        if let Some(w) = s.load_report().warning(p) {
+            eprintln!("{w}");
+        }
+        Ok(s)
     };
     let (a, b) = match (load(a_path), load(b_path)) {
         (Ok(a), Ok(b)) => (a, b),

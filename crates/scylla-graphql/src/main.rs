@@ -68,6 +68,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(w) = session.load_report().warning(&artifact) {
+        eprintln!("scylla-graphql: {w}");
+    }
 
     // SCYLLA_GRAPHQL_TOKEN gates every request (DD-035); unset = OPEN (fine for a loopback dev
     // console, announced loudly otherwise).

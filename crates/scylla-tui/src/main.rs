@@ -66,7 +66,11 @@ fn main() -> ExitCode {
 /// Load a `.scylla` artifact into a session, mapping IO/decode failures to a printable message.
 fn load(path: &str) -> Result<Session, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-    Session::from_artifact(&bytes).map_err(|e| format!("cannot load {path}: {e}"))
+    let session = Session::from_artifact(&bytes).map_err(|e| format!("cannot load {path}: {e}"))?;
+    if let Some(w) = session.load_report().warning(path) {
+        eprintln!("scylla-tui: {w}");
+    }
+    Ok(session)
 }
 
 /// Set up the alternate-screen raw-mode terminal, run the event loop, and ALWAYS restore the

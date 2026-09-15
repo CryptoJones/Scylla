@@ -83,7 +83,7 @@ in the trackers until the branch is merged.
 | SEC-P3-5 | **PARTIAL ON BRANCH** — threat model corrected; fail-open network defaults remain open | [Codeberg #139](https://codeberg.org/CryptoJones/Scylla/issues/139) · [GitHub #6](https://github.com/CryptoJones/Scylla/issues/6) |
 | USE-P1-1 | **RESOLVED ON BRANCH** — documented native prerequisites in README/CONTRIBUTING and added actionable panic messages to build.rs | [Codeberg #140](https://codeberg.org/CryptoJones/Scylla/issues/140) · [GitHub #29](https://github.com/CryptoJones/Scylla/issues/29) |
 | USE-P1-2 | **RESOLVED ON BRANCH** — setup guide added and personal path removed | [Codeberg #141](https://codeberg.org/CryptoJones/Scylla/issues/141) · [GitHub #9](https://github.com/CryptoJones/Scylla/issues/9) |
-| USE-P1-3 | **OPEN** | [Codeberg #142](https://codeberg.org/CryptoJones/Scylla/issues/142) · [GitHub #30](https://github.com/CryptoJones/Scylla/issues/30) |
+| USE-P1-3 | **RESOLVED ON BRANCH** — every head surfaces a dirty LoadReport (stderr warning; `load_warning` in wasm info) | [Codeberg #142](https://codeberg.org/CryptoJones/Scylla/issues/142) · [GitHub #30](https://github.com/CryptoJones/Scylla/issues/30) |
 | USE-P2-1 | **PARTIAL ON BRANCH** — parity overclaim removed; CLI mutation verbs remain absent | [Codeberg #143](https://codeberg.org/CryptoJones/Scylla/issues/143) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
 | USE-P2-2 | **OPEN** — docs no longer claim parity, but `merge` remains absent from seven heads | [Codeberg #144](https://codeberg.org/CryptoJones/Scylla/issues/144) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
 | USE-P2-3 | **OPEN** | [Codeberg #145](https://codeberg.org/CryptoJones/Scylla/issues/145) · [GitHub #31](https://github.com/CryptoJones/Scylla/issues/31) |
@@ -399,6 +399,7 @@ artifact, gets a silently reduced model, and receives **zero** warning — a dir
 platform's own ethos. **Advised:** after `Session::from_artifact`, if `!load_report().clean()`, emit a
 stderr warning (CLI/servers) / MCP notice / TUI status line with the counts; add a `--strict` that exits
 non-zero on a dirty load.
+**Remediated:** added `LoadReport::warning()`; cli, tui, lsp, mcp, http, graphql, and rpc-serve print it to stderr after load, and the wasm `scylla_info` JSON carries `load_warning`. `--strict` is not yet implemented.
 
 ### USE-P2-1 · The CLI cannot annotate at all, despite the "same verbs" claim
 `crates/scylla-cli/src/main.rs:29-42` dispatches only materialize/diff/info/functions/search/view/callers/

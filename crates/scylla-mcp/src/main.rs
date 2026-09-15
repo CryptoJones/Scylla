@@ -20,6 +20,9 @@ fn main() {
         eprintln!("error: decoding artifact: {e}");
         std::process::exit(1);
     });
+    if let Some(w) = session.load_report().warning(&path) {
+        eprintln!("scylla-mcp: {w}");
+    }
     let root = std::env::var_os("SCYLLA_MCP_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| {

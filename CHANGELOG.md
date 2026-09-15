@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.7] — 2026-09-15
+
+### Security
+
+- **Recover from GraphQL session `Mutex` poisoning (`crates/scylla-graphql`, SEC-P3-2 / GH-26).**
+  Add `Context::session(&self)` which acquires the inner `Mutex` using `.unwrap_or_else(|e| e.into_inner())` across all read and write resolvers, preventing a panicked resolver from permanently poisoning the session lock and resulting in a persistent DoS.
+
 ## [0.7.6] — 2026-09-15
 
 ### Performance
@@ -368,7 +375,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...HEAD
+[0.7.7]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...v0.7.7
 [0.7.6]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...v0.7.6
 [0.7.5]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...v0.7.5
 [0.7.4]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...v0.7.4

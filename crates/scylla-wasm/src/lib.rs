@@ -116,8 +116,9 @@ pub unsafe extern "C" fn scylla_load(ptr: *const u8, len: usize) -> i32 {
 pub extern "C" fn scylla_info() -> u64 {
     with_session("null", |s| {
         let p = s.program();
-        json!({ "name": p.name, "language": p.language, "functions": p.functions.len() })
-            .to_string()
+        json!({ "name": p.name, "language": p.language, "functions": p.functions.len(),
+            "load_warning": s.load_report().warning("artifact") })
+        .to_string()
     })
 }
 

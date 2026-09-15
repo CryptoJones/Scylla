@@ -137,6 +137,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(w) = session.load_report().warning(&artifact) {
+        eprintln!("scylla-http: {w}");
+    }
 
     // Access is gated by SCYLLA_HTTP_TOKEN (DD-035): every request must carry
     // `Authorization: Bearer <token>`. Unset = OPEN (anyone can query) — fine for a loopback dev

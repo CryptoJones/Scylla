@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.12] — 2026-09-15
+
+### Usability
+
+- **Surface LoadReport quarantine on every head (USE-P1-3 / GH-30).**
+  New `LoadReport::warning()` summarizes what the loader dropped or truncated. cli, tui, lsp, mcp, http, graphql, and rpc-serve print it to stderr after loading a partially-quarantined artifact; the wasm `scylla_info` JSON now carries `load_warning`.
+
 ## [0.7.11] — 2026-09-15
 
 ### Usability
@@ -403,7 +410,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.11...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.12...HEAD
+[0.7.12]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.11...v0.7.12
 [0.7.11]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.10...v0.7.11
 [0.7.10]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.9...v0.7.10
 [0.7.9]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...v0.7.9

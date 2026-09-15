@@ -38,6 +38,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(w) = session.load_report().warning(&path) {
+        eprintln!("scylla-lsp: {w}");
+    }
 
     let stdin = io::stdin();
     let mut reader = stdin.lock();

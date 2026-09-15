@@ -50,6 +50,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(w) = session.load_report().warning(&artifact) {
+        eprintln!("scylla-rpc-serve: {w}");
+    }
 
     // Access is gated by SCYLLA_RPC_TOKEN (DD-035): a client must present it to log in. Unset = OPEN
     // (anyone who connects gets full access) — fine for a loopback dev server, loud otherwise.

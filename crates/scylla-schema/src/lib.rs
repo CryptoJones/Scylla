@@ -182,6 +182,36 @@ impl LoadReport {
             && self.dropped_duplicate_functions == 0
             && self.truncated_strings == 0
     }
+
+    /// A one-line human warning for a head to surface when the load was dirty, or `None` when
+    /// clean. Heads must not drop quarantine silently ("never silently wrong", USE-P1-3).
+    pub fn warning(&self, source: &str) -> Option<String> {
+        if self.clean() {
+            return None;
+        }
+        let counts = [
+            (self.dropped_dangling_callees, "dangling callee(s) dropped"),
+            (self.dropped_dangling_facts, "dangling fact(s) dropped"),
+            (
+                self.dropped_dangling_edge_provenance,
+                "dangling edge provenance dropped",
+            ),
+            (
+                self.dropped_duplicate_functions,
+                "duplicate function(s) dropped",
+            ),
+            (self.truncated_strings, "over-long string(s) truncated"),
+        ];
+        let detail: Vec<String> = counts
+            .iter()
+            .filter(|(n, _)| *n > 0)
+            .map(|(n, what)| format!("{n} {what}"))
+            .collect();
+        Some(format!(
+            "warning: {source} loaded partially — the model is reduced: {}",
+            detail.join(", ")
+        ))
+    }
 }
 
 /// Hard load failure — the artifact is structurally unusable (DD-036 hard-reject).
@@ -586,6 +616,7 @@ mod tests {
         let bytes = to_bytes(&sample());
         let (prog, report) = load(&bytes).expect("load");
         assert!(report.clean(), "a well-formed artifact needs no quarantine");
+        assert_eq!(report.warning("a.scylla"), None);
         assert_eq!(prog, sample());
     }
 
@@ -596,6 +627,10 @@ mod tests {
         let bytes = to_bytes(&p);
         let (prog, report) = load(&bytes).expect("load");
         assert_eq!(report.dropped_dangling_callees, 1);
+        assert_eq!(
+            report.warning("a.scylla").as_deref(),
+            Some("warning: a.scylla loaded partially — the model is reduced: 1 dangling callee(s) dropped")
+        );
         assert!(!prog.functions[1].callees.contains(&StableId(99999)));
         assert!(prog.functions[1].callees.contains(&prog.functions[0].id)); // real edge survives
     }

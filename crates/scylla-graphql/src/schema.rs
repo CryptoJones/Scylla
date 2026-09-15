@@ -34,6 +34,12 @@ impl Context {
             session: Mutex::new(session),
         }
     }
+
+    /// Acquire the session lock, recovering from poisoning if a prior resolver panicked.
+    /// Defends against permanent DoS from Mutex poisoning (SEC-P3-2).
+    pub fn session(&self) -> std::sync::MutexGuard<'_, Session> {
+        self.session.lock().unwrap_or_else(|e| e.into_inner())
+    }
 }
 
 /// Semantic-zoom altitude (DD-020), mirrored from the port so a client picks how much detail it
@@ -196,7 +202,7 @@ pub struct Query;
 impl Query {
     /// Program identity + function count.
     fn info(context: &Context) -> Info {
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         let p = s.program();
         Info {
             name: p.name.clone(),
@@ -207,7 +213,7 @@ impl Query {
 
     /// Every function at the given zoom (default `DOMAIN`), sorted by name.
     fn functions(context: &Context, zoom: Option<Zoom>) -> Vec<FunctionSummary> {
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         let mut fns = s.functions(port_zoom(zoom));
         fns.sort_by(|a, b| a.name.cmp(&b.name));
         fns.iter().map(summary).collect()
@@ -215,7 +221,7 @@ impl Query {
 
     /// Functions whose display name contains `query` (case-insensitive); empty `query` = all.
     fn search(context: &Context, query: String, zoom: Option<Zoom>) -> Vec<FunctionSummary> {
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         s.search(&query, port_zoom(zoom))
             .iter()
             .map(summary)
@@ -229,7 +235,7 @@ impl Query {
         zoom: Option<Zoom>,
     ) -> FieldResult<Option<FunctionDetail>> {
         let sid = parse_id(&id)?;
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         match s.view(sid, port_zoom(zoom)) {
             Ok(v) => {
                 let prog = s.program();
@@ -254,7 +260,7 @@ impl Query {
     /// The functions that call `id`; errors if `id` is absent (an unknown target is a client error).
     fn callers(context: &Context, id: String) -> FieldResult<Vec<Caller>> {
         let sid = parse_id(&id)?;
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         let prog = s.program();
         if !prog.functions.iter().any(|f| f.id == sid) {
             return Err(ferr(format!("no function with id {}", sid.0)));
@@ -275,7 +281,7 @@ impl Query {
             .map_err(|e| ferr(format!("artifactBase64 is not valid base64: {e}")))?;
         let other =
             Session::from_artifact(&bytes).map_err(|e| ferr(format!("invalid .scylla: {e}")))?;
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         let d = s.diff(&other);
         let renamed: Vec<Pair> = d
             .matched
@@ -326,7 +332,7 @@ impl Query {
     /// The resident model — INCLUDING annotations made this session — as a base64 `.scylla`, so a
     /// remote client can pull its work back out (in-memory facts otherwise die with the server).
     fn export(context: &Context) -> String {
-        let s = context.session.lock().expect("session lock");
+        let s = context.session();
         B64.encode(s.to_artifact())
     }
 }
@@ -362,7 +368,7 @@ fn annotate(
     apply: impl FnOnce(&mut Session, StableId) -> Result<(), PortError>,
 ) -> FieldResult<MutationResult> {
     let sid = parse_id(id)?;
-    let mut s = context.session.lock().expect("session lock");
+    let mut s = context.session();
     if !s.program().functions.iter().any(|f| f.id == sid) {
         return Err(ferr(format!("no function with id {}", sid.0)));
     }
@@ -379,4 +385,33 @@ pub type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>
 
 pub fn schema() -> Schema {
     Schema::new(Query, Mutation, EmptySubscription::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_session() -> Session {
+        let p = scylla_model::Program {
+            name: "test_prog".into(),
+            language: "x86".into(),
+            functions: vec![],
+            facts: vec![],
+        };
+        Session::open(p)
+    }
+
+    #[test]
+    fn session_lock_recovers_from_mutex_poisoning() {
+        let ctx = Context::new(sample_session());
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = ctx.session.lock().unwrap();
+            panic!("simulated resolver panic while holding lock");
+        }));
+        assert!(ctx.session.is_poisoned());
+
+        // Acquiring via context.session() recovers from poisoning without panicking (SEC-P3-2)
+        let s = ctx.session();
+        assert_eq!(s.program().name, "test_prog");
+    }
 }

@@ -66,7 +66,7 @@ in the trackers until the branch is merged.
 | PERF-P2-3 | **OPEN** | [Codeberg #122](https://codeberg.org/CryptoJones/Scylla/issues/122) · [GitHub #13](https://github.com/CryptoJones/Scylla/issues/13) |
 | PERF-P2-4 | **OPEN** | [Codeberg #123](https://codeberg.org/CryptoJones/Scylla/issues/123) · [GitHub #14](https://github.com/CryptoJones/Scylla/issues/14) |
 | PERF-P2-5 | **OPEN** | [Codeberg #124](https://codeberg.org/CryptoJones/Scylla/issues/124) · [GitHub #15](https://github.com/CryptoJones/Scylla/issues/15) |
-| PERF-P3-1 | **OPEN** | [Codeberg #125](https://codeberg.org/CryptoJones/Scylla/issues/125) · [GitHub #16](https://github.com/CryptoJones/Scylla/issues/16) |
+| PERF-P3-1 | **RESOLVED ON BRANCH** — allocate callee_set only when edge_provenance is non-empty | [Codeberg #125](https://codeberg.org/CryptoJones/Scylla/issues/125) · [GitHub #16](https://github.com/CryptoJones/Scylla/issues/16) |
 | PERF-P3-2 | **OPEN** | [Codeberg #126](https://codeberg.org/CryptoJones/Scylla/issues/126) · [GitHub #17](https://github.com/CryptoJones/Scylla/issues/17) |
 | PERF-P3-3 | **OPEN** | [Codeberg #127](https://codeberg.org/CryptoJones/Scylla/issues/127) · [GitHub #18](https://github.com/CryptoJones/Scylla/issues/18) |
 | SEC-P1-1 | **OPEN** | [Codeberg #128](https://codeberg.org/CryptoJones/Scylla/issues/128) · [GitHub #19](https://github.com/CryptoJones/Scylla/issues/19) |
@@ -234,7 +234,7 @@ USE-P2-9 — the same gap seen from the usability lens.)
 ### PERF-P3-1 · Loader allocates a per-function `HashSet` even when `edge_provenance` is empty
 `crates/scylla-schema/src/lib.rs:442-445` builds `callee_set` unconditionally though it is used only to
 `retain` the (documented-as-sparse) `edge_provenance`. 100k functions → 100k throwaway sets. **Advised:**
-`if !func.edge_provenance.is_empty() { … }`.
+`if !func.edge_provenance.is_empty() { … }`. **Remediated:** `scylla_schema::load` guards the `callee_set` allocation behind `if !func.edge_provenance.is_empty()`, eliminating throwaway allocations for empty/sparse provenance.
 
 ### PERF-P3-2 · The "zero-copy" load claim is segment-level only
 `crates/scylla-schema/src/lib.rs:179` correctly avoids the copying read, but `decode_bytes` (`:190-323`)

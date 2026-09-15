@@ -53,9 +53,15 @@ fn main() -> ExitCode {
 
     // Access is gated by SCYLLA_RPC_TOKEN (DD-035): a client must present it to log in. Unset = OPEN
     // (anyone who connects gets full access) — fine for a loopback dev server, loud otherwise.
-    let token = std::env::var("SCYLLA_RPC_TOKEN")
-        .ok()
-        .filter(|t| !t.is_empty());
+    let raw_token = std::env::var("SCYLLA_RPC_TOKEN").ok();
+    if raw_token.as_deref().is_some_and(|t| t.trim().is_empty()) {
+        eprintln!(
+            "scylla-rpc-serve: SCYLLA_RPC_TOKEN is set but empty/blank — the server stays OPEN. \
+             Set a non-empty token to gate access, or unset it deliberately."
+        );
+    }
+    // A blank/whitespace-only value is treated as unset (never as a real — trivially weak — token).
+    let token = raw_token.filter(|t| !t.trim().is_empty());
     // Cap concurrent connections so a flood can't spawn unbounded tasks (a DoS bound). Over the cap,
     // the surplus connection is accepted then immediately dropped.
     let max_conn: usize = std::env::var("SCYLLA_RPC_MAX_CONN")

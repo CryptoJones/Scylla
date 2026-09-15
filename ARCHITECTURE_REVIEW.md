@@ -78,7 +78,7 @@ in the trackers until the branch is merged.
 | SEC-P2-5 | **PARTIAL ON BRANCH** — vulnerable web TLS chain removed and `cargo audit` added; `cargo-deny` and action SHA pinning remain open | [Codeberg #134](https://codeberg.org/CryptoJones/Scylla/issues/134) · [GitHub #4](https://github.com/CryptoJones/Scylla/issues/4) |
 | SEC-P3-1 | **OPEN** | [Codeberg #135](https://codeberg.org/CryptoJones/Scylla/issues/135) · [GitHub #25](https://github.com/CryptoJones/Scylla/issues/25) |
 | SEC-P3-2 | **RESOLVED ON BRANCH** — acquire session lock with unwrap_or_else(|e| e.into_inner()) to recover from poisoning | [Codeberg #136](https://codeberg.org/CryptoJones/Scylla/issues/136) · [GitHub #26](https://github.com/CryptoJones/Scylla/issues/26) |
-| SEC-P3-3 | **OPEN** | [Codeberg #137](https://codeberg.org/CryptoJones/Scylla/issues/137) · [GitHub #27](https://github.com/CryptoJones/Scylla/issues/27) |
+| SEC-P3-3 | **RESOLVED ON BRANCH** — trim whitespace and warn on empty/blank SCYLLA_RPC_TOKEN in scylla-rpc-serve | [Codeberg #137](https://codeberg.org/CryptoJones/Scylla/issues/137) · [GitHub #27](https://github.com/CryptoJones/Scylla/issues/27) |
 | SEC-P3-4 | **OPEN** | [Codeberg #138](https://codeberg.org/CryptoJones/Scylla/issues/138) · [GitHub #28](https://github.com/CryptoJones/Scylla/issues/28) |
 | SEC-P3-5 | **PARTIAL ON BRANCH** — threat model corrected; fail-open network defaults remain open | [Codeberg #139](https://codeberg.org/CryptoJones/Scylla/issues/139) · [GitHub #6](https://github.com/CryptoJones/Scylla/issues/6) |
 | USE-P1-1 | **OPEN** | [Codeberg #140](https://codeberg.org/CryptoJones/Scylla/issues/140) · [GitHub #29](https://github.com/CryptoJones/Scylla/issues/29) |
@@ -350,7 +350,7 @@ outline).
 `scylla-rpc-serve.rs:56-58` filters `!t.is_empty()`; http/graphql filter `!t.trim().is_empty()`
 (`http/main.rs:144`, `graphql/main.rs:80`). A `SCYLLA_RPC_TOKEN=" "` is accepted as a real (trivially
 guessable) token on RPC but treated as unset elsewhere. **Advised:** trim consistently and reject blank
-tokens uniformly.
+tokens uniformly. **Remediated:** `scylla-rpc-serve` warns on empty/whitespace-only `SCYLLA_RPC_TOKEN` and filters with `!t.trim().is_empty()` to treat blank tokens as unset.
 
 ### SEC-P3-4 · `producer` provenance is unauthenticated free text
 `crates/scylla-model/src/lib.rs:184-192` — a hostile artifact can stamp `producer:"user"` on

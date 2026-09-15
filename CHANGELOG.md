@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.8] — 2026-09-15
+
+### Security
+
+- **Align RPC token whitespace and empty handling with HTTP and GraphQL heads (`crates/scylla-rpc`, SEC-P3-3 / GH-27).**
+  In `scylla-rpc-serve`, check `raw_token.as_deref().is_some_and(|t| t.trim().is_empty())` to log a warning on empty or blank tokens and filter with `!t.trim().is_empty()`. Prevents whitespace-only tokens (`SCYLLA_RPC_TOKEN=" "`) from being accepted as valid credentials, uniformly treating blank tokens as unset (OPEN).
+
 ## [0.7.7] — 2026-09-15
 
 ### Security
@@ -375,7 +382,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...HEAD
+[0.7.8]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...v0.7.8
 [0.7.7]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...v0.7.7
 [0.7.6]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...v0.7.6
 [0.7.5]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...v0.7.5

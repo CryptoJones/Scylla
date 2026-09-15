@@ -257,3 +257,38 @@ fn handshake_timeout_frees_a_slot_from_a_silent_connection() {
         "the silent connection must time out, freeing the slot for a real client"
     );
 }
+
+#[test]
+fn whitespace_only_token_keeps_server_open() {
+    let port = free_port();
+    let addr = format!("127.0.0.1:{port}");
+    let _srv = Server(
+        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
+            .args([ARTIFACT, &addr])
+            .env("SCYLLA_RPC_TOKEN", "   \t  ") // blank/whitespace-only value treated as unset (OPEN)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn scylla-rpc-serve"),
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if connect(&addr, &["info"]).0 == 0 {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "whitespace-token server never came up"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    // Connect with no token succeeds because server treated whitespace token as OPEN
+    let (code, out) = connect(&addr, &["info"]);
+    assert_eq!(
+        code, 0,
+        "server with whitespace-only token must remain OPEN"
+    );
+    assert!(out.contains("functions: 13"), "remote info: {out}");
+}

@@ -71,7 +71,7 @@ in the trackers until the branch is merged.
 | PERF-P3-3 | **OPEN** | [Codeberg #127](https://codeberg.org/CryptoJones/Scylla/issues/127) · [GitHub #18](https://github.com/CryptoJones/Scylla/issues/18) |
 | SEC-P1-1 | **OPEN** | [Codeberg #128](https://codeberg.org/CryptoJones/Scylla/issues/128) · [GitHub #19](https://github.com/CryptoJones/Scylla/issues/19) |
 | SEC-P1-2 | **OPEN** | [Codeberg #129](https://codeberg.org/CryptoJones/Scylla/issues/129) · [GitHub #20](https://github.com/CryptoJones/Scylla/issues/20) |
-| SEC-P2-1 | **OPEN** | [Codeberg #130](https://codeberg.org/CryptoJones/Scylla/issues/130) · [GitHub #21](https://github.com/CryptoJones/Scylla/issues/21) |
+| SEC-P2-1 | **RESOLVED ON BRANCH** — defused case-insensitive intra-tag whitespace variants in MCP and LSP | [Codeberg #130](https://codeberg.org/CryptoJones/Scylla/issues/130) · [GitHub #21](https://github.com/CryptoJones/Scylla/issues/21) |
 | SEC-P2-2 | **OPEN** | [Codeberg #131](https://codeberg.org/CryptoJones/Scylla/issues/131) · [GitHub #22](https://github.com/CryptoJones/Scylla/issues/22) |
 | SEC-P2-3 | **OPEN** | [Codeberg #132](https://codeberg.org/CryptoJones/Scylla/issues/132) · [GitHub #23](https://github.com/CryptoJones/Scylla/issues/23) |
 | SEC-P2-4 | **OPEN** | [Codeberg #133](https://codeberg.org/CryptoJones/Scylla/issues/133) · [GitHub #24](https://github.com/CryptoJones/Scylla/issues/24) |
@@ -296,7 +296,7 @@ no-whitespace `</untrusted-data>` is defused. A hostile name/comment containing 
 mode DD-035 defends — may treat it as the close tag. Same class as the *fixed* MCP-P0-1/LSP-P0-1, re-opened
 by a variant. **Advised:** neutralize case-insensitively tolerating intra-tag whitespace
 (`(?i)<\s*/?\s*untrusted-data\s*>`), or switch to a random per-response nonce boundary the content cannot
-predict.
+predict. **Remediated:** `neutralize_fence` in both `scylla-mcp` and `scylla-lsp` parses `<...>` tag candidates case-insensitively and tolerates intra-tag whitespace, neutralizing closing sentinels (`</untrusted-data>`, `</UNTRUSTED-DATA>`, `< / untrusted-data >`) into `<\\/untrusted-data>` and opening sentinels into `<\\untrusted-data>`.
 
 ### SEC-P2-2 · Engine TCP mode is unauthenticated, plaintext, binds all interfaces, and is the Docker default
 `engine-service/.../EngineServer.java:669-671` — `ServerBuilder.forPort(port)` binds `0.0.0.0`, no TLS, no

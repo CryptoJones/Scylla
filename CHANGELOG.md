@@ -9,6 +9,14 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.5] — 2026-09-15
+
+### Security
+
+- **Defuse case- and whitespace-variant untrusted envelope sentinels (`crates/scylla-mcp`, `crates/scylla-lsp`, SEC-P2-1 / GH-21).**
+  `neutralize_fence` in both the MCP and LSP heads now parses tag tokens case-insensitively with intra-tag whitespace tolerance (e.g. `</UNTRUSTED-DATA>`, `< / untrusted-data >`, `< untrusted-data >`), neutralizing both closing and opening sentinels into `<\\/untrusted-data>` and `<\\untrusted-data>`.
+  Prevents adversarial binary-derived strings from prematurely closing the DD-035 untrusted-data envelope in lenient LLM parsers.
+
 ## [0.7.4] — 2026-09-14
 
 ### Added
@@ -353,7 +361,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.5...HEAD
+[0.7.5]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.4...v0.7.5
 [0.7.4]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.3...v0.7.4
 [0.7.3]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.2...v0.7.3
 [0.7.2]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.1...v0.7.2

@@ -92,7 +92,7 @@ in the trackers until the branch is merged.
 | USE-P2-6 | **OPEN** | [Codeberg #148](https://codeberg.org/CryptoJones/Scylla/issues/148) · [GitHub #33](https://github.com/CryptoJones/Scylla/issues/33) |
 | USE-P2-7 | **OPEN** | [Codeberg #149](https://codeberg.org/CryptoJones/Scylla/issues/149) · [GitHub #34](https://github.com/CryptoJones/Scylla/issues/34) |
 | USE-P2-8 | **OPEN** | [Codeberg #150](https://codeberg.org/CryptoJones/Scylla/issues/150) · [GitHub #35](https://github.com/CryptoJones/Scylla/issues/35) |
-| USE-P2-9 | **OPEN** | [Codeberg #151](https://codeberg.org/CryptoJones/Scylla/issues/151) · [GitHub #36](https://github.com/CryptoJones/Scylla/issues/36) |
+| USE-P2-9 | **RESOLVED ON BRANCH** — ARCHITECTURE.md documents the opt-in warm engine and its env vars | [Codeberg #151](https://codeberg.org/CryptoJones/Scylla/issues/151) · [GitHub #36](https://github.com/CryptoJones/Scylla/issues/36) |
 | USE-P3-1 | **RESOLVED ON BRANCH** — added -h/--help on stdout (exit 0) and -V/--version | [Codeberg #152](https://codeberg.org/CryptoJones/Scylla/issues/152) · [GitHub #37](https://github.com/CryptoJones/Scylla/issues/37) |
 | USE-P3-2 | **OPEN** | [Codeberg #153](https://codeberg.org/CryptoJones/Scylla/issues/153) · [GitHub #38](https://github.com/CryptoJones/Scylla/issues/38) |
 | USE-P3-3 | **RESOLVED ON BRANCH** — enumerated `["intent", "domain", "detail"]` in MCP tool schemas and validated zoom arguments | [Codeberg #154](https://codeberg.org/CryptoJones/Scylla/issues/154) · [GitHub #39](https://github.com/CryptoJones/Scylla/issues/39) |
@@ -458,6 +458,7 @@ ARCHITECTURE example match the sandboxed default.
 `SCYLLA_ENGINE_WARM=1`. A user chasing the ~25s cold-start problem never learns the fix already ships.
 **Advised:** move the warm engine from "not built" to a documented, opt-in feature with its env vars (and
 see PERF-P2-4 — consider making it the default).
+**Remediated:** `ARCHITECTURE.md` now has a "Warm engine (opt-in)" section documenting `SCYLLA_ENGINE_WARM`, `SCYLLA_ENGINE_WARM_POOL`, and `SCYLLA_WARM_WORKER_SRC`; making warm the default stays with PERF-P2-4.
 
 ### USE-P3-1 · CLI has no real `--help`/`--version`
 `crates/scylla-cli/src/main.rs:43-64` — unrecognized args (incl. `--help`/`-h`) fall through to a usage

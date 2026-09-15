@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.11] — 2026-09-15
+
+### Usability
+
+- **Document the shipped warm engine instead of listing it as unbuilt (`ARCHITECTURE.md`, USE-P2-9 / GH-36).**
+  Replace the stale "warm co-resident engine is the open perf work" claim with an opt-in section covering `SCYLLA_ENGINE_WARM`, `SCYLLA_ENGINE_WARM_POOL`, and `SCYLLA_WARM_WORKER_SRC`.
+
 ## [0.7.10] — 2026-09-15
 
 ### Usability
@@ -396,7 +403,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.10...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.11...HEAD
+[0.7.11]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.10...v0.7.11
 [0.7.10]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.9...v0.7.10
 [0.7.9]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...v0.7.9
 [0.7.8]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...v0.7.8

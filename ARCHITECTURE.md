@@ -97,9 +97,17 @@ scylla-http a.scylla 127.0.0.1:8800             # the HTTP/JSON gateway: curl ht
 curl -d '{"name":"euclid_gcd"}' http://…/api/functions/<id>/rename   # …and annotate it over HTTP
 ```
 
+## Warm engine (opt-in)
+
+The engine-as-service (DD-040) cold-launches `analyzeHeadless` per request by default. A **warm
+co-resident engine** ships and is opt-in: `SCYLLA_ENGINE_WARM=1` keeps resident engine JVM(s)
+warm in-process (~2s/call vs ~6s cold), `SCYLLA_ENGINE_WARM_POOL=N` runs N workers (default 1;
+each is a full Ghidra JVM), and `SCYLLA_WARM_WORKER_SRC` overrides where the warm-worker sources
+live. If those sources are missing the service warns and runs cold. See
+[engine-service/README.md](engine-service/README.md) and `engine-service/run-sandboxed.sh`.
+Making warm the default is tracked as PERF-P2-4.
+
 ## Not built yet (on purpose)
 
-The engine-as-service (DD-040) runs cold-start per request — it cold-launches `analyzeHeadless`
-each call (~25s); a **warm co-resident engine** is the open perf work. Tier-1/2 corpus breadth
-(DD-037) and a model structural fingerprint (to raise the DD-038 re-anchoring floors) are the
-other open items. See [BACKLOG.md](BACKLOG.md).
+Tier-1/2 corpus breadth (DD-037) and a model structural fingerprint (to raise the DD-038
+re-anchoring floors) are the open items. See [BACKLOG.md](BACKLOG.md).

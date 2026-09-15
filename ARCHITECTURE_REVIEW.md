@@ -81,7 +81,7 @@ in the trackers until the branch is merged.
 | SEC-P3-3 | **RESOLVED ON BRANCH** — trim whitespace and warn on empty/blank SCYLLA_RPC_TOKEN in scylla-rpc-serve | [Codeberg #137](https://codeberg.org/CryptoJones/Scylla/issues/137) · [GitHub #27](https://github.com/CryptoJones/Scylla/issues/27) |
 | SEC-P3-4 | **OPEN** | [Codeberg #138](https://codeberg.org/CryptoJones/Scylla/issues/138) · [GitHub #28](https://github.com/CryptoJones/Scylla/issues/28) |
 | SEC-P3-5 | **PARTIAL ON BRANCH** — threat model corrected; fail-open network defaults remain open | [Codeberg #139](https://codeberg.org/CryptoJones/Scylla/issues/139) · [GitHub #6](https://github.com/CryptoJones/Scylla/issues/6) |
-| USE-P1-1 | **OPEN** | [Codeberg #140](https://codeberg.org/CryptoJones/Scylla/issues/140) · [GitHub #29](https://github.com/CryptoJones/Scylla/issues/29) |
+| USE-P1-1 | **RESOLVED ON BRANCH** — documented native prerequisites in README/CONTRIBUTING and added actionable panic messages to build.rs | [Codeberg #140](https://codeberg.org/CryptoJones/Scylla/issues/140) · [GitHub #29](https://github.com/CryptoJones/Scylla/issues/29) |
 | USE-P1-2 | **RESOLVED ON BRANCH** — setup guide added and personal path removed | [Codeberg #141](https://codeberg.org/CryptoJones/Scylla/issues/141) · [GitHub #9](https://github.com/CryptoJones/Scylla/issues/9) |
 | USE-P1-3 | **OPEN** | [Codeberg #142](https://codeberg.org/CryptoJones/Scylla/issues/142) · [GitHub #30](https://github.com/CryptoJones/Scylla/issues/30) |
 | USE-P2-1 | **PARTIAL ON BRANCH** — parity overclaim removed; CLI mutation verbs remain absent | [Codeberg #143](https://codeberg.org/CryptoJones/Scylla/issues/143) · [GitHub #7](https://github.com/CryptoJones/Scylla/issues/7) |
@@ -380,6 +380,7 @@ section and `CONTRIBUTING.md:24` only claims `cargo test --workspace` is green. 
 first-hand during this review: the workspace would not build until `protobuf` and `capnproto` were
 installed.)* **Advised:** add a "Prerequisites" block (Rust stable + `wasm32-unknown-unknown`, `protoc`,
 `capnp`, JDK 21 for the engine) and make each `build.rs` `panic!` with the missing tool + install command.
+**Remediated:** added Prerequisites & Building sections to `README.md` and `CONTRIBUTING.md`, and updated `build.rs` in `scylla-schema`, `scylla-rpc`, and `scylla-engine` with actionable panic messages containing installation commands for macOS, Ubuntu, Arch, and Windows.
 
 ### USE-P1-2 · The engine-service — the *primary* materialize path — has no runnable setup docs and ships a hardcoded personal path
 `engine-service/run-sandboxed.sh:7` defaults `GHIDRA_DIST` to

@@ -119,6 +119,33 @@ The **diff** is a real binary-differ: it pairs functions across two builds by st
 strings/imports, BSim feature vectors, mnemonic + ordered-trigram cosine — to report functions
 matched / renamed / **modified** / added / removed. Fail-closed throughout: a near-tie is never guessed.
 
+## Prerequisites & Building
+
+Building Scylla from source requires Rust and native code generators for the two serialization IDLs:
+
+- **Rust toolchain:** Stable 1.80+ (`rustup default stable`)
+- **WASM compilation target:** `rustup target add wasm32-unknown-unknown`
+- **Cap'n Proto compiler (`capnp`):** Required by `scylla-schema` and `scylla-rpc`
+  - macOS: `brew install capnp`
+  - Ubuntu / Debian: `sudo apt-get install capnproto`
+  - Arch Linux: `sudo pacman -S capnproto`
+  - Windows: `choco install capnproto` or `scoop install capnproto`
+- **Protocol Buffers compiler (`protoc`):** Required by `scylla-engine`
+  - macOS: `brew install protobuf`
+  - Ubuntu / Debian: `sudo apt-get install protobuf-compiler`
+  - Arch Linux: `sudo pacman -S protobuf`
+  - Windows: `choco install protoc` or `scoop install protobuf`
+- **Node.js (v18+):** Required for browser WASM head verification (`verify.mjs`)
+- **JDK 21+ & Gradle:** Required only if building the sandboxed engine-service (`engine-service/`)
+
+Once prerequisites are installed, build and test the entire workspace:
+```sh
+cargo build --workspace
+cargo test --workspace
+./scripts/check-wasm.sh
+node crates/scylla-wasm/web/verify.mjs
+```
+
 ## Status
 
 **Feature-complete core, nine working heads.** The durable Rust body (model + client port +

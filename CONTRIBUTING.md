@@ -19,11 +19,18 @@ Contributions get a fast, honest signal (DD-033).
 `bug` · `feature` · `adapter` (a new head or producer) · `docs` · `security`
 (report privately — see [SECURITY.md](SECURITY.md), do **not** open a public issue).
 
+## Prerequisites
+
+Ensure native tools (`capnp`, `protoc`, Rust stable, `wasm32-unknown-unknown`, and Node.js) are installed. See the [Prerequisites & Building](README.md#prerequisites--building) section in `README.md` for platform-specific installation commands.
+
 ## Before you push
 
+All PRs must pass the local verification gate:
 - `cargo test --workspace` is green.
-- `cargo build --target wasm32-unknown-unknown -p scylla-port` succeeds — the consume-side
-  core must stay WASM-able (DD-028). (`scripts/check-wasm.sh`.)
+- `cargo audit` reports 0 vulnerabilities.
+- `scripts/check-wasm.sh` succeeds — the consume-side core must stay WASM-able (DD-028).
+- `node crates/scylla-wasm/web/verify.mjs` succeeds — browser round-trip verification.
+- `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings` are clean.
 - `NOTICE` stays accurate if you add dependencies (Apache-2.0, DD-032).
 
 ## Repo

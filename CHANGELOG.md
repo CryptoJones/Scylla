@@ -9,6 +9,13 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.10] — 2026-09-15
+
+### Usability
+
+- **Document native build prerequisites and add actionable build failure panics (`README.md`, `CONTRIBUTING.md`, USE-P1-1 / GH-29).**
+  Add a dedicated Prerequisites & Building section to `README.md` and `CONTRIBUTING.md` detailing required native code generators (`capnp`, `protoc`, `wasm32-unknown-unknown`, Node.js, JDK 21+). Update `build.rs` in `crates/scylla-schema`, `crates/scylla-rpc`, and `crates/scylla-engine` to emit clear, actionable panic messages with exact installation commands when `capnp` or `protoc` are missing.
+
 ## [0.7.9] — 2026-09-15
 
 ### Performance
@@ -389,7 +396,8 @@ The **durable core spine** — design-locked and prototype-de-risked, *not a pro
   zero silent mis-attachment, made a code invariant (`WRONG = 0`).
 - 33 design decisions locked with rationale; 20 tests, CI, CONTRIBUTING, SECURITY.
 
-[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.9...HEAD
+[Unreleased]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.10...HEAD
+[0.7.10]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.9...v0.7.10
 [0.7.9]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.8...v0.7.9
 [0.7.8]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.7...v0.7.8
 [0.7.7]: https://codeberg.org/CryptoJones/Scylla/compare/v0.7.6...v0.7.7

@@ -1,6 +1,6 @@
 # Scylla
 
-> **Sibling projects:** [GayHydra](https://github.com/CryptoJones/GayHydra) — security-hardened Ghidra fork · **Scylla** (this repo) — RE platform with a Rust core over GayHydra's engine · [AdmiralGrace](https://github.com/CryptoJones/AdmiralGrace) — disassembler and decompiler written in Rust
+> **Part of the [Reverse Engineering Armada](https://github.com/CryptoJones/RE-Armada):** [GayHydra](https://github.com/CryptoJones/GayHydra) — security-hardened Ghidra fork · **Scylla** (this repo) — RE platform with a Rust core over GayHydra's engine · [AdmiralGrace](https://github.com/CryptoJones/AdmiralGrace) — disassembler and decompiler written in Rust
 
 **A hexagonal, adapter-headed reverse-engineering platform.**
 

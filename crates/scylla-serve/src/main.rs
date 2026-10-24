@@ -63,6 +63,8 @@ fn main() {
             std::process::exit(1);
         }
     };
+    // Announce the port actually bound, so port 0 (an OS-picked port) is usable.
+    let port = listener.local_addr().map_or(port, |bound| bound.port());
     match (&compare_path, &compare) {
         (Some(cp), Some(c)) => println!(
             "scylla-serve: {} ({} bytes) vs compare {} ({} bytes) → http://127.0.0.1:{port}/  (Ctrl-C to stop)",

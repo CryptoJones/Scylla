@@ -4,36 +4,19 @@
 //! the same artifact — verb by verb. Expectations are derived from the port in-process; no frozen
 //! golden numbers (those live in `remote.rs`). A head drifting from the body fails here.
 
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
+mod common;
+
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
+use common::ARTIFACT;
+
 const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
 );
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 
 /// Run the remote client (no token — the server runs open here), returning `(exit, stdout)`.
 fn connect(addr: &str, args: &[&str]) -> (i32, String) {
@@ -80,16 +63,7 @@ fn rpc_head_conforms_to_the_port() {
     let p = port(ARTIFACT);
     let prog = p.program();
 
-    let pnum = free_port();
-    let addr = format!("127.0.0.1:{pnum}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    let (_srv, addr) = common::spawn_server(&[]);
 
     // Wait until the server accepts (info round-trips).
     let deadline = Instant::now() + Duration::from_secs(10);

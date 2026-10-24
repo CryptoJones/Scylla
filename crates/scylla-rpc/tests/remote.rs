@@ -2,35 +2,16 @@
 //! `scylla-rpc-connect` remote head — a consumer not co-located with the core, navigating the
 //! client port over a Cap'n Proto RPC wire. Zero deps (std only).
 
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
+mod common;
+
+use std::ffi::OsStr;
+use std::process::Command;
 use std::time::{Duration, Instant};
 
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
 const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
 );
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-/// A spawned server, killed on drop.
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 
 /// Run the remote client against `addr` with `args` and an optional `SCYLLA_RPC_TOKEN`, returning
 /// `(exit_code, stdout)`.
@@ -61,16 +42,7 @@ fn connect(addr: &str, args: &[&str]) -> (i32, String) {
 
 #[test]
 fn remote_head_drives_the_port_over_tcp() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    let (_srv, addr) = common::spawn_server(&[]);
 
     // Wait until the server is accepting (the client `info` round-trips cleanly).
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -124,17 +96,8 @@ fn remote_head_drives_the_port_over_tcp() {
 
 #[test]
 fn token_gated_server_denies_without_the_token_over_tcp() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_RPC_TOKEN", "s3cret") // gate access (DD-035)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    // Gate access (DD-035).
+    let (_srv, addr) = common::spawn_server(&[("SCYLLA_RPC_TOKEN", OsStr::new("s3cret"))]);
 
     // Ready when the RIGHT token logs in.
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -171,17 +134,8 @@ fn token_gated_server_denies_without_the_token_over_tcp() {
 #[test]
 fn connection_cap_refuses_the_surplus_connection() {
     use std::net::TcpStream;
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_RPC_MAX_CONN", "1") // a single slot
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    // A single slot.
+    let (_srv, addr) = common::spawn_server(&[("SCYLLA_RPC_MAX_CONN", OsStr::new("1"))]);
 
     // Ready (a normal client connects, completes, frees its slot).
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -218,18 +172,11 @@ fn connection_cap_refuses_the_surplus_connection() {
 #[test]
 fn handshake_timeout_frees_a_slot_from_a_silent_connection() {
     use std::net::TcpStream;
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_RPC_MAX_CONN", "1") // a single slot…
-            .env("SCYLLA_RPC_HANDSHAKE_SEC", "1") // …dropped if not authed within 1s
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    // A single slot, dropped if not authed within 1s.
+    let (_srv, addr) = common::spawn_server(&[
+        ("SCYLLA_RPC_MAX_CONN", OsStr::new("1")),
+        ("SCYLLA_RPC_HANDSHAKE_SEC", OsStr::new("1")),
+    ]);
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         if connect(&addr, &["info"]).0 == 0 {
@@ -260,17 +207,8 @@ fn handshake_timeout_frees_a_slot_from_a_silent_connection() {
 
 #[test]
 fn whitespace_only_token_keeps_server_open() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_RPC_TOKEN", "   \t  ") // blank/whitespace-only value treated as unset (OPEN)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    // A blank/whitespace-only value is treated as unset (OPEN).
+    let (_srv, addr) = common::spawn_server(&[("SCYLLA_RPC_TOKEN", OsStr::new("   \t  "))]);
 
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {

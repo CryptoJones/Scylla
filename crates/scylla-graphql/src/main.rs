@@ -134,6 +134,11 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    // Announce the address actually bound, so `host:0` (an OS-picked port) is usable.
+    let addr = server
+        .server_addr()
+        .to_ip()
+        .map_or(addr, |bound| bound.to_string());
 
     let context = Context::new(session);
     let root = schema();

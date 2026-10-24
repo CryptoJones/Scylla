@@ -2,30 +2,10 @@
 //! `scylla-rpc-serve` with TLS, and drive it with `scylla-rpc-connect` over TLS — so the auth token
 //! and the model never cross the wire in the clear. A plaintext client is rejected.
 
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
+mod common;
+
+use std::process::Command;
 use std::time::{Duration, Instant};
-
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 
 #[test]
 fn remote_head_works_over_tls_and_rejects_plaintext() {
@@ -38,18 +18,10 @@ fn remote_head_works_over_tls_and_rejects_plaintext() {
     std::fs::write(&cert_path, ck.cert.pem()).unwrap();
     std::fs::write(&key_path, ck.key_pair.serialize_pem()).unwrap();
 
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-rpc-serve"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_RPC_TLS_CERT", &cert_path)
-            .env("SCYLLA_RPC_TLS_KEY", &key_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-rpc-serve"),
-    );
+    let (_srv, addr) = common::spawn_server(&[
+        ("SCYLLA_RPC_TLS_CERT", cert_path.as_os_str()),
+        ("SCYLLA_RPC_TLS_KEY", key_path.as_os_str()),
+    ]);
 
     // A TLS client trusts the cert (as the CA) and verifies the "localhost" name.
     let tls_connect = |args: &[&str]| -> (i32, String) {

@@ -3,47 +3,19 @@
 //! introspection, and fail-closed error surfacing (a rejected mutation is a GraphQL `errors`, not a
 //! silent `ok: false`).
 
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
+mod common;
+
+use std::ffi::OsStr;
 use std::time::{Duration, Instant};
 
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
+use common::ARTIFACT;
 
 #[test]
 fn token_gates_and_the_write_path_round_trips() {
-    let port_num = free_port();
-    let addr = format!("127.0.0.1:{port_num}");
+    let (_srv, addr) = common::spawn_server(&[("SCYLLA_GRAPHQL_TOKEN", OsStr::new("secret"))]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-graphql"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_GRAPHQL_TOKEN", "secret")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-graphql"),
-    );
 
     // Wait until serving — readiness probe must carry the bearer, since every request is gated.
     let deadline = Instant::now() + Duration::from_secs(10);

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/scylla-logo.jpeg" width="320" alt="Scylla logo: a neon cyber-serpent emblem with six snarling serpent heads above and three dog heads at the waist, coiled in a circuit-traced ring."></p>
+
 # Scylla
 
 > **Part of the [Reverse Engineering Armada](https://github.com/CryptoJones/RE-Armada):** [GayHydra](https://github.com/CryptoJones/GayHydra) — security-hardened Ghidra fork · **Scylla** (this repo) — RE platform with a Rust core over GayHydra's engine · [AdmiralGrace](https://github.com/CryptoJones/AdmiralGrace) — disassembler and decompiler written in Rust

@@ -133,6 +133,7 @@ fn token_gated_server_denies_without_the_token_over_tcp() {
 
 #[test]
 fn connection_cap_refuses_the_surplus_connection() {
+    use std::io::{ErrorKind, Read};
     use std::net::TcpStream;
     // A single slot.
     let (_srv, addr) = common::spawn_server(&[("SCYLLA_RPC_MAX_CONN", OsStr::new("1"))]);
@@ -148,9 +149,22 @@ fn connection_cap_refuses_the_surplus_connection() {
     }
 
     // Occupy the only slot with a raw, silent connection (held open), then the next client is over
-    // the cap → its connection is dropped → login fails.
-    let _hog = TcpStream::connect(&addr).expect("raw connect occupies the slot");
-    std::thread::sleep(Duration::from_millis(500)); // let the server accept + count it
+    // the cap → its connection is dropped → login fails. The readiness client's slot is freed
+    // asynchronously server-side, so the hog may arrive while that slot is still counted and be
+    // refused itself. A refused hog reads EOF; one holding the slot reads nothing (the server waits
+    // for its handshake). Retry until the hog holds the slot.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let _hog = loop {
+        let mut hog = TcpStream::connect(&addr).expect("raw connect occupies the slot");
+        hog.set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        match hog.read(&mut [0u8; 1]) {
+            Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => break hog,
+            _ => {}
+        }
+        assert!(Instant::now() < deadline, "the hog never held the slot");
+        std::thread::sleep(Duration::from_millis(50));
+    };
     let (code, _out) = connect(&addr, &["info"]);
     assert_ne!(code, 0, "a connection over the cap must be refused");
 

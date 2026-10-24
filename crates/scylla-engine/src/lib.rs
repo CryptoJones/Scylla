@@ -8,7 +8,9 @@
 
 // tonic-generated: every RPC returns `Result<_, tonic::Status>`, and rustc 1.98's clippy flags
 // the 176-byte `Status` as a large `Err` variant. That is tonic's type, not ours to box.
-#[allow(clippy::result_large_err)]
+// clippy 1.99 also flags tonic's generated client methods for a `#[must_use]` on a return
+// type that is already `#[must_use]`. That is generated code too.
+#[allow(clippy::result_large_err, clippy::double_must_use)]
 pub mod pb {
     tonic::include_proto!("scylla.engine.v1");
 }

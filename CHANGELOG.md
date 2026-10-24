@@ -9,6 +9,31 @@ The *why* behind every decision lives in [DesignDecisions.md](DesignDecisions.md
 
 ## [Unreleased]
 
+## [0.7.13] — 2026-10-24
+
+### Security
+
+- **rustls 0.23.46 and rustls-webpki 0.103.16 (#73).** Lockfile-only update for five RustSec
+  advisories: RUSTSEC-2026-0346, -0347, -0348 and -0349 (rustls) and RUSTSEC-2026-0382
+  (rustls-webpki). `cargo audit` fails CI on them.
+
+### Fixed
+
+- **Clippy 1.99 on tonic's generated code (#73).** `clippy::double_must_use` is allowed on the
+  generated `pb` module, next to the existing `result_large_err` allow.
+- **Port race in the head integration tests (#74, #76).** Tests picked a free port, released it,
+  then started the head on it, so a parallel test's head could take the port and answer in its
+  place. `scylla-http`, `scylla-graphql` and `scylla-serve` now announce the address they actually
+  bound (`scylla-rpc-serve` already did), and each crate's tests start the head on port 0 and read
+  that address back.
+- **Connection-cap test race (#77).** The test now waits until its held connection really owns the
+  only slot before checking that the next client is refused.
+
+### Docs
+
+- Scylla logo in the README, links to the Reverse Engineering Armada siblings (#72), and a
+  1280×640 social-preview image (#75).
+
 ## [0.7.12] — 2026-09-15
 
 ### Usability

@@ -1,30 +1,11 @@
 //! TLS for the HTTP/JSON gateway (DD-035): a self-signed cert (rcgen) → HTTPS server. A plaintext
 //! request to the HTTPS port gets no data; an HTTPS request (curl, where available) does.
 
-use std::net::{TcpListener, TcpStream};
-use std::process::{Child, Command, Stdio};
+mod common;
+
+use std::net::TcpStream;
+use std::process::Command;
 use std::time::{Duration, Instant};
-
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 
 fn have_curl() -> bool {
     Command::new("curl")
@@ -44,18 +25,11 @@ fn http_gateway_serves_over_tls() {
     std::fs::write(&cert_path, ck.cert.pem()).unwrap();
     std::fs::write(&key_path, ck.key_pair.serialize_pem()).unwrap();
 
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_HTTP_TLS_CERT", &cert_path)
-            .env("SCYLLA_HTTP_TLS_KEY", &key_path)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
+    let (_srv, addr) = common::spawn_gateway(&[
+        ("SCYLLA_HTTP_TLS_CERT", cert_path.as_os_str()),
+        ("SCYLLA_HTTP_TLS_KEY", key_path.as_os_str()),
+    ]);
+    let port = addr.rsplit_once(':').expect("host:port").1.to_string();
 
     // Wait for the port to be listening.
     let deadline = Instant::now() + Duration::from_secs(10);

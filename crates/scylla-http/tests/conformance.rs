@@ -4,36 +4,18 @@
 //! verb. Expectations are derived from the port in-process; no frozen golden numbers (those live in
 //! `api.rs`). If the head drifts from the body, these fail.
 
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
+mod common;
+
 use std::time::{Duration, Instant};
 
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
+use common::ARTIFACT;
+
 const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
 );
-
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 
 /// The port, loaded the same way the head loads it — the source of truth for the contract.
 fn port(path: &str) -> Session {
@@ -45,17 +27,8 @@ fn http_gateway_conforms_to_the_port() {
     let p = port(ARTIFACT);
     let prog = p.program();
 
-    let port_num = free_port();
-    let addr = format!("127.0.0.1:{port_num}");
+    let (_srv, addr) = common::spawn_gateway(&[]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
 
     // Wait until it's serving.
     let deadline = Instant::now() + Duration::from_secs(10);

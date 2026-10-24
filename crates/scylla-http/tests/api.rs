@@ -2,51 +2,23 @@
 //! endpoint with a real HTTP client (ureq), asserting the JSON. Proves any HTTP consumer can read
 //! the model — no WASM, no capnp.
 
+mod common;
+
+use std::ffi::OsStr;
 use std::io::Read;
-use std::net::TcpListener;
-use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use scylla_port::{Session, Zoom};
 
-const ARTIFACT: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../scylla-wasm/web/mathlib.scylla"
-);
 const PATCHED: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../scylla-wasm/web/mathlib_patched.scylla"
 );
 
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
 #[test]
 fn http_gateway_serves_the_model_as_json() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
+    let (_srv, addr) = common::spawn_gateway(&[]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
 
     // Wait until it's serving.
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -145,17 +117,8 @@ fn http_gateway_serves_the_model_as_json() {
 
 #[test]
 fn http_gateway_annotates_the_resident_session() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
+    let (_srv, addr) = common::spawn_gateway(&[]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
 
     // Wait until it's serving.
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -234,17 +197,8 @@ fn http_gateway_annotates_the_resident_session() {
 
 #[test]
 fn http_gateway_exports_the_annotated_model() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
+    let (_srv, addr) = common::spawn_gateway(&[]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
 
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -295,18 +249,9 @@ fn http_gateway_exports_the_annotated_model() {
 
 #[test]
 fn http_gateway_token_gates_access() {
-    let port = free_port();
-    let addr = format!("127.0.0.1:{port}");
+    // Gate access (DD-035).
+    let (_srv, addr) = common::spawn_gateway(&[("SCYLLA_HTTP_TOKEN", OsStr::new("s3cret"))]);
     let base = format!("http://{addr}");
-    let _srv = Server(
-        Command::new(env!("CARGO_BIN_EXE_scylla-http"))
-            .args([ARTIFACT, &addr])
-            .env("SCYLLA_HTTP_TOKEN", "s3cret") // gate access (DD-035)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn scylla-http"),
-    );
 
     // Ready when the RIGHT token is accepted.
     let deadline = Instant::now() + Duration::from_secs(10);
